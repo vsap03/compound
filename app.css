@@ -341,6 +341,7 @@ button.chip:hover{border-color:var(--line3)}
 .dayin{border-top:1px solid var(--line);padding:16px 18px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px}
 .notesg{grid-template-columns:minmax(220px,300px) minmax(0,1fr)}
 .tfg{grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:22px}
+@media (max-width:1600px){.tab{padding:7px 8px;font-size:14px;gap:6px}.nav .wmc{margin:0 8px}}
 @media (max-width:1280px){
   .shell{--rdw:0px} .rail{display:none} .shell.rdo .rail{display:flex;position:fixed;z-index:75;right:0;top:54px;bottom:38px;width:min(320px,90vw);background:var(--panel);border-left:1px solid var(--line2);box-shadow:var(--shadow);padding:6px 16px 16px}
   .fab{right:calc(22px + env(safe-area-inset-right,0px))}
@@ -489,5 +490,33 @@ button.chip:hover{border-color:var(--line3)}
   .card:hover>.badge.got{transform:rotate(-10deg) scale(1.12);box-shadow:0 0 30px -6px var(--gold)}
   .msg.a .av{transition:box-shadow .3s}.msg.a:hover .av{box-shadow:0 0 18px var(--ai)}
 }
+
+/* ---------- Flex ---------- */
+.flexbtn .flexd{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-weight:900;font-size:13px;border:1.5px solid currentColor;line-height:1}
+.flexbtn.on,.flexbtn:hover{color:var(--gold)}
+.flexbtn:hover .flexd{box-shadow:0 0 14px var(--gold)}
+.flexcard{position:relative;overflow:hidden;border-radius:26px;border:1px solid var(--line2);padding:clamp(22px,4vw,44px);min-height:520px;display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:clamp(18px,3vw,36px);background:radial-gradient(90% 80% at 0% 0%,var(--fx1),transparent 60%),radial-gradient(70% 70% at 100% 100%,var(--fx2),transparent 60%),#0A0A0A;isolation:isolate}
+.flexcard::before{content:"";position:absolute;inset:0;z-index:-1;opacity:.5;background-image:linear-gradient(rgba(255,255,255,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.035) 1px,transparent 1px);background-size:44px 44px;mask-image:radial-gradient(80% 80% at 30% 40%,#000,transparent)}
+.flexcard .who{display:flex;align-items:center;gap:12px}
+.flexcard .who .av{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;font-weight:900;background:#1a1a1a;border:1px solid rgba(255,255,255,.14);color:#fff}
+.flexcard>.col:first-child{container-type:inline-size}
+.flexcard .big{font-size:min(148px,calc(100cqw / var(--ch,8) * 1.62));font-weight:900;letter-spacing:-.06em;line-height:.95;color:#fff;font-variant-numeric:tabular-nums;text-shadow:0 0 60px var(--fx1)}
+.flexcard .big.neg{color:#FF7A8A}
+.flexcard .tile{border-radius:18px;background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.08);padding:18px;display:flex;flex-direction:column;gap:6px;min-width:0;backdrop-filter:blur(6px)}
+.flexcard .tile b{font-size:26px;letter-spacing:-.03em;color:#fff}
+.flexcard .stat{color:rgba(255,255,255,.55);font-size:13.5px}
+.flexcard .stat b{display:block;color:#fff;font-size:28px;font-weight:800;letter-spacing:-.03em;margin-top:4px;font-variant-numeric:tabular-nums}
+.flexcard .brand{font-family:var(--mono);letter-spacing:.42em;font-size:12px;color:rgba(255,255,255,.4);text-align:center}
+.flexcard,.flexcard .mut{color:rgba(255,255,255,.75)}
+.fxsw{width:28px;height:28px;border-radius:50%;border:2px solid transparent}.fxsw.on{border-color:var(--fg)}
+@media (max-width:760px){.flexcard{grid-template-columns:minmax(0,1fr);min-height:0}}
+
+/* flex card */
+.flexwrap{display:grid;place-items:center;padding:4px 0}
+.flexcv{display:block;width:100%;max-width:1200px;height:auto;border-radius:24px;box-shadow:0 30px 80px -30px var(--accg),0 0 0 1px var(--line)}
+.flexcv.story{max-width:min(420px,100%)}
+@media (hover:hover) and (pointer:fine){.flexcv{transition:transform .4s cubic-bezier(.2,.8,.2,1),box-shadow .4s}.flexcv:hover{transform:perspective(1400px) rotateX(2deg) translateY(-4px);box-shadow:0 40px 90px -30px var(--accg),0 0 0 1px var(--accg)}}
+.ib.flexon{color:var(--gold);background:var(--golds)}
+@media (hover:hover) and (pointer:fine){.ib:hover svg[data-x]{}}
 
 body{padding-top:env(safe-area-inset-top,0px)}

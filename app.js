@@ -580,6 +580,7 @@ const ICONS = {
   candle: '<path d="M7 3.5v3M7 15.5v5M17 6.5v4M17 18.5v2"/><rect x="5" y="6.5" width="4" height="9" rx="1"/><rect x="15" y="10.5" width="4" height="8" rx="1"/>',
   eye: '<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/>',
   eyeoff: '<path d="M4 4l16 16M10 6c.6-.1 1.3-.2 2-.2 6 0 9.5 6.4 9.5 6.4a17 17 0 01-2.6 3.4M6.6 7.4A16 16 0 002.5 12s3.5 6.5 9.5 6.5c1.6 0 3-.4 4.2-1"/><path d="M9.9 10a3 3 0 004.1 4.1"/>',
+  dollar: '<path d="M12 3v18M16.5 7.5c-.6-1.6-2.3-2.5-4.5-2.5-2.6 0-4.5 1.3-4.5 3.3 0 4.9 9.5 2.4 9.5 7.4 0 2-1.9 3.3-4.8 3.3-2.4 0-4.3-1-4.9-2.8"/>',
   plus: '<path d="M12 5v14M5 12h14"/>', bolt: '<path d="M13 2.5L5 13.5h6.5l-1 8 8-11H12z"/>',
   filter: '<path d="M4 5h16l-6.2 7.5V19l-3.6-1.8v-4.7z"/>', search: '<circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.3-4.3"/>',
   x: '<path d="M6 6l12 12M18 6L6 18"/>', down: '<path d="M6 9l6 6 6-6"/>', left: '<path d="M15 6l-6 6 6 6"/>', right: '<path d="M9 6l6 6-6 6"/>',
@@ -2210,6 +2211,134 @@ function Report({ C, auto }) {
   </div>`;
 }
 
+/* ================= Compound · Flex (shareable P&L card) ================= */
+function flexData(C, range, rangeOpt) {
+  const now = new Date();
+  const inR = t => { const d = new Date(t.t); if (range === 'month') return d.getMonth() === rangeOpt.m && d.getFullYear() === rangeOpt.y; if (range === 'year') return d.getFullYear() === rangeOpt.y; return true };
+  const ts = C.D.ts.filter(inR); const s = stats(ts);
+  const bySym = [...groupBy(ts, t => t.symbol)].map(([k, a]) => ({ k, n: a.length })).sort((a, b) => b.n - a.n);
+  const accs = [...new Set(ts.map(t => t.account).filter(Boolean))].map(id => C.S.accounts[id]).filter(Boolean);
+  const firms = [...new Set(accs.map(a => a.firm))];
+  const days = byDay(ts); const dk = Object.keys(days); const green = dk.filter(k => days[k].pnl > 0).length;
+  const eq = equitySeries(ts).map(p => p.v);
+  const label = range === 'month' ? `${MON[rangeOpt.m].toUpperCase()} ${rangeOpt.y}` : range === 'year' ? String(rangeOpt.y) : 'ALL TIME';
+  return { ts, s, top: bySym[0], firms, accs, green, days: dk.length, eq, label, name: C.S.settings.name || 'Trader', payouts: sum(Object.values(C.S.payouts).filter(p => p.status === 'paid' && (range === 'all' || (range === 'year' ? +p.d.slice(0, 4) === rangeOpt.y : p.d.slice(0, 7) === `${rangeOpt.y}-${pad(rangeOpt.m + 1)}`))), p => p.amount) };
+}
+
+const FLEX_THEMES = {
+  midnight: { bg: '#000000', card: '#0B0B0D', glow: null, fg: '#F4F4F4', mut: '#8E8E8E', dim: '#4A4A4A', line: 'rgba(255,255,255,.08)' },
+  aurora: { bg: '#03040A', card: '#070912', glow: ['#5B35E8', '#13D6B4'], fg: '#F4F4F4', mut: '#9AA0B4', dim: '#4A5068', line: 'rgba(255,255,255,.09)' },
+  gold: { bg: '#050403', card: '#0C0A06', glow: ['#F3B43F', '#E2622A'], fg: '#FFF8EA', mut: '#B5A37F', dim: '#5A4E36', line: 'rgba(255,220,150,.12)' },
+  ice: { bg: '#00060A', card: '#03101A', glow: ['#6FD3FF', '#5B8CFF'], fg: '#EEF8FF', mut: '#8FB0C4', dim: '#3C5566', line: 'rgba(160,220,255,.1)' },
+};
+
+function drawFlex(cv, d, o) {
+  const story = o.format === 'story'; const W = story ? 1080 : 1600, H = story ? 1920 : 900;
+  cv.width = W; cv.height = H; const x = cv.getContext('2d');
+  const th = FLEX_THEMES[o.theme] || FLEX_THEMES.midnight; const acc = cssv('--acc') || '#5B8CFF';
+  const pos = '#35D49A', neg = '#FF5A6E'; const net = d.s.net; const up = net >= 0;
+  const SANS = 'Satoshi, "Satoshi Variable", -apple-system, Segoe UI, sans-serif', MONO = '"Geist Mono", ui-monospace, Menlo, monospace';
+  const font = (w, sz, f = SANS) => x.font = `${w} ${sz}px ${f}`;
+  const rr = (X, Y, w, h, r) => { x.beginPath(); x.moveTo(X + r, Y); x.arcTo(X + w, Y, X + w, Y + h, r); x.arcTo(X + w, Y + h, X, Y + h, r); x.arcTo(X, Y + h, X, Y, r); x.arcTo(X, Y, X + w, Y, r); x.closePath() };
+  const spaced = (txt, X, Y, sp, align = 'left') => { let w = 0; for (const ch of txt) w += x.measureText(ch).width + sp; w -= sp; let cx = align === 'right' ? X - w : align === 'center' ? X - w / 2 : X; for (const ch of txt) { x.fillText(ch, cx, Y); cx += x.measureText(ch).width + sp } };
+  // background
+  x.fillStyle = th.bg; x.fillRect(0, 0, W, H);
+  const P = story ? 56 : 48; rr(P, P, W - 2 * P, H - 2 * P, 44); x.save(); x.clip();
+  x.fillStyle = th.card; x.fillRect(0, 0, W, H);
+  const g1 = th.glow ? th.glow[0] : (up ? acc : neg), g2 = th.glow ? th.glow[1] : (up ? acc : neg);
+  let rg = x.createRadialGradient(W * .18, H * .3, 0, W * .18, H * .3, W * .7); rg.addColorStop(0, g1 + '55'); rg.addColorStop(1, g1 + '00'); x.fillStyle = rg; x.fillRect(0, 0, W, H);
+  rg = x.createRadialGradient(W * .95, H * .95, 0, W * .95, H * .95, W * .6); rg.addColorStop(0, g2 + '33'); rg.addColorStop(1, g2 + '00'); x.fillStyle = rg; x.fillRect(0, 0, W, H);
+  // fine grid
+  x.strokeStyle = th.line; x.lineWidth = 1; x.globalAlpha = .35; for (let gx = P; gx < W; gx += 64) { x.beginPath(); x.moveTo(gx, 0); x.lineTo(gx, H); x.stroke() } for (let gy = P; gy < H; gy += 64) { x.beginPath(); x.moveTo(0, gy); x.lineTo(W, gy); x.stroke() } x.globalAlpha = 1;
+  // equity curve, behind the number
+  const eq = [0, ...d.eq];
+  const cx0 = P, cw = story ? W - 2 * P - 34 : W * .62, cy0 = story ? H * .30 : H * .42, ch = story ? H * .28 : H * .5;
+  if (eq.length > 2) {
+    const mn = Math.min(...eq), mx = Math.max(...eq), sp = mx - mn || 1; const pt = i => [cx0 + i / (eq.length - 1) * cw, cy0 + ch - (eq[i] - mn) / sp * ch];
+    const c = up ? (th.glow ? th.glow[0] : acc) : neg;
+    x.beginPath(); eq.forEach((_, i) => { const [a, b] = pt(i); i ? x.lineTo(a, b) : x.moveTo(a, b) }); 
+    const off = document.createElement('canvas'); off.width = W; off.height = H; const o2 = off.getContext('2d');
+    o2.beginPath(); eq.forEach((_, i) => { const [a, b] = pt(i); i ? o2.lineTo(a, b) : o2.moveTo(a, b) }); o2.lineTo(cx0 + cw, H); o2.lineTo(cx0, H); o2.closePath();
+    const lg = o2.createLinearGradient(0, cy0, 0, H); lg.addColorStop(0, c + '66'); lg.addColorStop(1, c + '00'); o2.fillStyle = lg; o2.fill();
+    if (!story) { o2.globalCompositeOperation = 'destination-in'; const hm = o2.createLinearGradient(cx0, 0, cx0 + cw, 0); hm.addColorStop(0, 'rgba(0,0,0,1)'); hm.addColorStop(.75, 'rgba(0,0,0,.9)'); hm.addColorStop(1, 'rgba(0,0,0,0)'); o2.fillStyle = hm; o2.fillRect(0, 0, W, H) }
+    x.drawImage(off, 0, 0);
+
+    x.beginPath(); eq.forEach((_, i) => { const [a, b] = pt(i); i ? x.lineTo(a, b) : x.moveTo(a, b) }); x.strokeStyle = c; x.lineWidth = 4; x.shadowColor = c; x.shadowBlur = 24; x.stroke(); x.shadowBlur = 0;
+    const [ea, eb] = pt(eq.length - 1); x.fillStyle = '#fff'; x.beginPath(); x.arc(ea, eb, 7, 0, 7); x.fill(); x.strokeStyle = c; x.lineWidth = 4; x.stroke();
+  }
+  x.restore();
+  // border
+  rr(P, P, W - 2 * P, H - 2 * P, 44); x.strokeStyle = th.line; x.lineWidth = 2; x.stroke();
+  const L = P + (story ? 64 : 64);
+  // header: avatar + name, brand mark
+  const hy = P + (story ? 100 : 80);
+  x.fillStyle = 'rgba(255,255,255,.08)'; x.beginPath(); x.arc(L + 30, hy, 30, 0, 7); x.fill(); x.strokeStyle = th.line; x.lineWidth = 2; x.stroke();
+  x.fillStyle = th.fg; font(800, 28); x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText((d.name[0] || 'V').toUpperCase(), L + 30, hy + 1);
+  x.textAlign = 'left'; font(700, 30); x.fillText(o.anon ? 'Trader' : d.name, L + 76, hy + 1);
+  const mR = W - P - (story ? 96 : 90), mY = hy; x.save(); x.translate(mR, mY); x.scale(1.9, 1.9); x.lineCap = 'round'; x.lineWidth = 3;
+  const mg = x.createLinearGradient(-16, -16, 16, 16); mg.addColorStop(0, '#FFFFFF'); mg.addColorStop(1, th.glow ? th.glow[0] : acc); x.strokeStyle = mg;
+  [[3.5, 1], [8, .8], [13, .55]].forEach(([r, a]) => { x.globalAlpha = a; x.beginPath(); x.arc(0, 0, r, Math.PI, Math.PI * 2.5); x.stroke() }); x.restore(); x.globalAlpha = 1;
+  // period label
+  x.textBaseline = 'alphabetic'; x.fillStyle = th.mut; font(500, 24, MONO); spaced(d.label, L, hy + (story ? 150 : 120), 6);
+  // big number
+  let big, bigC = th.fg;
+  if (o.money) big = (net > 0 ? '+' : net < 0 ? '-' : '') + '$' + Math.abs(net).toLocaleString('en-US', { minimumFractionDigits: o.cents ? 2 : 0, maximumFractionDigits: o.cents ? 2 : 0 });
+  else big = d.s.rN ? (d.s.totR > 0 ? '+' : '') + d.s.totR.toFixed(1) + 'R' : pct(d.s.wr, 0);
+  if (o.color) bigC = up ? pos : neg;
+  const maxW = story ? W - 2 * L : W * .58; let sz = story ? 230 : 210; font(900, sz); while (x.measureText(big).width > maxW && sz > 60) { sz -= 6; font(900, sz) }
+  const by = hy + (story ? 150 : 120) + sz * .95;
+  x.save(); x.shadowColor = (o.color ? bigC : (th.glow ? th.glow[0] : acc)) + '88'; x.shadowBlur = 60; x.fillStyle = bigC; x.fillText(big, L - sz * .03, by); x.restore();
+  x.fillStyle = th.mut; font(600, 30); x.fillText(`${d.s.n} trades · ${d.s.w}W / ${d.s.l}L`, L, by + 64);
+  // tiles + stats
+  const T = story ? { x: L, y: H * .62, w: (W - 2 * L - 24) / 2 } : { x: W * .66, y: hy + 90, w: (W - P - 64 - W * .66 - 24) / 2 };
+  const tile = (X, Y, w, h, title, sub, draw) => { rr(X, Y, w, h, 28); x.fillStyle = 'rgba(255,255,255,.045)'; x.fill(); x.strokeStyle = th.line; x.lineWidth = 2; x.stroke(); draw && draw(X + 26, Y + 26); x.fillStyle = th.fg; font(800, 38); x.fillText(title, X + 26, Y + h - 62); x.fillStyle = th.mut; font(600, 22); x.fillText(sub, X + 26, Y + h - 28) };
+  const th1 = story ? 250 : 220;
+  tile(T.x, T.y, T.w, th1, d.top ? d.top.k : '—', d.top ? `${Math.round(d.top.n / Math.max(1, d.s.n) * 100)}% of trades` : 'No trades', (X, Y) => { const f = x.createLinearGradient(X, Y, X + 64, Y + 64); f.addColorStop(0, '#16C2E8'); f.addColorStop(1, '#2B6BFF'); x.fillStyle = f; x.beginPath(); x.arc(X + 32, Y + 32, 32, 0, 7); x.fill(); x.strokeStyle = '#fff'; x.lineWidth = 5; x.lineCap = 'round'; x.beginPath(); x.moveTo(X + 18, Y + 42); x.lineTo(X + 28, Y + 24); x.lineTo(X + 36, Y + 38); x.lineTo(X + 46, Y + 20); x.stroke() });
+  tile(T.x + T.w + 24, T.y, T.w, th1, `${d.firms.length || 0} firm${d.firms.length === 1 ? '' : 's'}`, `${d.accs.length} prop account${d.accs.length === 1 ? '' : 's'}`, (X, Y) => { const ids = d.firms.slice(0, 3); if (!ids.length) { x.fillStyle = '#222'; x.beginPath(); x.arc(X + 32, Y + 32, 32, 0, 7); x.fill(); return } ids.forEach((id, i) => { const f = firmById(id); const gx = X + i * 40; const gr = x.createLinearGradient(gx, Y, gx + 64, Y + 64); gr.addColorStop(0, f.c[0]); gr.addColorStop(1, f.c[1]); x.fillStyle = gr; rr(gx, Y, 64, 64, 18); x.fill(); x.strokeStyle = th.card; x.lineWidth = 4; x.stroke(); x.fillStyle = '#fff'; font(900, f.mono.length > 1 ? 24 : 32); x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(f.mono, gx + 32, Y + 34); x.textAlign = 'left'; x.textBaseline = 'alphabetic' }) });
+  const sy = T.y + th1 + (story ? 60 : 48); x.strokeStyle = th.line; x.lineWidth = 2; x.beginPath(); x.moveTo(T.x, sy - 24); x.lineTo(T.x + 2 * T.w + 24, sy - 24); x.stroke();
+  const pf = d.s.pf === Infinity ? '∞' : d.s.pf.toFixed(2);
+  const cells = [['Win rate', pct(d.s.wr, 0), th.fg], [o.money ? 'Avg win' : 'Avg win R', o.money ? '$' + Math.round(d.s.avgW).toLocaleString() : (d.s.avgWR != null ? d.s.avgWR.toFixed(2) + 'R' : '—'), th.fg], ['Profit factor', pf, th.fg], [o.money ? 'Avg loss' : 'Green days', o.money ? '$' + Math.round(d.s.avgL).toLocaleString() : `${d.green}/${d.days}`, o.money ? th.mut : th.fg]];
+  if (o.money && o.payouts && d.payouts) cells[3] = ['Payouts', '$' + Math.round(d.payouts).toLocaleString(), pos];
+  cells.forEach(([k, v, c], i) => { const X = T.x + (i % 2) * (T.w + 24), Y = sy + Math.floor(i / 2) * (story ? 150 : 128); x.fillStyle = th.mut; font(600, 24); x.fillText(k, X, Y + 10); x.fillStyle = c; font(800, story ? 54 : 48); x.fillText(v, X, Y + (story ? 76 : 68)) });
+  // footer
+  x.fillStyle = th.dim; font(600, 22, MONO); spaced('COMPOUND', story ? W / 2 : T.x + T.w + 12, H - P - (story ? 70 : 54), 10, 'center');
+}
+
+function Flex({ C }) {
+  const now = new Date();
+  const [range, setRange] = useState(LS.get('compound.flex.range', 'all')); const [ro, setRo] = useState({ m: now.getMonth(), y: now.getFullYear() });
+  const [o, setO] = useState(() => ({ format: innerWidth < 760 ? 'story' : 'landscape', theme: 'midnight', money: true, cents: true, color: false, anon: false, payouts: true, ...LS.get('compound.flex.opts', {}) }));
+  const cv = useRef(); const [busy, setBusy] = useState(false);
+  const d = useMemo(() => flexData(C, range, ro), [C.D, range, ro.m, ro.y]);
+  const setOpt = p => { const n = { ...o, ...p }; setO(n); LS.set('compound.flex.opts', n) };
+  useEffect(() => { let live = true; const go = () => live && cv.current && drawFlex(cv.current, d, o); Promise.all([document.fonts?.load?.('900 100px Satoshi'), document.fonts?.load?.('500 20px "Geist Mono"')].filter(Boolean)).then(go, go); go(); return () => { live = false } }, [d, o, store.s.settings.accent]);
+  const blob = () => new Promise(r => cv.current.toBlob(r, 'image/png'));
+  const fname = () => `compound-${d.label.toLowerCase().replace(/\s+/g, '-')}.png`;
+  const share = async () => { setBusy(true); try { const b = await blob(); const f = new File([b], fname(), { type: 'image/png' }); if (navigator.canShare && navigator.canShare({ files: [f] })) await navigator.share({ files: [f], title: 'My trading · Compound' }); else await download(b) } catch (e) { if (e?.name !== 'AbortError') toast('Sharing was not available. Try Save image.') } setBusy(false) };
+  const download = async b => { b = b || await blob(); const dl = store.caps.downloads || fileDownloads; try { await dl.save({ filename: fname(), data: b }); toast('Image saved') } catch (e) { toast('Could not save the image here') } };
+  const copy = async () => { try { const b = await blob(); await navigator.clipboard.write([new ClipboardItem({ 'image/png': b })]); toast('Image copied. Paste it anywhere.') } catch (e) { toast('Copy is not supported here. Use Save image.') } };
+  const years = [...new Set(C.D.ts.map(t => new Date(t.t).getFullYear()).concat(now.getFullYear()))].sort((a, b) => b - a);
+  const shift = n => { if (range === 'month') { const dt = new Date(ro.y, ro.m + n, 1); setRo({ m: dt.getMonth(), y: dt.getFullYear() }) } else if (range === 'year') setRo({ ...ro, y: ro.y + n }) };
+  return html`<div class="page">
+    <div class="row"><${Seg} v=${range} set=${v => { setRange(v); LS.set('compound.flex.range', v) }} opts=${[['month', 'Month'], ['year', 'Year'], ['all', 'All']]}/>
+      ${range !== 'all' && html`<div class="row" style=${{ gap: '4px' }}><button class="ib" onClick=${() => shift(-1)} aria-label="Previous"><${I} n="left"/></button><b style=${{ minWidth: '110px', textAlign: 'center' }}>${range === 'month' ? MON[ro.m] + ' ' + ro.y : ro.y}</b><button class="ib" onClick=${() => shift(1)} aria-label="Next"><${I} n="right"/></button></div>`}
+      <span class="sp"></span><span class="mut hide-m" style=${{ fontSize: '13px' }}>${scopeLabel(C.S, C.F)}</span>
+      <button class="btn btn-g sm" onClick=${copy}><${I} n="copy"/>Copy</button><button class="btn btn-g sm" onClick=${() => download()}><${I} n="download"/>Save image</button><button class="btn btn-w" disabled=${busy} onClick=${share}><${I} n="send"/>Share</button></div>
+    <div class="flexwrap"><canvas ref=${cv} class=${'flexcv ' + o.format} aria-label=${`${d.label} P&L card`}></canvas></div>
+    <div class="card"><div class="grid g4 keep2" style=${{ gap: '16px', alignItems: 'start' }}>
+      <${Field} label="Format"><${Seg} sm v=${o.format} set=${v => setOpt({ format: v })} opts=${[['landscape', 'Post'], ['story', 'Story']]}/><//>
+      <${Field} label="Style"><div class="row" style=${{ gap: '8px' }}>${Object.entries({ midnight: '#1a1a1a', aurora: 'linear-gradient(135deg,#5B35E8,#13D6B4)', gold: 'linear-gradient(135deg,#F3B43F,#E2622A)', ice: 'linear-gradient(135deg,#6FD3FF,#5B8CFF)' }).map(([k, bg]) => html`<button key=${k} title=${k} onClick=${() => setOpt({ theme: k })} style=${{ width: '30px', height: '30px', borderRadius: '9px', background: bg, outline: o.theme === k ? '2px solid var(--fg)' : 'none', outlineOffset: '2px', border: '1px solid var(--line2)' }}></button>`)}</div><//>
+      <${Field} label="Show"><div class="col" style=${{ gap: '6px', fontSize: '13px' }}>
+        <label class="row" style=${{ gap: '8px', cursor: 'pointer' }}><input type="checkbox" checked=${o.money} onChange=${e => setOpt({ money: e.target.checked })}/>Dollar amounts</label>
+        ${o.money && html`<label class="row" style=${{ gap: '8px', cursor: 'pointer' }}><input type="checkbox" checked=${o.cents} onChange=${e => setOpt({ cents: e.target.checked })}/>Cents</label>`}
+        ${o.money && html`<label class="row" style=${{ gap: '8px', cursor: 'pointer' }}><input type="checkbox" checked=${o.payouts} onChange=${e => setOpt({ payouts: e.target.checked })}/>Payouts</label>`}</div><//>
+      <${Field} label="Look"><div class="col" style=${{ gap: '6px', fontSize: '13px' }}>
+        <label class="row" style=${{ gap: '8px', cursor: 'pointer' }}><input type="checkbox" checked=${o.color} onChange=${e => setOpt({ color: e.target.checked })}/>Green/red number</label>
+        <label class="row" style=${{ gap: '8px', cursor: 'pointer' }}><input type="checkbox" checked=${o.anon} onChange=${e => setOpt({ anon: e.target.checked })}/>Hide my name</label></div><//>
+    </div><div class="dim" style=${{ fontSize: '12.5px', marginTop: '12px' }}>The card uses the accounts selected at the top left. With dollar amounts off it shows total R instead, so you can flex the edge without the size.</div></div>
+  </div>`;
+}
+
 /* ================= Compound · shell ================= */
 const VIEWS = [
   ['dashboard', 'Dashboard', 'grid'], ['journal', 'Journal', 'book'], ['showcase', 'Showcase', 'star'], ['strategy', 'Strategy', 'target'], ['study', 'Study', 'column'],
@@ -2275,7 +2404,7 @@ function Rail({ C }) {
 
 function App() {
   const S = useStore();
-  const hv = () => { const h = location.hash.slice(1); return VIEWS.find(v => v[0] === h) ? h : null };
+  const hv = () => { const h = location.hash.slice(1); return VIEWS.find(v => v[0] === h) || h === 'flex' ? h : null };
   const [view, setView] = useState(() => hv() || LS.get('compound.view', 'dashboard'));
   const [params, setParams] = useState(null);
   const [modals, setModals] = useState([]);
@@ -2305,7 +2434,7 @@ function App() {
     addEventListener('keydown', k); return () => removeEventListener('keydown', k);
   }, [modals.length, mode]);
   const scope = scopeLabel(S, F);
-  const V = { dashboard: Dashboard, journal: Journal, showcase: Showcase, strategy: Strategy, study: Study, chart: ChartPage, analytics: Analytics, propfirm: Propfirm, ai: AIPage, progress: Progress }[view] || Dashboard;
+  const V = { flex: Flex, dashboard: Dashboard, journal: Journal, showcase: Showcase, strategy: Strategy, study: Study, chart: ChartPage, analytics: Analytics, propfirm: Propfirm, ai: AIPage, progress: Progress, flex: Flex }[view] || Dashboard;
   const tabs = VIEWS.filter(v => v !== '|');
   const sync = store.mode === 'cloud' ? (store.syncErr ? ['wait', 'Reconnecting…'] : ['ok', 'Synced across devices' + (store.lastSync ? ' · ' + fmtTime(store.lastSync) : '')]) : store.mode === 'local' ? ['loc', 'This browser only · not syncing'] : ['wait', 'Connecting…'];
   const full = view === 'ai';
@@ -2318,7 +2447,7 @@ function App() {
         <div style=${{ position: 'relative' }}><button class=${'pill' + (validA.length ? ' hot' : '')} onClick=${() => setAm(!am)} title="Choose which accounts everything shows"><${I} n="layers" s=${13}/><b>${scope}</b><${I} n="down" s=${12}/></button>
           <${AcctMenu} open=${am} onClose=${() => setAm(false)} S=${S} sel=${validA} setSel=${setAccts} tog=${togAcct}/></div>${F.mode === 'paper' && html`<span class="pill" style=${{ color: 'var(--gold)' }}>Paper</span>`}</div>
       <nav class="nav" aria-label="Sections">${VIEWS.map((v, i) => v === '|' ? html`<button key="wm" class="wmc mark" onClick=${() => go('dashboard')}><span class="wm" style=${{ textAlign: 'center' }}>Compound<small>${F.mode === 'paper' ? 'Paper money' : 'Live money'}</small></span></button>` : html`<button key=${v[0]} class=${'tab' + (view === v[0] ? ' on' : '')} onClick=${() => go(v[0])} title=${v[1] + ' (' + (tabs.indexOf(v) + 1) + ')'}><${I} n=${v[2]}/><span class="t">${v[1]}</span></button>`)}</nav>
-      <div class="r"><button class="ib mob-only" onClick=${() => toast(sync[1])} aria-label=${sync[1]} title=${sync[1]}><span class=${'dot ' + sync[0]}></span></button><button class="ib hide-m" onClick=${toggleHide} title="Hide P&L (h)"><${I} n=${UIS.hide ? 'eyeoff' : 'eye'}/></button>
+      <div class="r"><button class="ib mob-only" onClick=${() => toast(sync[1])} aria-label=${sync[1]} title=${sync[1]}><span class=${'dot ' + sync[0]}></span></button><button class=${'ib flexbtn' + (view === 'flex' ? ' on' : '')} onClick=${() => go('flex')} title="Flex your results" aria-label="Flex"><span class="flexd">$</span></button><button class="ib hide-m" onClick=${toggleHide} title="Hide P&L (h)"><${I} n=${UIS.hide ? 'eyeoff' : 'eye'}/></button>
         <button class="ib" onClick=${() => UI.open('quick', { mode })} title="Quick log (q)"><${I} n="bolt"/></button>
         <button class="ib" onClick=${() => UI.open('settings')} title="Settings"><${I} n="palette"/></button>
         <button class="ib" style=${{ display: rc || innerWidth <= 1280 || full ? 'grid' : 'none' }} onClick=${() => { if (innerWidth <= 1280) setRo(!ro); else { setRc(false); LS.set('compound.rdc', false) } }} aria-label="Today panel"><${I} n="cal"/></button>
