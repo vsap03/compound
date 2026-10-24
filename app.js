@@ -608,9 +608,9 @@ const I = ({ n, s = 16, w = 1.8, c = '' }) => html`<svg class=${c} width=${s} he
 
 /* Compound mark: three nested arcs, each larger — growth on growth */
 const Mark = ({ s = 28 }) => html`<svg width=${s} height=${s} viewBox="0 0 32 32" aria-hidden="true"><defs><linearGradient id="cmg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="var(--fg)"/><stop offset="1" stop-color="var(--acc)"/></linearGradient></defs>
-  <path d="M16 16 m-3.5 0 a3.5 3.5 0 1 1 3.5 3.5" fill="none" stroke="url(#cmg)" stroke-width="3" stroke-linecap="round"/>
-  <path d="M16 16 m-8 0 a8 8 0 1 1 8 8" fill="none" stroke="url(#cmg)" stroke-width="3" stroke-linecap="round" opacity=".8"/>
-  <path d="M16 16 m-13 0 a13 13 0 1 1 13 13" fill="none" stroke="url(#cmg)" stroke-width="3" stroke-linecap="round" opacity=".55"/></svg>`;
+  <path class="a1" d="M16 16 m-3.5 0 a3.5 3.5 0 1 1 3.5 3.5" fill="none" stroke="url(#cmg)" stroke-width="3" stroke-linecap="round"/>
+  <path class="a2" d="M16 16 m-8 0 a8 8 0 1 1 8 8" fill="none" stroke="url(#cmg)" stroke-width="3" stroke-linecap="round" opacity=".8"/>
+  <path class="a3" d="M16 16 m-13 0 a13 13 0 1 1 13 13" fill="none" stroke="url(#cmg)" stroke-width="3" stroke-linecap="round" opacity=".55"/></svg>`;
 
 function FirmLogo({ id, s = 34 }) {
   const f = firmById(id); const up = store.s.settings.firmLogos?.[id];
@@ -689,7 +689,7 @@ function Bars({ data, h = 200, fmt = v => moneyK(v), signed = true, color, label
     ${ticks.map(t => html`<g key=${t}><line x1=${L} x2=${W - R} y1=${y(t)} y2=${y(t)} stroke="var(--line)" stroke-dasharray=${t === 0 ? '' : '2 4'}/>${L > 20 && html`<text x=${L - 8} y=${y(t) + 3} text-anchor="end">${fmt(t)}</text>`}</g>`)}
     ${data.map((d, i) => { const x = L + i * bw + bw * .18, w = Math.max(2, bw * .64), y0 = y(0), y1 = y(d.v); const c = color || (d.v >= 0 ? 'var(--pos)' : 'var(--neg)'); return html`<g key=${i} onMouseMove=${e => tipOn(e, `${d.l}: ${(valueFmt || fmt)(d.v)}${d.sub ? ' · ' + d.sub : ''}`)} onMouseLeave=${tipOff} onClick=${() => onPick && onPick(d)} style=${{ cursor: onPick ? 'pointer' : 'default' }}>
       <rect x=${L + i * bw} y=${T} width=${bw} height=${H - T - B} fill="transparent"/>
-      <rect x=${x} y=${Math.min(y0, y1)} width=${w} height=${Math.max(1.5, Math.abs(y1 - y0))} rx="3" fill=${c} opacity=${d.dim ? .35 : .9}/>
+      <rect class="bar" x=${x} y=${Math.min(y0, y1)} width=${w} height=${Math.max(1.5, Math.abs(y1 - y0))} rx="3" fill=${c} style=${{ color: c }} opacity=${d.dim ? .35 : .9}/>
       ${i % labelEvery === 0 && html`<text x=${x + w / 2} y=${H - 7} text-anchor="middle">${d.l}</text>`}</g>` })}
   </svg></div>`;
 }
@@ -706,10 +706,10 @@ function Radar({ spokes, size = 230 }) {
   const c = size / 2, r = size / 2 - 34, n = spokes.length;
   const pt = (i, v) => { const a = -Math.PI / 2 + i * 2 * Math.PI / n; return [c + Math.cos(a) * r * v / 100, c + Math.sin(a) * r * v / 100] };
   const poly = spokes.map((s, i) => pt(i, s.v).join(',')).join(' ');
-  return html`<svg viewBox=${`0 0 ${size} ${size}`} width=${size} height=${size} style=${{ maxWidth: '100%', height: 'auto', overflow: 'visible' }} class="svgc">
+  return html`<svg viewBox=${`0 0 ${size} ${size}`} width=${size} height=${size} style=${{ maxWidth: '100%', height: 'auto', overflow: 'visible' }} class="svgc radarw">
     ${[25, 50, 75, 100].map(l => html`<polygon key=${l} points=${spokes.map((s, i) => pt(i, l).join(',')).join(' ')} fill="none" stroke="var(--line2)" stroke-width="1"/>`)}
     ${spokes.map((s, i) => { const [x, y] = pt(i, 100); return html`<line key=${i} x1=${c} y1=${c} x2=${x} y2=${y} stroke="var(--line)"/>` })}
-    <polygon points=${poly} fill="var(--accs)" stroke="var(--acc)" stroke-width="2" stroke-linejoin="round"/>
+    <polygon class="rad" points=${poly} fill="var(--accs)" stroke="var(--acc)" stroke-width="2" stroke-linejoin="round"/>
     ${spokes.map((s, i) => { const [x, y] = pt(i, s.v); return html`<circle key=${i} cx=${x} cy=${y} r="3.5" fill="var(--acc)"/>` })}
     ${spokes.map((s, i) => { const [x, y] = pt(i, 122); return html`<text key=${'t' + i} x=${x} y=${y} text-anchor="middle" style=${{ fill: 'var(--mut)', fontSize: '10.5px' }}>${s.k}<tspan x=${x} dy="12" style=${{ fill: 'var(--fg)', fontWeight: 700 }}>${Math.round(s.v)}</tspan></text>` })}
   </svg>`;
@@ -740,7 +740,7 @@ function Scatter({ pts, h = 240, xFmt = v => v, yFmt = v => moneyK(v), xLabel = 
     ${yt.map(t => html`<g key=${'y' + t}><line x1=${L} x2=${W - R} y1=${Y(t)} y2=${Y(t)} stroke="var(--line)" stroke-dasharray=${t === 0 ? '' : '2 4'}/><text x=${L - 8} y=${Y(t) + 3} text-anchor="end">${yFmt(t)}</text></g>`)}
     ${xt.map(t => html`<text key=${'x' + t} x=${X(t)} y=${H - 9} text-anchor="middle">${xFmt(t)}</text>`)}
     <text x=${W - R} y=${H - 9} text-anchor="end" style=${{ fill: 'var(--mut)' }}>${xLabel}</text>
-    ${pts.map((p, i) => html`<circle key=${i} cx=${X(p.x)} cy=${Y(p.y)} r="4.5" fill=${p.y >= 0 ? 'var(--pos)' : 'var(--neg)'} opacity=".75" style=${{ cursor: onPick ? 'pointer' : 'default' }} onMouseMove=${e => tipOn(e, p.tip || yFmt(p.y))} onMouseLeave=${tipOff} onClick=${() => onPick && onPick(p)}/>`)}
+    ${pts.map((p, i) => html`<circle class="dotp" key=${i} cx=${X(p.x)} cy=${Y(p.y)} r="4.5" fill=${p.y >= 0 ? 'var(--pos)' : 'var(--neg)'} opacity=".75" style=${{ cursor: onPick ? 'pointer' : 'default' }} onMouseMove=${e => tipOn(e, p.tip || yFmt(p.y))} onMouseLeave=${tipOff} onClick=${() => onPick && onPick(p)}/>`)}
   </svg></div>`;
 }
 
@@ -764,6 +764,24 @@ function EquityChart({ series, h = 260, area = true }) {
   if (!window.LightweightCharts) return html`<div style=${{ height: h + 'px' }}><${Spark} vals=${[0, ...series.map(p => p.v)]} w=${600} h=${h}/></div>`;
   return html`<div ref=${el} style=${{ width: '100%', height: h + 'px' }}></div>`;
 }
+
+/* pointer-driven effects: spotlight position, 3D tilt, hero glow */
+(function () {
+  if (!matchMedia('(hover:hover) and (pointer:fine)').matches || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  let last = null, raf = 0, ev = null;
+  const SEL = '.card,.tc,.acct,.firm,.glowcard,.cert,.copytog,.hero';
+  const run = () => {
+    raf = 0; const e = ev; const el = e.target.closest ? e.target.closest(SEL) : null;
+    if (last && last !== el) { last.style.removeProperty('--rx'); last.style.removeProperty('--ry') }
+    last = el; if (!el) return;
+    const r = el.getBoundingClientRect(); const x = e.clientX - r.left, y = e.clientY - r.top;
+    el.style.setProperty('--mx', x + 'px'); el.style.setProperty('--my', y + 'px');
+    if (el.classList.contains('tc') || el.classList.contains('cert')) { const k = el.classList.contains('cert') ? 10 : 7; el.style.setProperty('--ry', ((x / r.width - .5) * k).toFixed(2) + 'deg'); el.style.setProperty('--rx', (-(y / r.height - .5) * k).toFixed(2) + 'deg'); el.style.setProperty('--hx', (x / r.width * 100).toFixed(1) + '%') }
+    if (el.classList.contains('hero')) { el.style.setProperty('--gx', (x / r.width * 100).toFixed(1) + '%'); el.style.setProperty('--gy', (y / r.height * 100).toFixed(1) + '%') }
+  };
+  document.addEventListener('pointermove', e => { ev = e; if (!raf) raf = requestAnimationFrame(run) }, { passive: true });
+  document.addEventListener('pointerleave', () => { if (last) { last.style.removeProperty('--rx'); last.style.removeProperty('--ry'); last = null } });
+})();
 
 /* ================= Compound · forms ================= */
 function ListEdit({ v, set, placeholder = 'Add item' }) {
@@ -826,15 +844,15 @@ function saveCopyGroup(S, base, cp, ex) {
 }
 function CopyPicker({ S, cp, setCp, qty, symbol, base }) {
   const accs = Object.values(S.accounts).filter(a => a.status === 'active').sort((a, b) => (a.created || 0) - (b.created || 0));
-  if (!accs.length) return html`<div class="mut" style=${{ fontSize: '13px' }}>No accounts yet. <button type="button" class="lnk" onClick=${() => UI.open('account')}>Add one</button> to track it against prop rules.</div>`;
   const on = cp.copyOn ?? cp.copies.length > 0;
   const chip = (a, active, onClick, extra) => html`<button type="button" key=${a.id} class=${'chip' + (active ? ' on' : '')} style=${{ height: '32px', paddingLeft: '4px' }} onClick=${onClick}><${FirmLogo} id=${a.firm} s=${22}/>${a.label || firmById(a.firm).name}${extra}</button>`;
   const others = accs.filter(a => a.id !== cp.main);
   const pnlFor = q => { if (!base) return null; const c = tradeCalc({ ...base, qty: q, fees: undefined, pnl: base.pnlManual && isNum(base.pnl) ? +base.pnl * q / (+base.qty || 1) : base.pnl }, S.settings); return c.pnl };
   const total = base ? sum([cp.main, ...(on ? cp.copies : [])].filter(Boolean), a => pnlFor(a === cp.main ? (+qty || 1) : (+(cp.sizes[a] || qty) || 1)) || 0) : null;
   return html`<div class="col" style=${{ gap: '10px' }}>
-    <div><div class="lbl" style=${{ marginBottom: '7px' }}>Main account</div><div class="row" style=${{ gap: '6px' }}><button type="button" class=${'chip' + (!cp.main ? ' on' : '')} style=${{ height: '32px' }} onClick=${() => setCp({ ...cp, main: '' })}>None</button>${accs.map(a => chip(a, cp.main === a.id, () => setCp({ ...cp, main: a.id, copies: cp.copies.filter(c => c !== a.id) })))}</div></div>
-    ${others.length > 0 && html`<label class="row" style=${{ gap: '8px', fontSize: '13.5px', cursor: 'pointer' }}><input type="checkbox" checked=${on} onChange=${e => setCp({ ...cp, copyOn: e.target.checked, copies: e.target.checked ? cp.copies : [] })}/><${I} n="copy" s=${15}/>Copy traded into other accounts</label>`}
+    <div><div class="lbl" style=${{ marginBottom: '7px' }}>Main account</div><div class="row" style=${{ gap: '6px' }}><button type="button" class=${'chip' + (!cp.main ? ' on' : '')} style=${{ height: '32px' }} onClick=${() => setCp({ ...cp, main: '' })}>None</button>${accs.map(a => chip(a, cp.main === a.id, () => setCp({ ...cp, main: a.id, copies: cp.copies.filter(c => c !== a.id) })))}<button type="button" class="chip" style=${{ height: '32px', borderStyle: 'dashed' }} onClick=${() => UI.open('account')}><${I} n="plus" s=${13}/>Add account</button></div></div>
+    <button type="button" class=${'copytog' + (on ? ' on' : '')} onClick=${() => setCp({ ...cp, copyOn: !on, copies: !on ? cp.copies : [] })} aria-pressed=${on}><span class="sw"><i></i></span><${I} n="copy" s=${16}/><span style=${{ flex: 1, textAlign: 'left' }}><b>Copy traded into other accounts</b><span class="mut" style=${{ display: 'block', fontSize: '12px' }}>Log this idea on your main account and every account you copied it into</span></span></button>
+    ${on && !others.length && html`<div class="card tight row" style=${{ background: 'var(--bg)' }}><span class="mut" style=${{ flex: 1, fontSize: '13px' }}>${accs.length ? 'You have only one account. Add the accounts you copy into and they will appear here.' : 'Add your accounts first: the main one and the ones you copy into.'}</span><button type="button" class="btn btn-w sm" onClick=${() => UI.open('account')}><${I} n="plus"/>Add account</button></div>`}
     ${on && others.length > 0 && html`<div class="card tight" style=${{ background: 'var(--bg)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
       <div class="lbl">Copied into</div>
       <div class="row" style=${{ gap: '6px' }}>${others.map(a => { const sel = cp.copies.includes(a.id); return chip(a, sel, () => setCp({ ...cp, copies: sel ? cp.copies.filter(x => x !== a.id) : [...cp.copies, a.id] })) })}</div>
