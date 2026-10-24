@@ -993,7 +993,7 @@ function AccountForm({ id, firm, onClose }) {
   const applySize = sz => { const p = presets[sz]; up({ size: sz, ...(p ? { target: a.type === 'eval' ? p.target : '', mll: p.mll, dll: p.dll, ...(p.cons != null ? { cons: p.cons } : {}) } : {}) }) };
   const pickFirm = x => { const p = x.presets ? (x.presets[10000] || Object.values(x.presets)[0]) : null; const sz = x.presets ? (x.presets[10000] ? 10000 : +Object.keys(x.presets)[0]) : a.size; up({ firm: x.id, plan: x.plans[0], market: x.market || 'futures', mode: x.id === 'personal' ? 'live' : a.mode, ...(x.market === 'cfd' ? { ppl: a.ppl ?? 1, pip: a.pip ?? 1, lotCom: a.lotCom ?? 0, defSym: a.defSym || 'NAS100', defLots: a.defLots ?? 1, dd: 'static', lock: '' } : {}), ...(p ? { size: sz, target: p.target, mll: p.mll, dll: p.dll, cons: p.cons } : {}) }) };
   const save = () => { if (!+a.size) return toast('Add the starting balance'); const o = store.put('accounts', { ...a, size: +a.size, created: ex?.created || Date.now(), label: a.label || (f.name.split(' ')[0] + ' ' + (+a.size / 1000) + 'K') }); toast(ex ? 'Account saved' : 'Account added'); onClose() };
-  return html`<${Modal} title=${ex ? 'Edit account' : step === 1 ? 'Pick your prop firm' : 'Account details'} onClose=${onClose} size="wide" foot=${step === 1 ? html`<button class="btn btn-g" onClick=${onClose}>Cancel</button><button class="btn btn-w" onClick=${() => setStep(2)}>Continue<${I} n="right"/></button>` : html`${ex && html`<button class="btn btn-d" style=${{ marginRight: 'auto' }} onClick=${() => UI.confirm({ title: 'Delete account?', body: 'Trades stay in your journal but lose their account link.', onYes: () => { store.del('accounts', ex.id); onClose() } })}><${I} n="trash"/>Delete</button>`}${!ex && html`<button class="btn btn-g" onClick=${() => setStep(1)}><${I} n="left"/>Firm</button>`}<button class="btn btn-w" onClick=${save}><${I} n="check"/>${ex ? 'Save' : 'Add account'}</button>`}>
+  return html`<${Modal} title=${ex ? 'Edit account' : step === 1 ? 'Pick your prop firm' : 'Account details'} onClose=${onClose} size="wide" foot=${step === 1 ? html`<button class="btn btn-g" onClick=${onClose}>Cancel</button><button class="btn btn-w" onClick=${() => setStep(2)}>Continue<${I} n="right"/></button>` : html`${ex && html`<button class="btn btn-d" style=${{ marginRight: 'auto' }} onClick=${() => UI.open('delacct', { id: ex.id, after: onClose })}><${I} n="trash"/>Delete</button>`}${!ex && html`<button class="btn btn-g" onClick=${() => setStep(1)}><${I} n="left"/>Firm</button>`}<button class="btn btn-w" onClick=${save}><${I} n="check"/>${ex ? 'Save' : 'Add account'}</button>`}>
     ${step === 1 ? html`<div class="firms">${FIRMS.map(x => html`<button key=${x.id} class=${'firm' + (a.firm === x.id ? ' on' : '')} onClick=${() => pickFirm(x)} onDblClick=${() => { pickFirm(x); setStep(2) }}><${FirmLogo} id=${x.id}/><span class="nm">${x.name}<small>${x.market === 'cfd' ? 'CFD · ' + (x.platform || 'MT5') : x.plans.slice(0, 2).join(' · ')}</small></span></button>`)}</div>
       <p class="dim" style=${{ margin: 0, fontSize: '12.5px' }}>Rules change often. Presets fill typical numbers; check them against your firm's dashboard and edit anything. You can upload each firm's real logo from the Propfirm page.</p>`
     : html`<div class="row" style=${{ gap: '12px' }}><${FirmLogo} id=${a.firm} s=${44}/><div><div style=${{ fontWeight: 800, fontSize: '17px' }}>${f.name}</div><div class="mut" style=${{ fontSize: '13px' }}>${f.url ? html`<a href=${f.url} target="_blank" rel="noopener">${f.url.replace('https://', '')}</a>` : 'Your own capital'}</div></div></div>
@@ -1300,6 +1300,38 @@ function AISettings() {
     <${Field} label="Anthropic API key"><div class="row" style=${{ flexWrap: 'nowrap' }}><input id="ai-key" class="in mono" type=${show ? 'text' : 'password'} placeholder="sk-ant-…" value=${k} onInput=${e => setK(e.target.value)} autocomplete="off"/><button class="btn btn-g sm" onClick=${() => setShow(!show)}>${show ? 'Hide' : 'Show'}</button></div><//>
     <${Field} label="Model" hint="Deep think in the coach always uses Opus."><select class="sel" value=${m} onChange=${e => { setM(e.target.value); LS.set('compound.aimodel', e.target.value) }}><option value="">Automatic (Sonnet, Opus for deep work)</option><option value="claude-sonnet-5-5">Claude Sonnet 5.5</option><option value="claude-opus-5-5">Claude Opus 5.5</option><option value="claude-haiku-5-5">Claude Haiku 5.5 (fastest, cheapest)</option></select><//>
     <div class="row"><button class="btn btn-w" onClick=${test}>Save & test</button>${k && html`<button class="btn btn-t" onClick=${() => { LS.del('compound.aikey'); setK(''); setSt('Key removed from this device.') }}>Remove key</button>`}<span class="mut" style=${{ fontSize: '13px' }}>${st}</span></div></div>`;
+}
+
+/* delete a prop account: optionally with its trades; keeps copy-trade groups consistent */
+function deleteAccount(S, id, withTrades) {
+  const mine = Object.values(S.trades).filter(t => t.account === id);
+  if (withTrades) {
+    for (const t of mine) {
+      if (t.group && t.lead) { const next = Object.values(S.trades).find(x => x.group === t.group && x.id !== t.id && x.account !== id); if (next) store.put('trades', { ...next, lead: true, role: 'main', copyOf: undefined }) }
+      store.del('trades', t.id);
+    }
+    for (const g of new Set(mine.map(t => t.group).filter(Boolean))) { const left = Object.values(store.s.trades).filter(x => x.group === g); if (left.length === 1) store.put('trades', { ...left[0], group: undefined, lead: true, role: undefined, copyOf: undefined }) }
+    Object.values(S.payouts).filter(p => p.account === id).forEach(p => store.del('payouts', p.id));
+  } else mine.forEach(t => store.put('trades', { ...t, account: '' }));
+  Object.values(S.adjust).filter(x => x.account === id).forEach(x => store.del('adjust', x.id));
+  if (S.settings.copySet?.main === id || (S.settings.copySet?.copies || []).includes(id)) store.setSettings({ copySet: { ...S.settings.copySet, main: S.settings.copySet.main === id ? '' : S.settings.copySet.main, copies: (S.settings.copySet.copies || []).filter(c => c !== id) } });
+  store.del('accounts', id);
+  try { const v = LS.get('compound.accts', []); if (Array.isArray(v) && v.includes(id)) { LS.set('compound.accts', v.filter(x => x !== id)); store.emit() } } catch (e) { }
+}
+function DeleteAccount({ id, after, onClose }) {
+  const S = store.s; const a = S.accounts[id]; const [mode, setMode] = useState('keep'); const [txt, setTxt] = useState('');
+  if (!a) return null;
+  const n = Object.values(S.trades).filter(t => t.account === id).length; const np = Object.values(S.payouts).filter(p => p.account === id).length;
+  const ok = mode === 'keep' || txt.trim().toUpperCase() === 'DELETE';
+  return html`<${Modal} title="Delete account" icon=${html`<${I} n="trash"/>`} onClose=${onClose} foot=${html`<button class="btn btn-g" onClick=${onClose}>Cancel</button><button class="btn btn-d" disabled=${!ok} onClick=${() => { deleteAccount(store.s, id, mode === 'all'); toast(mode === 'all' ? `Deleted ${a.label} and ${n} trades` : `Deleted ${a.label}. Its trades are kept.`); onClose(); after && after() }}><${I} n="trash"/>Delete account</button>`}>
+    <div class="row" style=${{ gap: '12px', flexWrap: 'nowrap' }}><${FirmLogo} id=${a.firm} s=${42}/><div><b style=${{ fontSize: '16px' }}>${a.label}</b><div class="mut" style=${{ fontSize: '13px' }}>${firmById(a.firm).name} · $${(+a.size || 0).toLocaleString()} · ${n} trades${np ? ' · ' + np + ' payouts' : ''}</div></div></div>
+    <div class="col" style=${{ gap: '8px' }}>
+      <button class=${'copytog' + (mode === 'keep' ? ' on' : '')} onClick=${() => setMode('keep')}><span class="sw"><i></i></span><span style=${{ flex: 1, textAlign: 'left' }}><b>Delete the account, keep its trades</b><span class="mut" style=${{ display: 'block', fontSize: '12px' }}>Trades stay in your journal and stats with no account. Payouts are kept.</span></span></button>
+      <button class=${'copytog' + (mode === 'all' ? ' on' : '')} style=${mode === 'all' ? { borderColor: 'var(--neg)', background: 'var(--negs)', boxShadow: '0 0 0 3px var(--negs)' } : null} onClick=${() => setMode('all')}><span class="sw" style=${mode === 'all' ? { background: 'var(--neg)' } : null}><i></i></span><span style=${{ flex: 1, textAlign: 'left' }}><b>Delete the account and everything in it</b><span class="mut" style=${{ display: 'block', fontSize: '12px' }}>Removes its ${n} trades${np ? ' and ' + np + ' payouts' : ''} from every stat. Copy trades on other accounts are kept.</span></span></button>
+    </div>
+    ${mode === 'all' && html`<${Field} label="Type DELETE to confirm"><input id="del-confirm" class="in mono" value=${txt} onInput=${e => setTxt(e.target.value)} placeholder="DELETE" autocomplete="off"/><//>`}
+    <p class="dim" style=${{ margin: 0, fontSize: '12.5px' }}>Not finished with it? Use Mark blown or Closed instead to move it to the archive and keep its history.</p>
+  <//>`;
 }
 
 /* ================= Compound · Dashboard, Journal, Showcase, Strategy ================= */
@@ -1911,6 +1943,7 @@ function PropCard({ a, st, S }) {
           <hr/>${a.type === 'eval' && a.status === 'active' && html`<button onClick=${() => { setMenu(false); store.put('accounts', { ...a, status: 'passed', passedAt: todayKey() }); toast('Congrats. Eval marked passed.') }}><${I} n="check"/>Mark passed</button>`}
           ${a.status === 'active' && html`<button onClick=${() => { setMenu(false); store.put('accounts', { ...a, status: 'blown', blownAt: todayKey() }) }}><${I} n="x"/>Mark blown</button>`}
           ${a.status !== 'active' && html`<button onClick=${() => { setMenu(false); store.put('accounts', { ...a, status: 'active' }) }}><${I} n="rotate"/>Reactivate</button>`}
+          <hr/><button style=${{ color: 'var(--neg)' }} onClick=${() => { setMenu(false); UI.open('delacct', { id: a.id }) }}><${I} n="trash"/>Delete account</button>
         <//></div></div>
     <div class="row" style=${{ alignItems: 'flex-end' }}><div><div class="lbl">Balance</div><div class="bal">${money(st.bal, { dec: 0 })}</div></div><span class="sp"></span><div style=${{ textAlign: 'right' }}><div class=${'tn ' + cls(st.profit)} style=${{ fontSize: '19px', fontWeight: 800 }}>${money(st.profit, { sign: true, dec: 0 })}</div><${Spark} vals=${sparkVals} w=${110} h=${30}/></div></div>
     <div><div class="row" style=${{ justifyContent: 'space-between', marginBottom: '8px' }}><span class="lbl" style=${{ color: danger ? 'var(--neg)' : undefined }}>${money(st.left, { dec: 0 })} left</span>${st.toGo != null && html`<span class="lbl" style=${{ color: 'var(--fg)' }}>${st.toGo > 0 ? money(st.toGo, { dec: 0 }) + ' to go' : 'Target hit'}</span>`}</div>
@@ -2513,7 +2546,7 @@ function App() {
       case 'detail': return html`<${TradeDetail} ...${p}/>`; case 'account': return html`<${AccountForm} ...${p}/>`; case 'payout': return html`<${PayoutForm} ...${p}/>`;
       case 'strategy': return html`<${StrategyForm} ...${p}/>`; case 'plan': return html`<${PlanForm} ...${p}/>`; case 'review': return html`<${ReviewForm} ...${p}/>`;
       case 'import': return html`<${ImportTrades} ...${p} mode=${p.mode || mode}/>`; case 'settings': return html`<${SettingsWrap} ...${p}/>`; case 'confirm': return html`<${Confirm} ...${p}/>`;
-      case 'assign': return html`<${AssignTrades} ...${p}/>`; case 'balance': return html`<${BalanceSync} ...${p}/>`; default: return null;
+      case 'assign': return html`<${AssignTrades} ...${p}/>`; case 'delacct': return html`<${DeleteAccount} ...${p}/>`; case 'balance': return html`<${BalanceSync} ...${p}/>`; default: return null;
     } })}
   <${Toasts}/><${Tip}/>`;
 }
