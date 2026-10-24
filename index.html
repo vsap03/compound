@@ -14,14 +14,14 @@
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500;600&display=swap">
-<link rel="stylesheet" href="app.css?v=41aff54c34">
+<link rel="stylesheet" href="app.css?v=e5a7bcf366">
 </head><body>
 <div id="app"><div style="height:100vh;display:grid;place-items:center;font-family:Satoshi,system-ui;color:#8E8E8E;background:#000">Loading Compound…</div></div>
-<script>window.addEventListener('error',function(e){if(window.htmPreact&&window.store)return;var a=document.getElementById('app');a.innerHTML='<div style="min-height:100vh;display:grid;place-items:center;padding:24px;font-family:system-ui;color:#ccc;background:#000;text-align:center">Compound could not load a file ('+(e.filename||e.target&&e.target.src||'unknown').split('/').pop()+'). Check that every file was uploaded, then reload.</div>'},true)</script>
-<script src="config.js?v=41aff54c34"></script>
+<script>window.addEventListener('error',function(e){if(window.__compoundUp)return;var t=e.target;if(!(t&&t.tagName==='SCRIPT'&&t.src&&t.src.indexOf(location.origin)===0)&&!(e.filename&&e.filename.indexOf(location.origin)===0))return;var a=document.getElementById('app');a.innerHTML='<div style="min-height:100vh;display:grid;place-items:center;padding:24px;font-family:system-ui;color:#ccc;background:#000;text-align:center">Compound could not load a file ('+(e.filename||e.target&&e.target.src||'unknown').split('/').pop()+'). Check that every file was uploaded, then reload.</div>'},true)</script>
+<script src="config.js?v=e5a7bcf366"></script>
 <script src="htm-preact.js"></script>
 <script src="lightweight-charts.js"></script>
 <script src="supabase.js"></script>
-<script src="app.js?v=41aff54c34"></script>
+<script src="app.js?v=e5a7bcf366"></script>
 <script>if('serviceWorker' in navigator){const had=!!navigator.serviceWorker.controller;addEventListener('load',()=>navigator.serviceWorker.register('sw.js').then(r=>{r.update();r.addEventListener('updatefound',()=>{const w=r.installing;w&&w.addEventListener('statechange',()=>{if(w.state==='activated'&&had&&window.toast)toast('Compound updated',{label:'Reload',fn:()=>location.reload()})})})}).catch(()=>{}))}</script>
 </body></html>

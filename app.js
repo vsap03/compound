@@ -1410,7 +1410,7 @@ function WeeklyView({ C }) {
 
 /* ---------------- Trade detail ---------------- */
 function TradeDetail({ id, list, onClose }) {
-  const S = useStore(); const [cur, setCur] = useState(id); const [lb, setLb] = useState(null); const [ai, setAi] = useState(false);
+  const S = useStore(); const [cur, setCur] = useState(id); const [lb, setLb] = useState(null); const [ai, setAi] = useState(false); const [pa, setPa] = useState(LS.get('compound.pa', 'replay')); const [tsym, setTsym] = useState(() => tvSymFor(S.trades[id]?.symbol || 'MNQ'));
   list = list || [cur];
   const raw = S.trades[cur];
   const i = list.indexOf(cur); const nav = d => { const n = list[i + d]; n && setCur(n) };
@@ -1439,8 +1439,9 @@ function TradeDetail({ id, list, onClose }) {
         <button class="btn btn-g sm" onClick=${() => UI.open('trade', { id: t.id })}><${I} n="edit"/>Edit</button>
         <button class="btn btn-ai sm" onClick=${review} disabled=${ai}><${I} n="spark"/>${ai ? 'Reviewing…' : 'AI review'}</button>
       </div>
-      <div class="card" style=${{ padding: '14px' }}><div class="ch"><span class="lbl">Price action</span><span class="sp"></span><a class="btn btn-t xs" href=${tvURL(t.symbol)} target="_blank" rel="noopener"><${I} n="ext" s=${13}/>Open ${t.symbol} in TradingView</a>${t.tv && html`<a class="btn btn-t xs" href=${t.tv} target="_blank" rel="noopener"><${I} n="link" s=${13}/>Snapshot</a>`}</div>
-        ${bars ? html`<${PriceChart} bars=${bars.bars} trades=${[t]} focus=${t} h=${340}/>` : html`<div style=${{ height: '170px' }}><${MiniLadder} t=${t} h=${170}/></div><div class="dim" style=${{ fontSize: '12.5px', marginTop: '8px' }}>Import ${instr(t.symbol).fam} bars on the Chart page (TradingView → Export chart data) and this trade plots on real candles.</div>`}
+      <div class="card" style=${{ padding: '14px' }}><div class="ch"><span class="lbl">Price action</span>${LIVE_OK && html`<${Seg} sm v=${pa} set=${v => { setPa(v); LS.set('compound.pa', v) }} opts=${[['replay', 'Replay'], ['live', 'Live']]}/>`}<span class="sp"></span><a class="btn btn-t xs" href=${tvURL(t.symbol)} target="_blank" rel="noopener"><${I} n="ext" s=${13}/>Open ${t.symbol} in TradingView</a>${t.tv && html`<a class="btn btn-t xs" href=${t.tv} target="_blank" rel="noopener"><${I} n="link" s=${13}/>Snapshot</a>`}</div>
+        ${pa === 'live' && LIVE_OK ? html`<div class="row" style=${{ marginBottom: '8px' }}><${TVSymPicker} sym=${tsym} setSym=${setTsym} fam=${instr(t.symbol).fam}/></div><${TVLive} symbol=${tsym} interval="1" h=${420}/><div class="dim" style=${{ fontSize: '12px', marginTop: '6px' }}>Live chart. Scroll back to ${fmtDate(t.t)} ${fmtTime(t.t)} to see this entry. The Replay tab marks it on the candles automatically.</div>`
+        : bars ? html`<${PriceChart} bars=${bars.bars} trades=${[t]} focus=${t} h=${340}/>` : html`<div style=${{ height: '170px' }}><${MiniLadder} t=${t} h=${170}/></div><div class="dim" style=${{ fontSize: '12.5px', marginTop: '8px' }}>Import ${instr(t.symbol).fam} bars on the Chart page (TradingView → Export chart data) and this trade plots on real candles.</div>`}
       </div>
       ${(t.shots || []).length > 0 && html`<div class="shots" style=${{ gridTemplateColumns: 'repeat(auto-fill,minmax(240px,1fr))' }}>${t.shots.map(s => html`<div class="s" key=${s.id}><img src=${s.url} alt="Trade screenshot" onClick=${() => setLb(s.url)}/></div>`)}</div>`}
       <div class="grid g6 keep2" style=${{ gap: '8px' }}>${[['Entry', t.entry || '—'], ['Exit', t.exit || '—'], ['Stop', t.stop || '—'], ['Target', t.target || '—'], ['Contracts', t.qty], ['Points', t.pts != null ? (t.pts > 0 ? '+' : '') + t.pts.toFixed(2) : '—'], ['Risk', t.risk ? money(t.risk) : '—'], ['Planned R:R', t.rr ? '1:' + t.rr.toFixed(2) : '—'], ['Hold', fmtDur(holdMin(t))], ['Session', sessionOf(t)], ['Fees', money(t.fees, { dec: 2 })], ['MAE / MFE', (t.mae || '—') + ' / ' + (t.mfe || '—')]].map(([k, v]) => html`<div class="card tight" key=${k}><div class="lbl">${k}</div><div class="tn" style=${{ fontWeight: 700, marginTop: '4px' }}>${v}</div></div>`)}</div>
@@ -1603,19 +1604,49 @@ function ChartImport({ onClose }) {
   <//>`;
 }
 
+
+/* ---------- live TradingView chart (standalone app only; Claude pages block outside embeds) ---------- */
+const LIVE_OK = typeof STANDALONE !== 'undefined' && STANDALONE;
+const TV_PICKS = [['CME_MINI:MNQ1!', 'MNQ1!'], ['CME_MINI:NQ1!', 'NQ1!'], ['OANDA:NAS100USD', 'NAS100'], ['CME_MINI:MES1!', 'MES1!'], ['COMEX:MGC1!', 'MGC1!']];
+function tvSymFor(sym) { const f = instr(sym).fam; const saved = LS.get('compound.tvsym.' + f, ''); return saved || instr(sym).tv || 'CME_MINI:MNQ1!' }
+function TVLive({ symbol, interval = '5', h = 560, studies = [] }) {
+  const el = useRef();
+  useEffect(() => {
+    const box = el.current; if (!box) return; box.innerHTML = '';
+    const w = document.createElement('div'); w.className = 'tradingview-widget-container__widget'; w.style.height = '100%'; w.style.width = '100%'; box.appendChild(w);
+    const sc = document.createElement('script'); sc.src = 'https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js'; sc.async = true;
+    const light = store.s.settings.theme === 'light';
+    let tz = 'Etc/UTC'; try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || tz } catch (e) { }
+    sc.innerHTML = JSON.stringify({ autosize: true, symbol, interval, timezone: tz, theme: light ? 'light' : 'dark', style: '1', locale: 'en', backgroundColor: light ? '#FFFFFF' : '#000000', gridColor: light ? 'rgba(10,14,30,0.06)' : 'rgba(255,255,255,0.05)', allow_symbol_change: true, withdateranges: true, hide_side_toolbar: false, details: false, calendar: false, save_image: true, studies, support_host: 'https://www.tradingview.com' });
+    sc.onerror = () => { box.innerHTML = '<div class="dim" style="height:100%;display:grid;place-items:center;text-align:center;padding:20px">TradingView could not load. Check your connection, then reopen this page.</div>' };
+    box.appendChild(sc);
+    return () => { box.innerHTML = '' };
+  }, [symbol, interval, store.s.settings.theme]);
+  return html`<div class="tradingview-widget-container tvchart" ref=${el} style=${{ height: h + 'px' }}></div>`;
+}
+function TVSymPicker({ sym, setSym, fam }) {
+  return html`<div class="row" style=${{ gap: '6px' }}>${TV_PICKS.map(([k, l]) => html`<button key=${k} class=${'chip' + (sym === k ? ' on' : '')} onClick=${() => { setSym(k); fam && LS.set('compound.tvsym.' + fam, k) }}>${l}</button>`)}</div>`;
+}
+
 function ChartPage({ C }) {
   const { S, D } = C; const charts = Object.values(S.charts).sort((a, b) => b.to - a.to);
   const [sel, setSel] = useState(null); const [tf, setTf] = useState(0); const [bars, setBars] = useState(null); const [imp, setImp] = useState(false); const [showT, setShowT] = useState(true);
   const ch = S.charts[sel] || charts[0];
+  const [mode, setMode] = useState(LIVE_OK ? LS.get('compound.chartmode', 'live') : 'replay');
+  const [lsym, setLsym] = useState(() => tvSymFor(S.settings.defaultSymbol || 'MNQ')); const [liv, setLiv] = useState(LS.get('compound.tvint', '5'));
   useEffect(() => { let live = true; setBars(null); if (ch) store.getBars(ch.id).then(b => live && setBars(b)).catch(() => toast('Could not load bars')); return () => { live = false } }, [ch?.id]);
   const tfs = ch ? [1, 3, 5, 15, 30, 60, 240, 1440].filter(x => x >= ch.tf) : [];
   const view = useMemo(() => bars ? resample(bars, tf || ch?.tf, ch?.tf) : null, [bars, tf, ch?.id]);
   const inRangeTs = useMemo(() => ch ? D.ts.filter(t => instr(t.symbol).fam === ch.fam && tTime(t) / 1000 >= ch.from && tTime(t) / 1000 <= ch.to + 3600) : [], [D, ch?.id]);
   return html`<div class="page">
-    <${PageHead} title="Price action" sub="TradingView's chart engine with your trades on the candles">
+    <${PageHead} title="Price action" sub=${mode === 'live' ? 'Live charts from TradingView' : "TradingView's chart engine with your trades on the candles"}>
       ${ch && html`<a class="btn btn-g" href=${tvURL(ch.symbol)} target="_blank" rel="noopener"><${I} n="ext"/>Live ${ch.symbol} on TradingView</a>`}
-      <button class="btn btn-w" onClick=${() => setImp(true)}><${I} n="upload"/>Import bars</button><//>
-    ${!charts.length ? html`<div class="grid g2">
+      ${LIVE_OK && html`<${Seg} v=${mode} set=${v => { setMode(v); LS.set('compound.chartmode', v) }} opts=${[['live', 'Live TradingView', 'chartl'], ['replay', 'My trades on candles', 'candle']]}/>`}
+      ${mode === 'replay' && html`<button class="btn btn-w" onClick=${() => setImp(true)}><${I} n="upload"/>Import bars</button>`}<//>
+    ${mode === 'live' ? html`<div class="bar"><${TVSymPicker} sym=${lsym} setSym=${setLsym} fam=${instr(S.settings.defaultSymbol || 'MNQ').fam}/><span class="sp"></span><${Seg} sm v=${liv} set=${v => { setLiv(v); LS.set('compound.tvint', v) }} opts=${[['1', '1m'], ['5', '5m'], ['15', '15m'], ['60', '1h'], ['240', '4h'], ['D', '1D']]}/></div>
+      <div class="card" style=${{ padding: '8px' }}><${TVLive} symbol=${lsym} interval=${liv} h=${Math.max(460, Math.round(innerHeight * .68))}/></div>
+      <div class="dim" style=${{ fontSize: '12.5px' }}>Live chart from TradingView. Use its toolbar to draw, add indicators and change symbol. If a futures symbol says it is only available on TradingView, pick NAS100, which tracks the same index. To see your own entries and exits on the candles, switch to "My trades on candles".</div>`
+    : !charts.length ? html`<div class="grid g2">
       <div class="card" style=${{ padding: '26px' }}><h3 style=${{ fontSize: '18px' }}>See every entry on real candles</h3><p class="mut" style=${{ fontSize: '14px', lineHeight: 1.6 }}>Compound draws with TradingView's own charting library. Live TradingView widgets can't run inside this page, so bring the bars in once: export chart data from TradingView and drop the CSV here. Each trade then shows its entry arrow, exit, stop and target on the exact candles, and every trade's detail page gets its own zoomed chart.</p>
         <div class="row"><button class="btn btn-w" onClick=${() => setImp(true)}><${I} n="upload"/>Import TradingView CSV</button><a class="btn btn-g" href=${tvURL(S.settings.defaultSymbol || 'MNQ')} target="_blank" rel="noopener"><${I} n="ext"/>Open ${S.settings.defaultSymbol || 'MNQ'} chart</a></div></div>
       <div class="card" style=${{ padding: '26px' }}><div class="lbl" style=${{ marginBottom: '12px' }}>Also works</div><div class="col" style=${{ gap: '12px', fontSize: '14px' }}>
@@ -2246,3 +2277,4 @@ function SettingsWrap(p) { return html`<${Settings} ...${p}/>` }
 
 store.boot();
 render(html`<${App}/>`, document.getElementById('app'));
+window.__compoundUp = true;
