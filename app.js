@@ -60,14 +60,18 @@ const INSTR = {
   SIL: { pv: 1000, tick: .005, name: 'Micro Silver', tv: 'COMEX:SIL1!', fam: 'SI', com: 0.94 },
   M6E: { pv: 12500, tick: .0001, name: 'Micro EUR/USD', tv: 'CME:M6E1!', fam: '6E', com: 0.5 },
   '6E': { pv: 125000, tick: .00005, name: 'Euro FX', tv: 'CME:6E1!', fam: '6E', com: 3 },
-  NAS100: { pv: 1, tick: .1, name: 'Nasdaq 100 CFD', tv: 'OANDA:NAS100USD', fam: 'NQ', com: 0 },
-  XAUUSD: { pv: 100, tick: .01, name: 'Gold spot', tv: 'OANDA:XAUUSD', fam: 'GC', com: 0 },
+  NAS100: { pv: 1, tick: .1, name: 'Nasdaq 100 CFD', tv: 'OANDA:NAS100USD', fam: 'NQ', com: 0, cfd: true, idx: true },
+  US30: { pv: 1, tick: .1, name: 'Dow 30 CFD', tv: 'OANDA:US30USD', fam: 'YM', com: 0, cfd: true, idx: true },
+  US500: { pv: 1, tick: .1, name: 'S&P 500 CFD', tv: 'OANDA:SPX500USD', fam: 'ES', com: 0, cfd: true, idx: true },
+  GER40: { pv: 1, tick: .1, name: 'DAX 40 CFD', tv: 'OANDA:DE30EUR', fam: 'DAX', com: 0, cfd: true, idx: true },
+  XAUUSD: { pv: 100, tick: .01, name: 'Gold spot CFD', tv: 'OANDA:XAUUSD', fam: 'GC', com: 0, cfd: true },
 };
+const SYM_ALIAS = { USTEC: 'NAS100', NAS100USD: 'NAS100', NDX100: 'NAS100', US100: 'NAS100', USTECH: 'NAS100', NSDQ100: 'NAS100', US30USD: 'US30', DJ30: 'US30', SPX500: 'US500', US500USD: 'US500', SPX500USD: 'US500', DE40: 'GER40', DE30: 'GER40', GOLD: 'XAUUSD' };
 const MONTH_CODE = /^[FGHJKMNQUVXZ]\d{1,4}$/;
 function normSym(s) {
   s = String(s || '').toUpperCase().trim().split(/[\s.:]/)[0].replace(/!$/, '').replace(/1$/, '');
   if (!s) return '';
-  if (INSTR[s]) return s;
+  if (INSTR[s]) return s; const al = s.replace(/[._-]?(CASH|SPOT|M|RAW|PRO|C)$/,''); if (SYM_ALIAS[s]) return SYM_ALIAS[s]; if (SYM_ALIAS[al]) return SYM_ALIAS[al]; if (INSTR[al] && INSTR[al].cfd) return al;
   for (let L = Math.min(4, s.length - 1); L >= 1; L--) { const p = s.slice(0, L); if (INSTR[p] && MONTH_CODE.test(s.slice(L))) return p }
   return s;
 }
@@ -102,6 +106,7 @@ const QUOTES = [
 const FIRMS = [
   { id: 'lucid', name: 'Lucid Trading', mono: 'L', c: ['#1B1F3B', '#6C63FF'], plans: ['LucidFlex', 'LucidPro', 'LucidDirect', 'LucidBlack'], url: 'https://lucidtrading.com' },
   { id: 'tradeify', name: 'Tradeify', mono: 'T', c: ['#04342F', '#13D6B4'], plans: ['Growth', 'Select Flex', 'Select Daily', 'Lightning', 'Level Up'], url: 'https://tradeify.co' },
+  { id: 'tradeifyfx', name: 'Tradeify FX', mono: 'FX', c: ['#032B2A', '#0FB5A0'], plans: ['1-Step', '2-Step', 'Instant'], url: 'https://tradeify.co', market: 'cfd', platform: 'MT5', presets: { 5000: { target: 500, mll: 250, dll: 0, cons: 40 }, 10000: { target: 1000, mll: 500, dll: 0, cons: 40 }, 25000: { target: 2500, mll: 1250, dll: 0, cons: 40 }, 50000: { target: 5000, mll: 2500, dll: 0, cons: 40 }, 100000: { target: 10000, mll: 5000, dll: 0, cons: 40 } } },
   { id: 'topstep', name: 'Topstep', mono: 'TS', c: ['#0F1E3A', '#2E7BFF'], plans: ['Trading Combine', 'Express Funded', 'Live Funded'], url: 'https://www.topstep.com' },
   { id: 'apex', name: 'Apex Trader Funding', mono: 'AX', c: ['#2A1600', '#FF8A00'], plans: ['EOD Eval', 'Intraday Eval', 'Performance Account'], url: 'https://apextraderfunding.com' },
   { id: 'mff', name: 'MyFundedFutures', mono: 'MF', c: ['#081A33', '#3BA0FF'], plans: ['Core', 'Rapid', 'Pro'], url: 'https://myfundedfutures.com' },
@@ -130,7 +135,7 @@ function tradeCalc(t, settings) {
   const pv = num(t.pv) ?? ins.pv;
   const q = +t.qty || 1, dir = t.side === 'short' ? -1 : 1;
   const e = num(t.entry), x = num(t.exit), s = num(t.stop), tg = num(t.target);
-  const comm = (settings?.commissions?.[normSym(t.symbol)] ?? ins.com ?? 0) * q;
+  const comm = (num(t.comPer) ?? settings?.commissions?.[normSym(t.symbol)] ?? ins.com ?? 0) * q;
   const fees = num(t.fees) ?? comm;
   let pnl = null;
   if (t.pnlManual && isNum(t.pnl)) pnl = +t.pnl;
@@ -409,6 +414,27 @@ function computeTrades(S, f = {}) {
 }
 
 function scopeLabel(S, F) { const ids = (F.accounts || []).filter(id => S.accounts[id]); if (!ids.length) return 'All accounts'; if (ids.length === 1) return S.accounts[ids[0]].label || firmById(S.accounts[ids[0]].firm).name; return ids.length + ' accounts' }
+
+/* ---------- markets: futures (contracts) vs CFD (lots) ---------- */
+function acctMarket(a) { return a ? (a.market || firmById(a.firm).market || 'futures') : 'futures' }
+function isCfdAcct(S, id) { return acctMarket(S.accounts[id]) === 'cfd' }
+/* per-trade fields an account forces: CFD lots use the account's $/point for index CFDs, its per-lot commission and pip size */
+function acctExtras(S, id, sym) {
+  const a = S.accounts[id]; if (acctMarket(a) !== 'cfd') return { pv: undefined, comPer: undefined, unit: undefined, pip: undefined };
+  const ins = instr(sym); const ppl = num(a.ppl) ?? 1;
+  return { pv: ins.idx ? ppl : undefined, comPer: num(a.lotCom) ?? 0, unit: 'lot', pip: num(a.pip) ?? 1 };
+}
+const unitOf = t => t && t.unit === 'lot' ? 'lots' : 'ct';
+const qtyFmt = t => { const q = +t.qty || 0; return (t.unit === 'lot' ? (Math.round(q * 100) / 100).toString() : q) + ' ' + unitOf(t) };
+
+/* equivalent symbol when a trade is copied across markets (NAS100 CFD <-> MNQ futures etc.) */
+const FAM_FUT = { NQ: 'MNQ', ES: 'MES', YM: 'MYM', RTY: 'M2K', GC: 'MGC', CL: 'MCL' }, FAM_CFD = { NQ: 'NAS100', ES: 'US500', YM: 'US30', GC: 'XAUUSD', DAX: 'GER40' };
+function symForAcct(S, id, sym) {
+  if (!id || !S.accounts[id]) return sym; const cfd = isCfdAcct(S, id); const ins = instr(sym);
+  if (cfd && !ins.cfd) return FAM_CFD[ins.fam] || sym;
+  if (!cfd && ins.cfd) { const d = S.settings.defaultSymbol; if (d && instr(d).fam === ins.fam && !instr(d).cfd) return d; return FAM_FUT[ins.fam] || sym }
+  return sym;
+}
 
 /* ================= Compound · standalone platform (own hosting) =================
    Supabase sync adapter with the same surface the store already uses (doc / collection /
@@ -835,14 +861,14 @@ function saveCopyGroup(S, base, cp, ex) {
   const group = accs.length ? (ex?.group || cp.lead?.group || uid()) : undefined;
   if (ex) {
     const lead = cp.lead || ex; const sibs = groupOf(S, ex).filter(x => x.id !== lead.id);
-    store.put('trades', { ...lead, ...base, id: lead.id, account: cp.main, group, lead: true, role: accs.length ? 'main' : undefined, copyOf: undefined });
+    store.put('trades', { ...lead, ...base, ...acctExtras(S, cp.main, base.symbol), id: lead.id, account: cp.main, group, lead: true, role: accs.length ? 'main' : undefined, copyOf: undefined });
     for (const sb of sibs) { if (!accs.includes(sb.account)) store.del('trades', sb.id) }
-    for (const a of accs) { const sb = sibs.find(x => x.account === a); store.put('trades', { ...(sb || {}), ...forCopy(a), id: sb?.id || uid(), account: a, group, lead: false, role: 'copy', copyOf: lead.id, created: sb?.created || Date.now() }) }
+    for (const a of accs) { const sb = sibs.find(x => x.account === a); store.put('trades', { ...(sb || {}), ...forCopy(a), symbol: symForAcct(S, a, base.symbol), ...acctExtras(S, a, symForAcct(S, a, base.symbol)), id: sb?.id || uid(), account: a, group, lead: false, role: 'copy', copyOf: lead.id, created: sb?.created || Date.now() }) }
     return accs.length + 1;
   }
   const leadId = uid();
-  store.put('trades', { ...base, id: leadId, account: cp.main, group, lead: true, role: accs.length ? 'main' : undefined, created: Date.now() });
-  for (const a of accs) store.put('trades', { ...forCopy(a), id: uid(), account: a, group, lead: false, role: 'copy', copyOf: leadId, created: Date.now() });
+  store.put('trades', { ...base, ...acctExtras(S, cp.main, base.symbol), id: leadId, account: cp.main, group, lead: true, role: accs.length ? 'main' : undefined, created: Date.now() });
+  for (const a of accs) store.put('trades', { ...forCopy(a), symbol: symForAcct(S, a, base.symbol), ...acctExtras(S, a, symForAcct(S, a, base.symbol)), id: uid(), account: a, group, lead: false, role: 'copy', copyOf: leadId, created: Date.now() });
   store.setSettings({ copySet: { main: cp.main, copies: accs, on: accs.length > 0 } });
   return accs.length + 1;
 }
@@ -851,8 +877,8 @@ function CopyPicker({ S, cp, setCp, qty, symbol, base }) {
   const on = cp.copyOn ?? cp.copies.length > 0;
   const chip = (a, active, onClick, extra) => html`<button type="button" key=${a.id} class=${'chip' + (active ? ' on' : '')} style=${{ height: '32px', paddingLeft: '4px' }} onClick=${onClick}><${FirmLogo} id=${a.firm} s=${22}/>${a.label || firmById(a.firm).name}${extra}</button>`;
   const others = accs.filter(a => a.id !== cp.main);
-  const pnlFor = q => { if (!base) return null; const c = tradeCalc({ ...base, qty: q, fees: undefined, pnl: base.pnlManual && isNum(base.pnl) ? +base.pnl * q / (+base.qty || 1) : base.pnl }, S.settings); return c.pnl };
-  const total = base ? sum([cp.main, ...(on ? cp.copies : [])].filter(Boolean), a => pnlFor(a === cp.main ? (+qty || 1) : (+(cp.sizes[a] || qty) || 1)) || 0) : null;
+  const pnlFor = (q, acc) => { if (!base) return null; const sy = symForAcct(S, acc, base.symbol); const c = tradeCalc({ ...base, symbol: sy, ...acctExtras(S, acc, sy), qty: q, fees: undefined, pnl: base.pnlManual && isNum(base.pnl) ? +base.pnl * q / (+base.qty || 1) : base.pnl }, S.settings); return c.pnl };
+  const total = base ? sum([cp.main, ...(on ? cp.copies : [])].filter(Boolean), a => pnlFor(a === cp.main ? (+qty || 1) : (+(cp.sizes[a] || qty) || 1), a) || 0) : null;
   return html`<div class="col" style=${{ gap: '10px' }}>
     <div><div class="lbl" style=${{ marginBottom: '7px' }}>Main account</div><div class="row" style=${{ gap: '6px' }}><button type="button" class=${'chip' + (!cp.main ? ' on' : '')} style=${{ height: '32px' }} onClick=${() => setCp({ ...cp, main: '' })}>None</button>${accs.map(a => chip(a, cp.main === a.id, () => setCp({ ...cp, main: a.id, copies: cp.copies.filter(c => c !== a.id) })))}<button type="button" class="chip" style=${{ height: '32px', borderStyle: 'dashed' }} onClick=${() => UI.open('account')}><${I} n="plus" s=${13}/>Add account</button></div></div>
     <button type="button" class=${'copytog' + (on ? ' on' : '')} onClick=${() => setCp({ ...cp, copyOn: !on, copies: !on ? cp.copies : [] })} aria-pressed=${on}><span class="sw"><i></i></span><${I} n="copy" s=${16}/><span style=${{ flex: 1, textAlign: 'left' }}><b>Copy traded into other accounts</b><span class="mut" style=${{ display: 'block', fontSize: '12px' }}>Log this idea on your main account and every account you copied it into</span></span></button>
@@ -860,7 +886,7 @@ function CopyPicker({ S, cp, setCp, qty, symbol, base }) {
     ${on && others.length > 0 && html`<div class="card tight" style=${{ background: 'var(--bg)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
       <div class="lbl">Copied into</div>
       <div class="row" style=${{ gap: '6px' }}>${others.map(a => { const sel = cp.copies.includes(a.id); return chip(a, sel, () => setCp({ ...cp, copies: sel ? cp.copies.filter(x => x !== a.id) : [...cp.copies, a.id] })) })}</div>
-      ${cp.copies.length > 0 && html`<div class="col" style=${{ gap: '6px' }}>${cp.copies.map(c => { const a = S.accounts[c]; if (!a) return null; const q = cp.sizes[c] ?? qty; const p = pnlFor(+q || 1); return html`<div key=${c} class="row" style=${{ flexWrap: 'nowrap', gap: '10px', fontSize: '13px' }}><${FirmLogo} id=${a.firm} s=${20}/><span style=${{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>${a.label}</span><span class="dim">contracts</span><input class="in tn" style=${{ width: '64px', padding: '6px 8px' }} inputmode="numeric" value=${q} onInput=${e => setCp({ ...cp, sizes: { ...cp.sizes, [c]: e.target.value } })} aria-label=${'Contracts on ' + a.label}/><span class=${'tn ' + cls(p)} style=${{ minWidth: '74px', textAlign: 'right', fontWeight: 700 }}>${p == null ? '—' : money(p, { sign: true, show: true })}</span></div>` })}</div>`}
+      ${cp.copies.length > 0 && html`<div class="col" style=${{ gap: '6px' }}>${cp.copies.map(c => { const a = S.accounts[c]; if (!a) return null; const q = cp.sizes[c] ?? qty; const p = pnlFor(+q || 1, c); return html`<div key=${c} class="row" style=${{ flexWrap: 'nowrap', gap: '10px', fontSize: '13px' }}><${FirmLogo} id=${a.firm} s=${20}/><span style=${{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>${a.label}</span><span class="dim">${isCfdAcct(S, c) ? 'lots' : 'contracts'}</span><input class="in tn" style=${{ width: '64px', padding: '6px 8px' }} inputmode="decimal" value=${q} onInput=${e => setCp({ ...cp, sizes: { ...cp.sizes, [c]: e.target.value } })} aria-label=${'Contracts on ' + a.label}/><span class=${'tn ' + cls(p)} style=${{ minWidth: '74px', textAlign: 'right', fontWeight: 700 }}>${p == null ? '—' : money(p, { sign: true, show: true })}</span></div>` })}</div>`}
     </div>`}
     ${on && cp.copies.length > 0 && total != null && html`<div class="row" style=${{ fontSize: '13px' }}><span class="mut">1 idea · ${cp.copies.length + (cp.main ? 1 : 0)} accounts</span><span class="sp"></span><span class="mut">Total across accounts</span><b class=${'tn ' + cls(total)}>${money(total, { sign: true, show: true })}</b></div>`}
   </div>`;
@@ -874,7 +900,10 @@ function TradeForm({ id, onClose, preset = {}, mode }) {
     mode: mode || 'live', grade: '', setups: [], emoBefore: [], emoAfter: [], mistakes: [], rules: null, notes: '', lessons: '', shots: [], tv: '', strategy: '', conf: 3, mae: '', mfe: '', ...preset,
   });
   const up = p => setT(o => ({ ...o, ...p }));
-  const calc = tradeCalc(t, st);
+  const cfd = isCfdAcct(S, cp.main); const mainA = S.accounts[cp.main];
+  const calc = tradeCalc({ ...t, ...acctExtras(S, cp.main, t.symbol) }, st);
+  const firstMain = useRef(true);
+  useEffect(() => { if (firstMain.current) { firstMain.current = false; if (ex) return } const isC = !!instr(t.symbol).cfd; if (cfd && !isC) up({ symbol: mainA?.defSym || 'NAS100', qty: mainA?.defLots || 1 }); else if (!cfd && isC) up({ symbol: st.defaultSymbol || 'MNQ', qty: st.defaultQty || 1 }) }, [cp.main]);
   const strategies = Object.values(S.strategies);
   const save = () => {
     if (!t.symbol) return toast('Add a symbol');
@@ -883,7 +912,7 @@ function TradeForm({ id, onClose, preset = {}, mode }) {
     base.tx = base.tx || base.t;
     for (const k of ['id', 'account', 'group', 'lead', 'role', 'copyOf', 'created', 'u']) delete base[k];
     const n = saveCopyGroup(S, base, { ...cp, copies: (cp.copyOn ?? cp.copies.length > 0) ? cp.copies : [] }, ex);
-    toast(ex ? (n > 1 ? `Updated on ${n} accounts` : 'Trade updated') : (n > 1 ? `Logged to main + ${n - 1} copies` : 'Trade logged'));
+    toast(ex ? (n > 1 ? `Updated on ${n} accounts` : 'Trade updated') : (n > 1 ? `Logged to main + ${n - 1} cop${n - 1 === 1 ? "y" : "ies"}` : 'Trade logged'));
     onClose();
   };
   return html`<${Modal} title=${ex ? 'Edit trade' : 'Log trade'} onClose=${onClose} size="wide" foot=${html`${ex && html`<button class="btn btn-d" style=${{ marginRight: 'auto' }} onClick=${() => UI.confirm({ title: 'Delete this trade?', body: groupOf(S, ex).length > 1 ? 'The main trade and all its copies are removed from your journal and every stat.' : 'It is removed from your journal and every stat.', onYes: () => { groupOf(S, ex).forEach(x => store.del('trades', x.id)); onClose(); toast('Trade deleted') } })}><${I} n="trash"/>Delete${groupOf(S, ex).length > 1 ? ' all ' + groupOf(S, ex).length : ''}</button>`}<button class="btn btn-g" onClick=${onClose}>Cancel</button><button class="btn btn-w" onClick=${save}><${I} n="check"/>${ex ? 'Save' : 'Log trade'}</button>`}>
@@ -892,7 +921,7 @@ function TradeForm({ id, onClose, preset = {}, mode }) {
         <div class="grid g3 keep2">
           <${Field} label="Symbol"><input class="in" list="syms" value=${t.symbol} onInput=${e => up({ symbol: e.target.value.toUpperCase() })}/><datalist id="syms">${Object.keys(INSTR).map(k => html`<option value=${k}>${INSTR[k].name}</option>`)}</datalist><//>
           <${Field} label="Side"><${Seg} v=${t.side} set=${v => up({ side: v })} opts=${[['long', 'Long'], ['short', 'Short']]}/><//>
-          <${Field} label="Contracts"><input class="in" type="number" min="1" step="1" value=${t.qty} onInput=${e => up({ qty: e.target.value })}/><//>
+          <${Field} label=${cfd ? 'Lots' : 'Contracts'}><input class="in tn" type="number" min=${cfd ? '0.01' : '1'} step=${cfd ? '0.01' : '1'} inputmode="decimal" value=${t.qty} onInput=${e => up({ qty: e.target.value })}/><//>
         </div>
         <div class="grid g2">
           <${Field} label="Entry time"><input class="in" type="datetime-local" value=${t.t} onInput=${e => up({ t: e.target.value })}/><//>
@@ -913,7 +942,7 @@ function TradeForm({ id, onClose, preset = {}, mode }) {
         <div class="row" style=${{ gap: '14px' }}>
           <label class="row" style=${{ gap: '8px', cursor: 'pointer', fontSize: '13px' }}><input type="checkbox" checked=${t.pnlManual} onChange=${e => up({ pnlManual: e.target.checked })}/>Enter P&L by hand</label>
           ${t.pnlManual && html`<div class="inwrap" style=${{ width: '150px' }}><span class="pre">$</span><input class="in tn" inputmode="decimal" placeholder="-125.50" value=${t.pnl} onInput=${e => up({ pnl: e.target.value })}/></div>`}
-          <span class="sp"></span><span class="dim" style=${{ fontSize: '12px' }}>${instr(t.symbol).name} · $${calc.pv}/pt · fees ${money(calc.fees, { show: true, dec: 2 })}</span>
+          <span class="sp"></span><span class="dim" style=${{ fontSize: '12px' }}>${instr(t.symbol).name} · $${calc.pv}/pt per ${cfd ? 'lot' : 'contract'}${cfd && calc.pts != null ? ' · ' + (calc.pts / (num(mainA?.pip) ?? 1)).toFixed(1) + ' pips' : ''} · fees ${money(calc.fees, { show: true, dec: 2 })}</span>
           <div class="inwrap" style=${{ width: '110px' }}><span class="pre">$</span><input class="in tn" placeholder="fees" value=${t.fees ?? ''} onInput=${e => up({ fees: e.target.value })} aria-label="Fees override"/></div>
         </div>
         <${Field} label="Account" hint=${ex && groupOf(S, ex).length > 1 ? 'Edits apply to the main trade and every copy. Copy contracts and P&L scale from the main.' : 'Copy trading? Pick your main account, then tick the accounts you copied into.'}><${CopyPicker} S=${S} cp=${cp} setCp=${setCp} qty=${t.qty} symbol=${t.symbol} base=${calc.pnl == null ? null : { ...t }}/><//>
@@ -945,9 +974,9 @@ function QuickLog({ onClose, mode }) {
   const [t, setT] = useState({ symbol: st.defaultSymbol || 'MNQ', side: 'long', qty: st.defaultQty || 1, pnl: '', grade: '', setups: [] }); const [cp, setCp] = useState(() => initialCopy(S, null));
   const up = p => setT(o => ({ ...o, ...p })); const ref = useRef();
   useEffect(() => ref.current?.focus(), []);
-  const save = () => { if (!isNum(t.pnl)) return toast('Enter the P&L'); const n = saveCopyGroup(S, { ...t, symbol: normSym(t.symbol), pnlManual: true, t: localISO(), tx: localISO(), mode: mode || 'live', quick: true }, { ...cp, copies: (cp.copyOn ?? cp.copies.length > 0) ? cp.copies : [] }, null); toast(n > 1 ? `Logged to main + ${n - 1} copies` : 'Logged. Add notes later from the journal.'); onClose() };
+  const save = () => { if (!isNum(t.pnl)) return toast('Enter the P&L'); const n = saveCopyGroup(S, { ...t, symbol: normSym(t.symbol), pnlManual: true, t: localISO(), tx: localISO(), mode: mode || 'live', quick: true }, { ...cp, copies: (cp.copyOn ?? cp.copies.length > 0) ? cp.copies : [] }, null); toast(n > 1 ? `Logged to main + ${n - 1} cop${n - 1 === 1 ? "y" : "ies"}` : 'Logged. Add notes later from the journal.'); onClose() };
   return html`<${Modal} title="Quick log" icon=${html`<${I} n="bolt"/>`} onClose=${onClose} foot=${html`<button class="btn btn-g" onClick=${onClose}>Cancel</button><button class="btn btn-w" onClick=${save}>Log it</button>`}>
-    <div class="grid g3 keep2"><${Field} label="Symbol"><input class="in" list="syms" value=${t.symbol} onInput=${e => up({ symbol: e.target.value.toUpperCase() })}/><datalist id="syms">${Object.keys(INSTR).map(k => html`<option value=${k}/>`)}</datalist><//><${Field} label="Side"><${Seg} v=${t.side} set=${v => up({ side: v })} opts=${[['long', 'Long'], ['short', 'Short']]}/><//><${Field} label="Contracts"><input class="in" type="number" value=${t.qty} onInput=${e => up({ qty: e.target.value })}/><//></div>
+    <div class="grid g3 keep2"><${Field} label="Symbol"><input class="in" list="syms" value=${t.symbol} onInput=${e => up({ symbol: e.target.value.toUpperCase() })}/><datalist id="syms">${Object.keys(INSTR).map(k => html`<option value=${k}/>`)}</datalist><//><${Field} label="Side"><${Seg} v=${t.side} set=${v => up({ side: v })} opts=${[['long', 'Long'], ['short', 'Short']]}/><//><${Field} label=${isCfdAcct(S, cp.main) ? 'Lots' : 'Contracts'}><input class="in tn" type="number" step="any" inputmode="decimal" value=${t.qty} onInput=${e => up({ qty: e.target.value })}/><//></div>
     <${Field} label="Net P&L"><div class="inwrap"><span class="pre">$</span><input ref=${ref} class="in tn" style=${{ fontSize: '22px', fontWeight: 700, height: '52px' }} inputmode="decimal" placeholder="240" value=${t.pnl} onInput=${e => up({ pnl: e.target.value })} onKeyDown=${e => e.key === 'Enter' && save()}/></div><//>
     <${Field} label="Account"><${CopyPicker} S=${S} cp=${cp} setCp=${setCp} qty=${t.qty} symbol=${t.symbol} base=${isNum(t.pnl) ? { ...t, pnlManual: true } : null}/><//>
     <${Field} label="Grade"><${Chips} single all=${GRADES} v=${t.grade} set=${v => up({ grade: v })}/><//>
@@ -960,21 +989,34 @@ function AccountForm({ id, firm, onClose }) {
   const [a, setA] = useState(() => ex ? { ...ex } : { firm: firm || 'lucid', plan: firmById(firm || 'lucid').plans[0], size: 50000, type: 'eval', label: '', target: 3000, mll: 2000, dd: 'eod', lock: 100, dll: 1000, cons: 50, minDays: '', cost: '', activation: '', status: 'active', mode: 'live', def: true, start: todayKey() });
   const [step, setStep] = useState(ex || firm ? 2 : 1);
   const up = p => setA(o => ({ ...o, ...p }));
-  const applySize = sz => { const p = SIZE_PRESETS[sz]; up({ size: sz, ...(p ? { target: a.type === 'eval' ? p.target : '', mll: p.mll, dll: p.dll } : {}) }) };
-  const f = firmById(a.firm);
+  const f = firmById(a.firm); const presets = f.presets || SIZE_PRESETS; const mkt = acctMarket(a);
+  const applySize = sz => { const p = presets[sz]; up({ size: sz, ...(p ? { target: a.type === 'eval' ? p.target : '', mll: p.mll, dll: p.dll, ...(p.cons != null ? { cons: p.cons } : {}) } : {}) }) };
+  const pickFirm = x => { const p = x.presets ? (x.presets[10000] || Object.values(x.presets)[0]) : null; const sz = x.presets ? (x.presets[10000] ? 10000 : +Object.keys(x.presets)[0]) : a.size; up({ firm: x.id, plan: x.plans[0], market: x.market || 'futures', mode: x.id === 'personal' ? 'live' : a.mode, ...(x.market === 'cfd' ? { ppl: a.ppl ?? 1, pip: a.pip ?? 1, lotCom: a.lotCom ?? 0, defSym: a.defSym || 'NAS100', defLots: a.defLots ?? 1, dd: 'static', lock: '' } : {}), ...(p ? { size: sz, target: p.target, mll: p.mll, dll: p.dll, cons: p.cons } : {}) }) };
   const save = () => { if (!+a.size) return toast('Add the starting balance'); const o = store.put('accounts', { ...a, size: +a.size, created: ex?.created || Date.now(), label: a.label || (f.name.split(' ')[0] + ' ' + (+a.size / 1000) + 'K') }); toast(ex ? 'Account saved' : 'Account added'); onClose() };
   return html`<${Modal} title=${ex ? 'Edit account' : step === 1 ? 'Pick your prop firm' : 'Account details'} onClose=${onClose} size="wide" foot=${step === 1 ? html`<button class="btn btn-g" onClick=${onClose}>Cancel</button><button class="btn btn-w" onClick=${() => setStep(2)}>Continue<${I} n="right"/></button>` : html`${ex && html`<button class="btn btn-d" style=${{ marginRight: 'auto' }} onClick=${() => UI.confirm({ title: 'Delete account?', body: 'Trades stay in your journal but lose their account link.', onYes: () => { store.del('accounts', ex.id); onClose() } })}><${I} n="trash"/>Delete</button>`}${!ex && html`<button class="btn btn-g" onClick=${() => setStep(1)}><${I} n="left"/>Firm</button>`}<button class="btn btn-w" onClick=${save}><${I} n="check"/>${ex ? 'Save' : 'Add account'}</button>`}>
-    ${step === 1 ? html`<div class="firms">${FIRMS.map(x => html`<button key=${x.id} class=${'firm' + (a.firm === x.id ? ' on' : '')} onClick=${() => { up({ firm: x.id, plan: x.plans[0], mode: x.id === 'personal' ? 'live' : a.mode }); }} onDblClick=${() => { up({ firm: x.id, plan: x.plans[0] }); setStep(2) }}><${FirmLogo} id=${x.id}/><span class="nm">${x.name}<small>${x.plans.slice(0, 2).join(' · ')}</small></span></button>`)}</div>
+    ${step === 1 ? html`<div class="firms">${FIRMS.map(x => html`<button key=${x.id} class=${'firm' + (a.firm === x.id ? ' on' : '')} onClick=${() => pickFirm(x)} onDblClick=${() => { pickFirm(x); setStep(2) }}><${FirmLogo} id=${x.id}/><span class="nm">${x.name}<small>${x.market === 'cfd' ? 'CFD · ' + (x.platform || 'MT5') : x.plans.slice(0, 2).join(' · ')}</small></span></button>`)}</div>
       <p class="dim" style=${{ margin: 0, fontSize: '12.5px' }}>Rules change often. Presets fill typical numbers; check them against your firm's dashboard and edit anything. You can upload each firm's real logo from the Propfirm page.</p>`
     : html`<div class="row" style=${{ gap: '12px' }}><${FirmLogo} id=${a.firm} s=${44}/><div><div style=${{ fontWeight: 800, fontSize: '17px' }}>${f.name}</div><div class="mut" style=${{ fontSize: '13px' }}>${f.url ? html`<a href=${f.url} target="_blank" rel="noopener">${f.url.replace('https://', '')}</a>` : 'Your own capital'}</div></div></div>
       <div class="grid g3">
         <${Field} label="Plan"><input class="in" list="plans" value=${a.plan} onInput=${e => up({ plan: e.target.value })}/><datalist id="plans">${f.plans.map(p => html`<option value=${p}/>`)}</datalist><//>
-        <${Field} label="Account size"><select class="sel" value=${SIZE_PRESETS[a.size] ? a.size : 'c'} onChange=${e => e.target.value !== 'c' && applySize(+e.target.value)}>${Object.keys(SIZE_PRESETS).map(k => html`<option value=${k}>$${(+k).toLocaleString()}</option>`)}<option value="c">Custom</option></select><//>
+        <${Field} label="Account size"><select class="sel" value=${presets[a.size] ? a.size : 'c'} onChange=${e => e.target.value !== 'c' && applySize(+e.target.value)}>${Object.keys(presets).map(k => html`<option value=${k}>$${(+k).toLocaleString()}</option>`)}<option value="c">Custom</option></select><//>
         <${Field} label="Starting balance"><div class="inwrap"><span class="pre">$</span><input class="in tn" value=${a.size} onInput=${e => up({ size: e.target.value })}/></div><//>
         <${Field} label="Stage"><${Seg} v=${a.type} set=${v => up({ type: v, target: v === 'eval' ? (SIZE_PRESETS[a.size]?.target || a.target) : '' })} opts=${[['eval', 'Eval'], ['funded', 'Funded'], ['live', 'Live']]}/><//>
         <${Field} label="Account ID / nickname" hint="e.g. LDE05"><input class="in" value=${a.label} onInput=${e => up({ label: e.target.value })}/><//>
         <${Field} label="Status"><select class="sel" value=${a.status} onChange=${e => up({ status: e.target.value })}><option value="active">Active</option><option value="passed">Passed</option><option value="blown">Blown</option><option value="closed">Closed / withdrawn</option></select><//>
       </div>
+      <div class="lbl">Market</div>
+      <${Seg} v=${mkt} set=${v => up({ market: v, ...(v === 'cfd' ? { ppl: a.ppl ?? 1, pip: a.pip ?? 1, lotCom: a.lotCom ?? 0, defSym: a.defSym || 'NAS100', defLots: a.defLots ?? 1 } : {}) })} opts=${[['futures', 'Futures · contracts'], ['cfd', 'CFD · lots (MT5)']]}/>
+      ${mkt === 'cfd' && html`<div class="card tight col" style=${{ gap: '12px', background: 'var(--bg)' }}>
+        <div class="grid g3">
+          <${Field} label="NAS100: $ per point, per 1.00 lot" hint="Check MT5 → Symbol specification: contract size × $1. Usually 1."><div class="inwrap"><span class="pre">$</span><input class="in tn" inputmode="decimal" value=${a.ppl} onInput=${e => up({ ppl: e.target.value })}/></div><//>
+          <${Field} label="1 pip = how many points" hint="Most brokers: 1 pip = 1.0 point on indices"><select class="sel" value=${String(a.pip ?? 1)} onChange=${e => up({ pip: +e.target.value })}><option value="1">1.0 point</option><option value="0.1">0.1 point</option><option value="0.01">0.01 point</option></select><//>
+          <${Field} label="Commission per lot (round trip)"><div class="inwrap"><span class="pre">$</span><input class="in tn" inputmode="decimal" value=${a.lotCom} onInput=${e => up({ lotCom: e.target.value })}/></div><//>
+          <${Field} label="Default symbol"><input class="in" list="syms" value=${a.defSym} onInput=${e => up({ defSym: e.target.value.toUpperCase() })}/><datalist id="syms">${Object.keys(INSTR).filter(k => INSTR[k].cfd).map(k => html`<option value=${k}>${INSTR[k].name}</option>`)}</datalist><//>
+          <${Field} label="Default lots"><input class="in tn" inputmode="decimal" value=${a.defLots} onInput=${e => up({ defLots: e.target.value })}/><//>
+        </div>
+        <div class="row mut" style=${{ fontSize: '13px', gap: '14px' }}><${I} n="bolt" s=${14}/><span>1.00 lot × 10 points = <b class="pos">${money((num(a.ppl) ?? 1) * 10, { show: true, dec: 2 })}</b></span><span>0.10 lot × 50 points = <b class="pos">${money((num(a.ppl) ?? 1) * 5, { show: true, dec: 2 })}</b></span><span>1 pip on 1.00 lot = <b>${money((num(a.ppl) ?? 1) * (num(a.pip) ?? 1), { show: true, dec: 2 })}</b></span></div>
+      </div>`}
       <div class="lbl">Rules</div>
       <div class="grid g3">
         <${Field} label="Profit target" hint="Leave empty for funded"><div class="inwrap"><span class="pre">$</span><input class="in tn" value=${a.target} onInput=${e => up({ target: e.target.value })}/></div><//>
@@ -1513,7 +1555,7 @@ function TradeDetail({ id, list, onClose }) {
         : bars ? html`<${PriceChart} bars=${bars.bars} trades=${[t]} focus=${t} h=${340}/>` : html`<div style=${{ height: '170px' }}><${MiniLadder} t=${t} h=${170}/></div><div class="dim" style=${{ fontSize: '12.5px', marginTop: '8px' }}>Import ${instr(t.symbol).fam} bars on the Chart page (TradingView → Export chart data) and this trade plots on real candles.</div>`}
       </div>
       ${(t.shots || []).length > 0 && html`<div class="shots" style=${{ gridTemplateColumns: 'repeat(auto-fill,minmax(240px,1fr))' }}>${t.shots.map(s => html`<div class="s" key=${s.id}><img src=${s.url} alt="Trade screenshot" onClick=${() => setLb(s.url)}/></div>`)}</div>`}
-      <div class="grid g6 keep2" style=${{ gap: '8px' }}>${[['Entry', t.entry || '—'], ['Exit', t.exit || '—'], ['Stop', t.stop || '—'], ['Target', t.target || '—'], ['Contracts', t.qty], ['Points', t.pts != null ? (t.pts > 0 ? '+' : '') + t.pts.toFixed(2) : '—'], ['Risk', t.risk ? money(t.risk) : '—'], ['Planned R:R', t.rr ? '1:' + t.rr.toFixed(2) : '—'], ['Hold', fmtDur(holdMin(t))], ['Session', sessionOf(t)], ['Fees', money(t.fees, { dec: 2 })], ['MAE / MFE', (t.mae || '—') + ' / ' + (t.mfe || '—')]].map(([k, v]) => html`<div class="card tight" key=${k}><div class="lbl">${k}</div><div class="tn" style=${{ fontWeight: 700, marginTop: '4px' }}>${v}</div></div>`)}</div>
+      <div class="grid g6 keep2" style=${{ gap: '8px' }}>${[['Entry', t.entry || '—'], ['Exit', t.exit || '—'], ['Stop', t.stop || '—'], ['Target', t.target || '—'], [t.unit === 'lot' ? 'Lots' : 'Contracts', t.qty], [t.unit === 'lot' ? 'Points · pips' : 'Points', t.pts != null ? (t.pts > 0 ? '+' : '') + t.pts.toFixed(2) + (t.unit === 'lot' ? ' · ' + (t.pts / (num(t.pip) || 1)).toFixed(1) : '') : '—'], ['Risk', t.risk ? money(t.risk) : '—'], ['Planned R:R', t.rr ? '1:' + t.rr.toFixed(2) : '—'], ['Hold', fmtDur(holdMin(t))], ['Session', sessionOf(t)], ['Fees', money(t.fees, { dec: 2 })], ['MAE / MFE', (t.mae || '—') + ' / ' + (t.mfe || '—')]].map(([k, v]) => html`<div class="card tight" key=${k}><div class="lbl">${k}</div><div class="tn" style=${{ fontWeight: 700, marginTop: '4px' }}>${v}</div></div>`)}</div>
       <div class="grid g2">
         <div class="col" style=${{ gap: '12px' }}>
           ${t.notes && html`<div><div class="lbl" style=${{ marginBottom: '6px' }}>Notes</div><div class="mdtx">${t.notes}</div></div>`}
@@ -1600,7 +1642,7 @@ function CopyGroupCard({ S, t }) {
   const tot = sum(g, x => x.pnl);
   return html`<div class="card tight" style=${{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
     <div class="row"><${I} n="copy" s=${15}/><b>Copy trade</b><span class="mut" style=${{ fontSize: '12.5px' }}>${g.length} accounts</span><span class="sp"></span><span class="mut" style=${{ fontSize: '12.5px' }}>Total</span><b class=${'tn ' + cls(tot)}>${money(tot, { sign: true })}</b></div>
-    ${g.map(x => { const a = S.accounts[x.account]; return html`<button key=${x.id} class="row" style=${{ flexWrap: 'nowrap', gap: '9px', fontSize: '13px', padding: '6px 8px', borderRadius: '9px', background: x.id === t.id ? 'var(--card2)' : 'transparent', width: '100%' }} onClick=${() => UI.open('detail', { id: x.id, list: g.map(y => y.id) })}>${a ? html`<${FirmLogo} id=${a.firm} s=${20}/>` : null}<span style=${{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>${a?.label || 'No account'}</span><span class=${'chip ' + (x.lead ? 'on' : '')} style=${{ height: '20px', fontSize: '11px' }}>${x.lead ? 'Main' : 'Copy'}</span><span class="sp"></span><span class="dim tn">${x.qty} ct</span><span class=${'tn ' + cls(x.pnl)} style=${{ minWidth: '70px', textAlign: 'right', fontWeight: 700 }}>${money(x.pnl, { sign: true })}</span></button>` })}
+    ${g.map(x => { const a = S.accounts[x.account]; return html`<button key=${x.id} class="row" style=${{ flexWrap: 'nowrap', gap: '9px', fontSize: '13px', padding: '6px 8px', borderRadius: '9px', background: x.id === t.id ? 'var(--card2)' : 'transparent', width: '100%' }} onClick=${() => UI.open('detail', { id: x.id, list: g.map(y => y.id) })}>${a ? html`<${FirmLogo} id=${a.firm} s=${20}/>` : null}<span style=${{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>${a?.label || 'No account'}</span><span class=${'chip ' + (x.lead ? 'on' : '')} style=${{ height: '20px', fontSize: '11px' }}>${x.lead ? 'Main' : 'Copy'}</span><span class="sp"></span><span class="dim tn">${qtyFmt(x)}</span><span class=${'tn ' + cls(x.pnl)} style=${{ minWidth: '70px', textAlign: 'right', fontWeight: 700 }}>${money(x.pnl, { sign: true })}</span></button>` })}
   </div>`;
 }
 
@@ -1860,7 +1902,7 @@ function PropCard({ a, st, S }) {
   const danger = st.left < (+a.mll || 1) * .3;
   return html`<div class="card pac" style=${{ borderColor: danger && a.status === 'active' ? 'rgba(255,90,110,.35)' : undefined }}>
     <div class="row" style=${{ flexWrap: 'nowrap', gap: '10px' }}><${FirmLogo} id=${a.firm} s=${38}/><div style=${{ minWidth: 0, flex: 1 }}><div class="row" style=${{ gap: '8px', flexWrap: 'nowrap' }}><b style=${{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>${f.name} ${(+a.size / 1000)}K ${a.plan ? '· ' + a.plan : ''}</b></div>
-      <div class="row" style=${{ gap: '6px', marginTop: '3px' }}><span class=${'status st-' + (a.status === 'active' ? (a.type === 'funded' ? 'funded' : 'active') : a.status)}>${a.status === 'active' ? (a.type === 'eval' ? 'Eval' : a.type === 'funded' ? 'Funded' : 'Live') : a.status}</span><span class="chip">${a.label}</span>${tradingNow && html`<span class="chip pos">● Trading today</span>`}${a.mode === 'paper' && html`<span class="chip">Paper</span>`}</div></div>
+      <div class="row" style=${{ gap: '6px', marginTop: '3px' }}><span class=${'status st-' + (a.status === 'active' ? (a.type === 'funded' ? 'funded' : 'active') : a.status)}>${a.status === 'active' ? (a.type === 'eval' ? 'Eval' : a.type === 'funded' ? 'Funded' : 'Live') : a.status}</span><span class="chip">${a.label}</span>${acctMarket(a) === 'cfd' && html`<span class="chip">CFD · ${firmById(a.firm).platform || 'MT5'}</span>`}${tradingNow && html`<span class="chip pos">● Trading today</span>`}${a.mode === 'paper' && html`<span class="chip">Paper</span>`}</div></div>
       <div style=${{ position: 'relative' }}><button class="ib" onClick=${() => setMenu(!menu)} aria-label="Account menu"><${I} n="menu"/></button>
         <${Menu} open=${menu} onClose=${() => setMenu(false)} style=${{ right: 0, top: '36px' }}>
           <button onClick=${() => { setMenu(false); UI.open('account', { id: a.id }) }}><${I} n="edit"/>Edit rules</button>
@@ -1954,7 +1996,8 @@ function dims(S) {
     emotion: ['Feeling before', t => t.emoBefore?.length ? t.emoBefore : ['Not logged']],
     mistake: ['Mistake', t => t.mistakes?.length ? t.mistakes : ['Clean']],
     rules: ['Rules', t => t.rules === true ? 'Kept' : t.rules === false ? 'Broken' : 'Not marked'],
-    size: ['Contracts', t => (t.qty || 1) + ' ct'],
+    size: ['Size', t => qtyFmt(t)],
+    market: ['Market', t => t.unit === 'lot' ? 'CFD' : 'Futures'],
     conf: ['Confidence', t => 'Conf ' + (t.conf || '—')],
   };
 }
@@ -2116,7 +2159,7 @@ function makeTools(S, acts) {
   const findStrat = name => { if (!name) return ''; const n = String(name).toLowerCase(); return Object.values(store.s.strategies).find(s => s.name.toLowerCase().includes(n) || n.includes(s.name.toLowerCase()))?.id || '' };
   const str = { type: 'string' }, numb = { type: 'number' };
   return [
-    { name: 'log_trade', description: 'Log one futures trade in the journal. Give prices when known; otherwise give pnl in dollars.', inputSchema: { type: 'object', properties: { symbol: str, side: { type: 'string', enum: ['long', 'short'] }, contracts: numb, entry: numb, exit: numb, stop: numb, target: numb, pnl: { type: 'number', description: 'Net P&L in USD if prices are not given' }, entry_time: { type: 'string', description: 'Local time YYYY-MM-DDTHH:mm; default now' }, exit_time: str, account: { type: 'string', description: 'Main account label or firm name' }, copy_to: { type: 'array', items: { type: 'string' }, description: 'Other account labels this trade was copy traded into (same prices)' }, strategy: str, grade: { type: 'string', enum: GRADES }, setups: { type: 'array', items: str }, mistakes: { type: 'array', items: str }, notes: str }, required: ['symbol', 'side'] },
+    { name: 'log_trade', description: 'Log one trade in the journal: futures (contracts) or CFD like NAS100 on MT5 (lots; contracts field holds lots, e.g. 0.5). Give prices when known; otherwise give pnl in dollars.', inputSchema: { type: 'object', properties: { symbol: str, side: { type: 'string', enum: ['long', 'short'] }, contracts: numb, entry: numb, exit: numb, stop: numb, target: numb, pnl: { type: 'number', description: 'Net P&L in USD if prices are not given' }, entry_time: { type: 'string', description: 'Local time YYYY-MM-DDTHH:mm; default now' }, exit_time: str, account: { type: 'string', description: 'Main account label or firm name' }, copy_to: { type: 'array', items: { type: 'string' }, description: 'Other account labels this trade was copy traded into (same prices)' }, strategy: str, grade: { type: 'string', enum: GRADES }, setups: { type: 'array', items: str }, mistakes: { type: 'array', items: str }, notes: str }, required: ['symbol', 'side'] },
       execute(i) { const a = findAcc(i.account); const t = { id: uid(), symbol: normSym(i.symbol), side: i.side, qty: i.contracts || 1, entry: i.entry ?? '', exit: i.exit ?? '', stop: i.stop ?? '', target: i.target ?? '', pnl: i.pnl ?? '', pnlManual: i.entry == null || i.exit == null, t: i.entry_time || localISO(), tx: i.exit_time || i.entry_time || localISO(), account: a?.id || '', strategy: findStrat(i.strategy), grade: i.grade || '', setups: i.setups || [], mistakes: i.mistakes || [], notes: i.notes || '', mode: 'live', created: Date.now(), byAI: true }; const c = tradeCalc(t, store.s.settings); if (c.pnl == null) throw new Error('Need entry and exit prices or a pnl'); const copies = (i.copy_to || []).map(findAcc).filter(x => x && x.id !== a?.id).map(x => x.id); const before = new Set(Object.keys(store.s.trades)); const base = { ...t }; delete base.id; delete base.account; saveCopyGroup(store.s, base, { main: a?.id || '', copies, sizes: {} }, null); Object.keys(store.s.trades).filter(k => !before.has(k)).forEach(k => acts.push({ c: 'trades', id: k, label: '' })); acts.push({ c: null, label: `Logged ${t.symbol} ${t.side} ${money(c.pnl, { sign: true, show: true })}${a ? ' on ' + a.label : ''}${copies.length ? ' + ' + copies.length + ' copies' : ''}` }); return { ok: true, pnl: c.pnl, account: a?.label || null, copies: copies.length } } },
     { name: 'create_account', description: 'Add a prop firm or personal trading account.', inputSchema: { type: 'object', properties: { firm: { type: 'string', description: 'Firm name, e.g. Lucid Trading, Tradeify, Topstep, Apex' }, plan: str, size: numb, stage: { type: 'string', enum: ['eval', 'funded', 'live'] }, label: str, profit_target: numb, max_loss: numb, drawdown_type: { type: 'string', enum: ['eod', 'intraday', 'static'] }, daily_loss_limit: numb, consistency_pct: numb, fee_paid: numb }, required: ['firm', 'size'] },
       execute(i) { const n = String(i.firm).toLowerCase(); const f = FIRMS.find(f => f.name.toLowerCase().includes(n) || n.includes(f.name.toLowerCase().split(' ')[0])) || FIRMS[FIRMS.length - 1]; const p = SIZE_PRESETS[i.size] || {}; const a = store.put('accounts', { id: uid(), firm: f.id, plan: i.plan || f.plans[0], size: i.size, type: i.stage || 'eval', label: i.label || `${f.name.split(' ')[0]} ${i.size / 1000}K`, target: i.profit_target ?? ((i.stage || 'eval') === 'eval' ? p.target : ''), mll: i.max_loss ?? p.mll, dd: i.drawdown_type || 'eod', lock: 100, dll: i.daily_loss_limit ?? p.dll, cons: i.consistency_pct ?? '', cost: i.fee_paid ?? '', status: 'active', mode: 'live', def: true, created: Date.now(), start: todayKey() }); acts.push({ c: 'accounts', id: a.id, label: `Added ${f.name} ${i.size / 1000}K ${a.type}` }); return { ok: true, id: a.id, label: a.label } } },
