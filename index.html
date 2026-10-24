@@ -10,17 +10,18 @@
 <meta name="apple-mobile-web-app-title" content="Compound">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="icon" href="icons/favicon-64.png">
-<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" href="favicon-64.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500;600&display=swap">
 <link rel="stylesheet" href="app.css?v=637a527efe">
 </head><body>
 <div id="app"><div style="height:100vh;display:grid;place-items:center;font-family:Satoshi,system-ui;color:#8E8E8E;background:#000">Loading Compound…</div></div>
+<script>window.addEventListener('error',function(e){if(window.htmPreact&&window.store)return;var a=document.getElementById('app');a.innerHTML='<div style="min-height:100vh;display:grid;place-items:center;padding:24px;font-family:system-ui;color:#ccc;background:#000;text-align:center">Compound could not load a file ('+(e.filename||e.target&&e.target.src||'unknown').split('/').pop()+'). Check that every file was uploaded, then reload.</div>'},true)</script>
 <script src="config.js?v=637a527efe"></script>
-<script src="vendor/htm-preact.js"></script>
-<script src="vendor/lightweight-charts.js"></script>
-<script src="vendor/supabase.js"></script>
+<script src="htm-preact.js"></script>
+<script src="lightweight-charts.js"></script>
+<script src="supabase.js"></script>
 <script src="app.js?v=637a527efe"></script>
 <script>if('serviceWorker' in navigator){const had=!!navigator.serviceWorker.controller;addEventListener('load',()=>navigator.serviceWorker.register('sw.js').then(r=>{r.update();r.addEventListener('updatefound',()=>{const w=r.installing;w&&w.addEventListener('statechange',()=>{if(w.state==='activated'&&had&&window.toast)toast('Compound updated',{label:'Reload',fn:()=>location.reload()})})})}).catch(()=>{}))}</script>
 </body></html>
