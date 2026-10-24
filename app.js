@@ -1070,44 +1070,109 @@ function ReviewForm({ day, onClose }) {
   <//>`;
 }
 
+/* pairs individual fills (Tradesea / Rithmic order exports) into round-trip trades, FIFO per account + symbol */
+function pairFills(fills) {
+  const out = []; const by = new Map();
+  for (const f of fills.sort((a, b) => a.time - b.time)) { const k = f.acc + '|' + f.sym; if (!by.has(k)) by.set(k, []); by.get(k).push(f) }
+  for (const list of by.values()) {
+    let cur = null;
+    const open = (f, q) => { cur = { acc: f.acc, sym: f.sym, side: q > 0 ? 'long' : 'short', pos: q, eQ: Math.abs(q), eV: Math.abs(q) * f.price, xQ: 0, xV: 0, t: f.time, fee: f.fee * Math.abs(q) / Math.abs(f.q) } };
+    for (const f of list) {
+      let q = f.q;
+      if (!cur) { open(f, q); continue }
+      if (Math.sign(q) === Math.sign(cur.pos)) { cur.pos += q; cur.eQ += Math.abs(q); cur.eV += Math.abs(q) * f.price; cur.fee += f.fee; continue }
+      const close = Math.min(Math.abs(q), Math.abs(cur.pos));
+      cur.xQ += close; cur.xV += close * f.price; cur.fee += f.fee * close / Math.abs(q); cur.pos += Math.sign(q) * close;
+      if (cur.pos === 0) {
+        out.push({ acc: cur.acc, symbol: cur.sym, side: cur.side, qty: cur.eQ, entry: +(cur.eV / cur.eQ).toFixed(4), exit: +(cur.xV / cur.xQ).toFixed(4), t: cur.t, tx: f.time, fees: +cur.fee.toFixed(2) });
+        cur = null; const left = Math.abs(q) - close;
+        if (left > 0) open({ ...f, fee: f.fee * left / Math.abs(q) * Math.abs(q) / left }, Math.sign(q) * left), cur.fee = f.fee * left / Math.abs(q);
+      }
+    }
+  }
+  return out.sort((a, b) => a.t - b.t);
+}
+
 function ImportTrades({ onClose, mode }) {
   const S = store.s;
-  const [rows, setRows] = useState(null); const [map, setMap] = useState({}); const [acct, setAcct] = useState(''); const [fmt, setFmt] = useState('');
-  const FIELDS = [['symbol', 'Symbol'], ['side', 'Side'], ['qty', 'Qty'], ['entry', 'Entry price'], ['exit', 'Exit price'], ['t', 'Entry time'], ['tx', 'Exit time'], ['pnl', 'P&L']];
+  const [rows, setRows] = useState(null); const [map, setMap] = useState({}); const [acct, setAcct] = useState(''); const [fmt, setFmt] = useState(''); const [fills, setFills] = useState(false);
+  const [amap, setAmap] = useState(() => S.settings.importMap || {}); const [main, setMain] = useState(S.settings.copySet?.main || ''); const [grp, setGrp] = useState(true);
+  const FIELDS = fills ? [['symbol', 'Symbol'], ['side', 'Side (Buy/Sell)'], ['qty', 'Qty'], ['price', 'Fill / avg price'], ['t', 'Time'], ['fee', 'Commission'], ['status', 'Status'], ['account', 'Account']]
+    : [['symbol', 'Symbol'], ['side', 'Side'], ['qty', 'Qty'], ['entry', 'Entry price'], ['exit', 'Exit price'], ['t', 'Entry time'], ['tx', 'Exit time'], ['pnl', 'P&L'], ['account', 'Account']];
   const guess = hdr => {
     const h = hdr.map(x => x.toLowerCase().trim()); const f = re => { const i = h.findIndex(x => re.test(x)); return i < 0 ? '' : i };
-    if (h.includes('boughttimestamp') || h.includes('buyprice')) { setFmt('Tradovate performance'); return { symbol: f(/^symbol$/), qty: f(/^qty$/), entry: f(/^buyprice$/), exit: f(/^sellprice$/), t: f(/^boughttimestamp$/), tx: f(/^soldtimestamp$/), pnl: f(/^pnl$/), side: '' } }
-    if (h.includes('market pos.')) setFmt('NinjaTrader trades'); else setFmt('Generic CSV');
-    return { symbol: f(/instrument|symbol|contract/), side: f(/market pos|side|direction|action|b\/s/), qty: f(/^qty|quantity|contracts|size/), entry: f(/entry ?price|avg ?entry|open ?price|^entry$/), exit: f(/exit ?price|avg ?exit|close ?price|^exit$/), t: f(/entry ?time|open ?time|entered|^date|opened/), tx: f(/exit ?time|close ?time|exited|closed/), pnl: f(/profit|p&l|pnl|net/) };
+    if (h.includes('boughttimestamp') || h.includes('buyprice')) { setFmt('Tradovate performance'); setFills(false); return { symbol: f(/^symbol$/), qty: f(/^qty$/), entry: f(/^buyprice$/), exit: f(/^sellprice$/), t: f(/^boughttimestamp$/), tx: f(/^soldtimestamp$/), pnl: f(/^pnl$/), side: '', account: f(/account/) } }
+    const hasExit = h.some(x => /exit ?price|close ?price|exit ?time|profit|p&l|pnl/.test(x));
+    const hasFill = h.some(x => /avg ?(fill )?price|fill ?price|^price$|avgprice|filled ?price/.test(x)) && h.some(x => /side|b\/s|buy\/sell|action/.test(x));
+    if (!hasExit && hasFill) { setFmt(h.some(x => /status/.test(x)) ? 'Tradesea / Rithmic order history' : 'Fills (order history)'); setFills(true); return { symbol: f(/symbol|contract|instrument/), side: f(/^side$|b\/s|buy\/sell|action|side/), qty: f(/fill(ed)? ?qty|^qty$|quantity|filled|^size$/), price: f(/avg ?(fill )?price|avgprice|fill ?price|filled ?price|^price$/), t: f(/fill ?time|^time$|timestamp|date|time/), fee: f(/comm|fee/), status: f(/status/), account: f(/account/) } }
+    setFills(false); if (h.includes('market pos.')) setFmt('NinjaTrader trades'); else setFmt('Generic CSV');
+    return { symbol: f(/instrument|symbol|contract/), side: f(/market pos|side|direction|action|b\/s/), qty: f(/^qty|quantity|contracts|size/), entry: f(/entry ?price|avg ?entry|open ?price|^entry$/), exit: f(/exit ?price|avg ?exit|close ?price|^exit$/), t: f(/entry ?time|open ?time|entered|^date|opened/), tx: f(/exit ?time|close ?time|exited|closed/), pnl: f(/profit|p&l|pnl|net/), account: f(/account/) };
   };
   const load = async file => { const txt = await file.text(); const r = parseCSV(txt); if (r.length < 2) return toast('That file has no rows'); setRows(r); setMap(guess(r[0])) };
+  const cell = (r, k) => map[k] === '' || map[k] == null ? null : r[map[k]];
+  const extAccs = useMemo(() => rows && map.account !== '' && map.account != null ? [...new Set(rows.slice(1).map(r => String(r[map.account] || '').trim()).filter(Boolean))] : [], [rows, map.account]);
+  const accFor = name => extAccs.length ? (amap[name] || '') : acct;
   const build = () => {
-    const [hdr, ...body] = rows; const out = [];
-    for (const r of body) {
-      const g = k => map[k] === '' || map[k] == null ? null : r[map[k]];
-      const sym = normSym(g('symbol')); if (!sym) continue;
-      const t = parseDateLoose(g('t')), tx = parseDateLoose(g('tx'));
-      let side = String(g('side') || '').toLowerCase();
-      side = /short|sell|^s$/.test(side) ? 'short' : /long|buy|^b$/.test(side) ? 'long' : (fmt === 'Tradovate performance' && t && tx && t > tx ? 'short' : 'long');
-      let entry = num(String(g('entry') || '').replace(/,/g, '')), exit = num(String(g('exit') || '').replace(/,/g, ''));
-      let t1 = t, t2 = tx;
-      if (fmt === 'Tradovate performance' && side === 'short') { [entry, exit] = [exit, entry];[t1, t2] = [tx, t] }
-      const pnl = moneyParse(g('pnl'));
-      const tr = { symbol: sym, side, qty: Math.abs(num(g('qty')) || 1), entry: entry ?? '', exit: exit ?? '', t: t1 ? localISO(t1) : localISO(), tx: t2 ? localISO(t2) : '', pnl: pnl ?? '', pnlManual: pnl != null, account: acct, mode: mode || 'live', imported: true };
-      tr.hash = [sym, tr.t, tr.tx, tr.qty, tr.pnl, acct].join('|');
-      out.push(tr);
+    const body = rows.slice(1); let list = [];
+    if (fills) {
+      const fl = [];
+      for (const r of body) {
+        const st = String(cell(r, 'status') || 'filled').toLowerCase(); if (map.status !== '' && map.status != null && !/fill|complete|executed|done/.test(st)) continue;
+        const sym = normSym(cell(r, 'symbol')); const qn = Math.abs(num(String(cell(r, 'qty') || '').replace(/,/g, '')) || 0); const pr = num(String(cell(r, 'price') || '').replace(/[,$]/g, '')); const tm = parseDateLoose(cell(r, 't'));
+        if (!sym || !qn || pr == null || !tm) continue;
+        const sd = String(cell(r, 'side') || '').toLowerCase(); const sign = /sell|^s$|short/.test(sd) ? -1 : 1;
+        fl.push({ acc: String(cell(r, 'account') || '').trim(), sym, q: sign * qn, price: pr, time: tm.getTime(), fee: Math.abs(moneyParse(cell(r, 'fee')) || 0) });
+      }
+      list = pairFills(fl).map(x => ({ symbol: x.symbol, side: x.side, qty: x.qty, entry: x.entry, exit: x.exit, t: localISO(new Date(x.t)), tx: localISO(new Date(x.tx)), fees: map.fee !== '' && map.fee != null ? x.fees : undefined, ext: x.acc }));
+    } else {
+      for (const r of body) {
+        const sym = normSym(cell(r, 'symbol')); if (!sym) continue;
+        const t = parseDateLoose(cell(r, 't')), tx = parseDateLoose(cell(r, 'tx'));
+        let side = String(cell(r, 'side') || '').toLowerCase();
+        side = /short|sell|^s$/.test(side) ? 'short' : /long|buy|^b$/.test(side) ? 'long' : (fmt === 'Tradovate performance' && t && tx && t > tx ? 'short' : 'long');
+        let entry = num(String(cell(r, 'entry') || '').replace(/,/g, '')), exit = num(String(cell(r, 'exit') || '').replace(/,/g, ''));
+        let t1 = t, t2 = tx;
+        if (fmt === 'Tradovate performance' && side === 'short') { [entry, exit] = [exit, entry];[t1, t2] = [tx, t] }
+        const pnl = moneyParse(cell(r, 'pnl'));
+        list.push({ symbol: sym, side, qty: Math.abs(num(cell(r, 'qty')) || 1), entry: entry ?? '', exit: exit ?? '', t: t1 ? localISO(t1) : localISO(), tx: t2 ? localISO(t2) : '', pnl: pnl ?? '', pnlManual: pnl != null, ext: String(cell(r, 'account') || '').trim() });
+      }
     }
-    return out;
+    return list.map(tr => { const account = accFor(tr.ext); const o = { ...tr, account, mode: mode || 'live', imported: true }; delete o.ext; o.hash = [o.symbol, o.t, o.tx, o.qty, o.entry, o.exit, o.pnl, account].join('|'); return o });
   };
   const preview = rows ? build() : [];
   const exist = new Set(Object.values(S.trades).map(t => t.hash).filter(Boolean));
   const fresh = preview.filter(t => !exist.has(t.hash));
-  return html`<${Modal} title="Import trades" icon=${html`<${I} n="upload"/>`} size="wide" onClose=${onClose} foot=${html`<button class="btn btn-g" onClick=${onClose}>Cancel</button><button class="btn btn-w" disabled=${!fresh.length} onClick=${() => { fresh.forEach(t => store.put('trades', { ...t, id: uid(), created: Date.now() })); toast(`Imported ${fresh.length} trades`); onClose() }}>Import ${fresh.length || ''} trades</button>`}>
-    ${!rows ? html`<label class="drop"><${I} n="upload" s=${22}/><div style=${{ marginTop: '6px' }}><b>Choose a CSV export</b></div><div style=${{ fontSize: '12.5px' }}>Tradovate (Performance tab → export), NinjaTrader trades, Rithmic/R|Trader, or any CSV with prices, times and P&L.</div><input type="file" accept=".csv,text/csv,text/plain" hidden onChange=${e => e.target.files[0] && load(e.target.files[0])}/></label>`
-    : html`<div class="row"><span class="chip on">${fmt}</span><span class="mut">${rows.length - 1} rows · ${fresh.length} new · ${preview.length - fresh.length} already in journal</span></div>
-      <div class="grid g4 keep2">${FIELDS.map(([k, l]) => html`<${Field} label=${l} key=${k}><select class="sel" value=${map[k]} onChange=${e => setMap({ ...map, [k]: e.target.value === '' ? '' : +e.target.value })}><option value="">—</option>${rows[0].map((h, i) => html`<option value=${i}>${h}</option>`)}</select><//>`)}</div>
-      <${Field} label="Assign to account"><${AccountPicker} S=${S} v=${acct} set=${setAcct}/><//>
-      <div class="scroll-x"><table class="tbl"><thead><tr><th>Time</th><th>Symbol</th><th>Side</th><th class="r">Qty</th><th class="r">Entry</th><th class="r">Exit</th><th class="r">P&L</th></tr></thead><tbody>${preview.slice(0, 8).map((t, i) => { const c = tradeCalc(t, S.settings); return html`<tr key=${i}><td>${t.t.replace('T', ' ')}</td><td>${t.symbol}</td><td><${Side} s=${t.side}/></td><td class="r">${t.qty}</td><td class="r">${t.entry}</td><td class="r">${t.exit}</td><td class="r"><${Money} v=${c.pnl}/></td></tr>` })}</tbody></table></div>`}
+  const multi = new Set(fresh.map(t => t.account).filter(Boolean)).size > 1;
+  const doImport = () => {
+    const items = fresh.map(t => ({ ...t, id: uid(), created: Date.now() }));
+    let groups = 0;
+    if (multi && grp) {
+      const used = new Set();
+      for (const a of items) {
+        if (used.has(a.id)) continue;
+        const cl = items.filter(b => !used.has(b.id) && b.symbol === a.symbol && b.side === a.side && Math.abs(new Date(b.t) - new Date(a.t)) <= 15000 && b.account);
+        const accs = new Set(cl.map(x => x.account)); if (cl.length < 2 || accs.size < 2) continue;
+        const seen = new Set(); const members = cl.filter(x => !seen.has(x.account) && seen.add(x.account));
+        const lead = members.find(x => x.account === main) || members[0]; const g = uid();
+        members.forEach(x => { used.add(x.id); x.group = g; x.lead = x === lead; x.role = x === lead ? 'main' : 'copy'; if (x !== lead) x.copyOf = lead.id }); groups++;
+      }
+    }
+    items.forEach(t => store.put('trades', t));
+    if (extAccs.length) store.setSettings({ importMap: amap });
+    toast(`Imported ${items.length} trades${groups ? ` · ${groups} copy-trade groups` : ''}`); onClose();
+  };
+  const activeAccs = Object.values(S.accounts).filter(a => a.status === 'active');
+  return html`<${Modal} title="Import trades" icon=${html`<${I} n="upload"/>`} size="wide" onClose=${onClose} foot=${html`<button class="btn btn-g" onClick=${onClose}>Cancel</button><button class="btn btn-w" disabled=${!fresh.length} onClick=${doImport}>Import ${fresh.length || ''} trades</button>`}>
+    ${!rows ? html`<label class="drop"><${I} n="upload" s=${22}/><div style=${{ marginTop: '6px' }}><b>Choose a CSV export</b></div><div style=${{ fontSize: '12.5px' }}>Tradesea (Orders / Trade history → export CSV), Rithmic R|Trader, Tradovate, NinjaTrader, or any CSV. Order-by-order fills are paired into full trades automatically.</div><input type="file" accept=".csv,text/csv,text/plain" hidden onChange=${e => e.target.files[0] && load(e.target.files[0])}/></label>`
+    : html`<div class="row"><span class="chip on">${fmt}</span><span class="mut">${rows.length - 1} rows → ${preview.length} trades · ${fresh.length} new · ${preview.length - fresh.length} already in journal</span><span class="sp"></span><button class="btn btn-t xs" onClick=${() => setFills(!fills)}>${fills ? 'File has one row per trade' : 'File has one row per fill'}</button></div>
+      <details><summary class="mut" style=${{ cursor: 'pointer', fontSize: '13px' }}>Column matching (auto-detected)</summary><div class="grid g4 keep2" style=${{ marginTop: '10px' }}>${FIELDS.map(([k, l]) => html`<${Field} label=${l} key=${k}><select class="sel" value=${map[k] ?? ''} onChange=${e => setMap({ ...map, [k]: e.target.value === '' ? '' : +e.target.value })}><option value="">—</option>${rows[0].map((h, i) => html`<option value=${i}>${h}</option>`)}</select><//>`)}</div></details>
+      ${extAccs.length ? html`<div class="card tight col" style=${{ gap: '8px', background: 'var(--bg)' }}><div class="lbl">Match each account in the file to Compound</div>
+          ${extAccs.map(n => html`<div class="row" key=${n} style=${{ flexWrap: 'nowrap' }}><span class="mono" style=${{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>${n}</span><select class="sel" style=${{ maxWidth: '260px' }} value=${amap[n] || ''} onChange=${e => setAmap({ ...amap, [n]: e.target.value })}><option value="">No account</option>${activeAccs.map(a => html`<option value=${a.id}>${a.label} · ${firmById(a.firm).name}</option>`)}</select></div>`)}
+          <button class="btn btn-t xs" style=${{ alignSelf: 'flex-start' }} onClick=${() => UI.open('account')}><${I} n="plus" s=${12}/>Add an account</button></div>`
+        : html`<${Field} label="Assign to account"><${AccountPicker} S=${S} v=${acct} set=${setAcct}/><//>`}
+      ${multi && html`<div class="card tight col" style=${{ gap: '8px', background: 'var(--bg)' }}><label class="row" style=${{ gap: '8px', fontSize: '13.5px', cursor: 'pointer' }}><input type="checkbox" checked=${grp} onChange=${e => setGrp(e.target.checked)}/><${I} n="copy" s=${15}/><b>Group copy trades</b><span class="mut">Same symbol and side within 15 seconds across accounts</span></label>
+        ${grp && html`<${Field} label="Main account"><select class="sel" value=${main} onChange=${e => setMain(e.target.value)}><option value="">First account in each group</option>${activeAccs.map(a => html`<option value=${a.id}>${a.label}</option>`)}</select><//>`}</div>`}
+      <div class="scroll-x"><table class="tbl"><thead><tr><th>Time</th><th>Symbol</th><th>Side</th><th class="r">Qty</th><th class="r">Entry</th><th class="r">Exit</th><th>Account</th><th class="r">P&L</th></tr></thead><tbody>${preview.slice(0, 10).map((t, i) => { const c = tradeCalc(t, S.settings); return html`<tr key=${i}><td>${t.t.replace('T', ' ')}</td><td>${t.symbol}</td><td><${Side} s=${t.side}/></td><td class="r">${t.qty}</td><td class="r">${t.entry}</td><td class="r">${t.exit}</td><td class="mut">${S.accounts[t.account]?.label || '—'}</td><td class="r"><${Money} v=${c.pnl}/></td></tr>` })}</tbody></table></div>`}
   <//>`;
 }
 
