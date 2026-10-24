@@ -402,10 +402,13 @@ function computeTrades(S, f = {}) {
   all.sort((a, b) => tTime(b) - tTime(a));
   const mode = f.mode || 'live';
   let ts = all.filter(t => { const m = t.mode || (acc[t.account]?.mode) || 'live'; return mode === 'all' || m === mode });
-  if (f.account && f.account !== 'all') ts = ts.filter(t => t.account === f.account);
-  else if (S.settings.dedupeCopies && f.dedupe !== false) { const leads = new Set(ts.filter(t => t.group && t.lead).map(t => t.group)); const seen = new Set(); ts = ts.filter(t => { if (!t.group) return true; if (leads.has(t.group)) return !!t.lead; if (seen.has(t.group)) return false; seen.add(t.group); return true }) }
+  const sel = f.accounts && f.accounts.length ? new Set(f.accounts) : (f.account && f.account !== 'all' ? new Set([f.account]) : null);
+  if (sel) ts = ts.filter(t => sel.has(t.account));
+  if ((!sel || sel.size > 1) && S.settings.dedupeCopies && f.dedupe !== false) { const leads = new Set(ts.filter(t => t.group && t.lead).map(t => t.group)); const seen = new Set(); ts = ts.filter(t => { if (!t.group) return true; if (leads.has(t.group)) return !!t.lead; if (seen.has(t.group)) return false; seen.add(t.group); return true }) }
   return { all, ts };
 }
+
+function scopeLabel(S, F) { const ids = (F.accounts || []).filter(id => S.accounts[id]); if (!ids.length) return 'All accounts'; if (ids.length === 1) return S.accounts[ids[0]].label || firmById(S.accounts[ids[0]].firm).name; return ids.length + ' accounts' }
 
 /* ================= Compound · standalone platform (own hosting) =================
    Supabase sync adapter with the same surface the store already uses (doc / collection /
@@ -1277,7 +1280,7 @@ function Dashboard({ C }) {
   const setR = r => { setRange(r); LS.set('compound.range', r); setRm(false) };
   const noTrades = !Object.keys(S.trades).length;
   return html`<div class="page">
-    <${PageHead} title="Dashboard" sub=${fmtLong(new Date())}><button class="btn btn-t sm" onClick=${() => UI.open('settings')}><${I} n="gear"/>Settings</button><//>
+    <${PageHead} title="Dashboard" sub=${fmtLong(new Date()) + ' · ' + scopeLabel(S, C.F)}><button class="btn btn-t sm" onClick=${() => UI.open('settings')}><${I} n="gear"/>Settings</button><//>
     ${noTrades && html`<div class="card" style=${{ padding: '22px 24px', background: 'radial-gradient(120% 160% at 0% 0%,var(--accs),transparent 55%),var(--card)' }}>
       <h3 style=${{ fontSize: '19px' }}>Log your first trade</h3><div class="mut" style=${{ marginTop: '4px' }}>Your numbers, calendar, score and coach fill in from your trades. Start with one.</div>
       <div class="row" style=${{ marginTop: '16px' }}><button class="btn btn-w" onClick=${() => UI.open('trade')}>Log a trade</button><button class="btn btn-g" onClick=${() => UI.open('import')}>Import trades</button><button class="btn btn-g" onClick=${() => UI.open('account')}>Add prop account</button><button class="btn btn-t" onClick=${() => { loadSample(); toast('Sample data loaded. Remove it any time in Settings → Data.') }}>Preview with sample data</button></div></div>`}
@@ -1412,7 +1415,7 @@ function Journal({ C, params }) {
   const [ts, f, setF] = useTradeFilter(D.ts); const s = stats(ts);
   useEffect(() => { if (params?.day) setTab('daily') }, [params]);
   return html`<div class="page">
-    <${PageHead} title="Trade journal" sub=${D.ts.length + ' trades logged'}>
+    <${PageHead} title="Trade journal" sub=${D.ts.length + ' trades logged · ' + scopeLabel(S, C.F)}>
       <${Seg} v=${tab} set=${v => { setTab(v); LS.set('compound.jtab', v) }} opts=${[['trades', 'Trades', 'book'], ['daily', 'Daily', 'cal'], ['weekly', 'Weekly', 'cal']]}/>
       <button class="btn btn-g" onClick=${() => UI.open('quick')}><${I} n="bolt"/>Quick log</button><button class="btn btn-w" onClick=${() => UI.open('trade')}><${I} n="plus"/>Log trade</button>
     <//>
@@ -1986,7 +1989,7 @@ function Analytics({ C }) {
   const set = v => { setTab(v); LS.set('compound.atab', v) }; const DM = dims(S);
   const tabs = [['overview', 'Overview'], ['performance', 'Performance'], ['compare', 'Compare'], ['time', 'Time'], ['psychology', 'Psychology'], ['insights', 'Insights'], ['risk', 'Risk']];
   return html`<div class="page">
-    <${PageHead} title="Analytics" sub=${T.length + ' trades analyzed'}><button class="btn btn-t xs" onClick=${C.toggleHide}><${I} n=${UIS.hide ? 'eye' : 'eyeoff'} s=${14}/>${UIS.hide ? 'Show' : 'Hide'} P&L</button><//>
+    <${PageHead} title="Analytics" sub=${T.length + ' trades analyzed · ' + scopeLabel(S, C.F)}><button class="btn btn-t xs" onClick=${C.toggleHide}><${I} n=${UIS.hide ? 'eye' : 'eyeoff'} s=${14}/>${UIS.hide ? 'Show' : 'Hide'} P&L</button><//>
     <div class="scroll-x" style=${{ borderBottom: '1px solid var(--line)' }}><div class="row" style=${{ flexWrap: 'nowrap', gap: '4px' }}>${tabs.map(([k, l]) => html`<button key=${k} onClick=${() => set(k)} style=${{ padding: '10px 14px', fontWeight: 600, fontSize: '14.5px', color: tab === k ? 'var(--fg)' : 'var(--mut)', borderBottom: tab === k ? '2px solid var(--fg)' : '2px solid transparent', marginBottom: '-1px', whiteSpace: 'nowrap' }}>${l}</button>`)}</div></div>
     ${!T.length ? html`<${Empty} icon="bars" title="Nothing to analyze yet" body="Every chart here fills from your journal. Log a few trades, or preview everything with sample data."><button class="btn btn-w" onClick=${() => UI.open('trade')}>Log a trade</button><button class="btn btn-g" onClick=${() => { loadSample(); toast('Sample data loaded') }}>Load sample data</button><//>`
     : html`${tab === 'overview' && html`<${AOverview} C=${C} s=${s}/>`}${tab === 'performance' && html`<${APerformance} C=${C} s=${s}/>`}${tab === 'compare' && html`<${ACompare} C=${C} DM=${DM}/>`}${tab === 'time' && html`<${ATime} C=${C}/>`}${tab === 'psychology' && html`<${APsych} C=${C}/>`}${tab === 'insights' && html`<${AInsights} C=${C}/>`}${tab === 'risk' && html`<${ARisk} C=${C} s=${s}/>`}`}
@@ -2145,7 +2148,7 @@ function AIPage({ C, params }) {
     let c = forceChat === null ? null : chat; if (!c) c = store.put('chats', { id: uid(), mode: md, title: q.slice(0, 60), msgs: [], created: Date.now() });
     const m1 = [...(c.msgs || []), { r: 'u', t: q }]; store.put('chats', { ...c, msgs: m1 }); setChatId(c.id);
     setBusy(true); setLive(''); ctl.current = new AbortController(); const acts = [];
-    const turns = [{ role: 'user', content: (md === 'cowork' ? COWORK_RULES : COACH_RULES) + '\n\n=== JOURNAL DATA ===\n' + buildContext(store.s, computeTrades(store.s, { mode: C.F.mode, account: C.F.account })) + '\n=== END DATA ===' }, { role: 'assistant', content: 'Understood. I have the journal loaded.' }, ...m1.slice(-24).map(m => ({ role: m.r === 'u' ? 'user' : 'assistant', content: m.t }))];
+    const turns = [{ role: 'user', content: (md === 'cowork' ? COWORK_RULES : COACH_RULES) + '\n\n=== JOURNAL DATA ===\n' + buildContext(store.s, computeTrades(store.s, { mode: C.F.mode, accounts: C.F.accounts })) + '\n=== END DATA ===' }, { role: 'assistant', content: 'Understood. I have the journal loaded.' }, ...m1.slice(-24).map(m => ({ role: m.r === 'u' ? 'user' : 'assistant', content: m.t }))];
     const opts = { signal: ctl.current.signal, onText: ({ text }) => setLive(text), modelTier: deep ? 'complex' : 'default' };
     if (md === 'cowork') opts.tools = makeTools(store.s, acts); else opts.cache = false;
     try { const r = await smp(turns, opts); store.put('chats', { ...store.s.chats[c.id], msgs: [...m1, { r: 'a', t: r.text + (r.truncated ? '\n\n_(cut short)_' : ''), acts: acts.length ? acts : undefined }].slice(-60) }) }
@@ -2225,8 +2228,8 @@ function Desk({ C, onPick }) {
     <div class="rhead"><span class="lbl" style=${{ color: 'var(--fg2)', letterSpacing: '.2em' }}>Desk</span><button class="ib" onClick=${C.toggleDesk} aria-label="Collapse"><${I} n="dleft" s=${14}/></button></div>
     <div class="row" style=${{ padding: '4px 2px 10px' }}><span class="lbl">Accounts</span><span class="sp"></span><span class="dim" style=${{ fontSize: '12px' }}>${accs.length} · Open</span></div>
     <div class="col" style=${{ gap: '8px', overflow: 'auto', flex: 1, minHeight: 0, paddingBottom: '10px' }}>
-      ${accs.map(a => { const s = acctState(a, all, Object.values(S.adjust).filter(x => x.account === a.id)); const on = C.F.account === a.id; const lp = a.mll ? clamp(s.left / (+a.mll) * 100) : 100;
-        return html`<button key=${a.id} class=${'acct' + (on ? ' on' : '')} onClick=${() => onPick(on ? 'all' : a.id)} title=${on ? 'Showing only this account. Click to show all.' : 'Show only this account'}>
+      ${accs.map(a => { const s = acctState(a, all, Object.values(S.adjust).filter(x => x.account === a.id)); const on = (C.F.accounts || []).includes(a.id); const lp = a.mll ? clamp(s.left / (+a.mll) * 100) : 100;
+        return html`<button key=${a.id} class=${'acct' + (on ? ' on' : '')} onClick=${() => onPick(a.id)} title=${on ? 'Click to remove from the view' : 'Click to view this account (add more to combine)'}>
           <div class="row" style=${{ flexWrap: 'nowrap', gap: '8px' }}><${FirmLogo} id=${a.firm} s=${20}/><b style=${{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>${a.label}</b><span class=${'tn ' + cls(s.today)} style=${{ fontSize: '12px', fontWeight: 700 }}>${s.today ? moneyK(s.today, { sign: true }) : '—'}</span></div>
           <div class="prog"><i style=${{ width: lp + '%', background: lp < 30 ? 'var(--neg)' : lp < 60 ? 'var(--warn)' : 'var(--acc)' }}></i></div>
           <div class="kv"><span>${a.type === 'eval' ? 'EVAL' : a.type === 'funded' ? 'FUNDED' : 'LIVE'}</span><b>${money(s.left, { dec: 0 })} left</b></div>
@@ -2277,7 +2280,8 @@ function App() {
   const [params, setParams] = useState(null);
   const [modals, setModals] = useState([]);
   const [mode, setModeS] = useState(LS.get('compound.mode', 'live'));
-  const [acct, setAcctS] = useState(LS.get('compound.acct', 'all'));
+  const [accts, setAcctsS] = useState(() => { const v = LS.get('compound.accts', null); if (Array.isArray(v)) return v; const o = LS.get('compound.acct', 'all'); return o && o !== 'all' ? [o] : [] });
+  const [am, setAm] = useState(false);
   const [, setHideV] = useState(UIS.hide);
   const [lc, setLc] = useState(LS.get('compound.ldc', false)); const [rc, setRc] = useState(LS.get('compound.rdc', false));
   const [lo, setLo] = useState(false); const [ro, setRo] = useState(false);
@@ -2288,17 +2292,19 @@ function App() {
   UI.open = (kind, props = {}) => setModals(m => [...m.filter(x => !(kind === 'detail' && x.kind === 'detail')), { kind, props, id: uid() }]);
   UI.close = () => setModals(m => m.slice(0, -1));
   UI.confirm = p => UI.open('confirm', p);
-  const setMode = v => { setModeS(v); LS.set('compound.mode', v) }; const setAcct = v => { setAcctS(v); LS.set('compound.acct', v) };
+  const setMode = v => { setModeS(v); LS.set('compound.mode', v) }; const setAccts = v => { setAcctsS(v); LS.set('compound.accts', v) };
+  const togAcct = id => { const cur = accts.filter(x => S.accounts[x]); setAccts(cur.includes(id) ? cur.filter(x => x !== id) : [...cur, id]) };
   const toggleHide = () => { UIS.hide = !UIS.hide; LS.set('compound.hide', UIS.hide); setHideV(UIS.hide); store.emit() };
-  const F = { mode, account: acct in S.accounts || acct === 'all' ? acct : 'all' };
-  const D = useMemo(() => computeTrades(S, F), [store.v, F.mode, F.account]);
+  const validA = accts.filter(id => S.accounts[id]);
+  const F = { mode, accounts: validA, account: validA.length === 1 ? validA[0] : 'all' };
+  const D = useMemo(() => computeTrades(S, F), [store.v, F.mode, validA.join(',')]);
   const C = { S, D, F, go, setMode, toggleHide, toggleDesk: () => { if (innerWidth <= 1020) setLo(false); else { setLc(!lc); LS.set('compound.ldc', !lc) } }, toggleRail: () => { if (innerWidth <= 1280) setRo(false); else { setRc(!rc); LS.set('compound.rdc', !rc) } } };
   useEffect(() => {
     const k = e => { if (e.target.closest && e.target.closest('input,textarea,select,[contenteditable]')) return; if (e.metaKey || e.ctrlKey || e.altKey) return; if (modals.length) return;
       if (e.key === 'n') { e.preventDefault(); UI.open('trade', { mode }) } else if (e.key === 'q') { e.preventDefault(); UI.open('quick', { mode }) } else if (e.key === '/') { e.preventDefault(); go('journal'); setTimeout(() => document.getElementById('tsearch')?.focus(), 80) } else if (e.key === 'h') toggleHide(); else if (/^[1-9]$/.test(e.key)) { const v = VIEWS.filter(x => x !== '|')[+e.key - 1]; v && go(v[0]) } };
     addEventListener('keydown', k); return () => removeEventListener('keydown', k);
   }, [modals.length, mode]);
-  const acctName = acct !== 'all' && S.accounts[acct]?.label;
+  const scope = scopeLabel(S, F);
   const V = { dashboard: Dashboard, journal: Journal, showcase: Showcase, strategy: Strategy, study: Study, chart: ChartPage, analytics: Analytics, propfirm: Propfirm, ai: AIPage, progress: Progress }[view] || Dashboard;
   const tabs = VIEWS.filter(v => v !== '|');
   const sync = store.mode === 'cloud' ? (store.syncErr ? ['wait', 'Reconnecting…'] : ['ok', 'Synced across devices' + (store.lastSync ? ' · ' + fmtTime(store.lastSync) : '')]) : store.mode === 'local' ? ['loc', 'This browser only · not syncing'] : ['wait', 'Connecting…'];
@@ -2309,7 +2315,8 @@ function App() {
     <header class="top">
       <div class="l"><button class="ib" style=${{ display: lc || innerWidth <= 1020 || full ? 'grid' : 'none' }} onClick=${() => { if (innerWidth <= 1020) setLo(!lo); else { setLc(false); LS.set('compound.ldc', false) } }} aria-label="Accounts"><${I} n="dright" s=${14}/></button>
         <button class="mark" onClick=${() => go('dashboard')} aria-label="Compound home"><${Mark} s=${26}/><span class="wm mob-only" style=${{ fontSize: '17px' }}>Compound</span></button>
-        <span class="pill hot hide-m"><${I} n="spark" s=${13}/><b>All features</b></span>${acctName && html`<button class="pill hide-m" onClick=${() => setAcct('all')} title="Show all accounts">${acctName}<${I} n="x" s=${12}/></button>`}${F.mode === 'paper' && html`<span class="pill" style=${{ color: 'var(--gold)' }}>Paper</span>`}</div>
+        <div style=${{ position: 'relative' }}><button class=${'pill' + (validA.length ? ' hot' : '')} onClick=${() => setAm(!am)} title="Choose which accounts everything shows"><${I} n="layers" s=${13}/><b>${scope}</b><${I} n="down" s=${12}/></button>
+          <${AcctMenu} open=${am} onClose=${() => setAm(false)} S=${S} sel=${validA} setSel=${setAccts} tog=${togAcct}/></div>${F.mode === 'paper' && html`<span class="pill" style=${{ color: 'var(--gold)' }}>Paper</span>`}</div>
       <nav class="nav" aria-label="Sections">${VIEWS.map((v, i) => v === '|' ? html`<button key="wm" class="wmc mark" onClick=${() => go('dashboard')}><span class="wm" style=${{ textAlign: 'center' }}>Compound<small>${F.mode === 'paper' ? 'Paper money' : 'Live money'}</small></span></button>` : html`<button key=${v[0]} class=${'tab' + (view === v[0] ? ' on' : '')} onClick=${() => go(v[0])} title=${v[1] + ' (' + (tabs.indexOf(v) + 1) + ')'}><${I} n=${v[2]}/><span class="t">${v[1]}</span></button>`)}</nav>
       <div class="r"><button class="ib mob-only" onClick=${() => toast(sync[1])} aria-label=${sync[1]} title=${sync[1]}><span class=${'dot ' + sync[0]}></span></button><button class="ib hide-m" onClick=${toggleHide} title="Hide P&L (h)"><${I} n=${UIS.hide ? 'eyeoff' : 'eye'}/></button>
         <button class="ib" onClick=${() => UI.open('quick', { mode })} title="Quick log (q)"><${I} n="bolt"/></button>
@@ -2317,7 +2324,7 @@ function App() {
         <button class="ib" style=${{ display: rc || innerWidth <= 1280 || full ? 'grid' : 'none' }} onClick=${() => { if (innerWidth <= 1280) setRo(!ro); else { setRc(false); LS.set('compound.rdc', false) } }} aria-label="Today panel"><${I} n="cal"/></button>
         <span class="ava hide-m">${(S.settings.name || 'V')[0]}</span></div>
     </header>
-    ${!full && html`<${Desk} C=${C} onPick=${v => { setAcct(v); setLo(false) }}/>`}
+    ${!full && html`<${Desk} C=${C} onPick=${id => togAcct(id)}/>`}
     <main class="main" ref=${mainRef} style=${full ? { overflow: 'hidden' } : null}>
       ${store.mode === 'local' && html`<div class="card tight row" style=${{ margin: '14px 30px 0', borderColor: 'var(--warn)' }}><span class="dot wait"></span><span style=${{ flex: 1, fontSize: '13.5px' }}>Not syncing. This copy saves to this browser only. Use your Compound app (home-screen / taskbar icon) so trades show up on every device.</span></div>`}
       ${store.localPending && html`<div class="card tight row" style=${{ margin: '14px 30px 0', borderColor: 'var(--accg)' }}><${I} n="refresh"/><span style=${{ flex: 1 }}>You have journal data saved in this browser from before sync was on.</span><button class="btn btn-w sm" onClick=${() => store.migrateLocal()}>Move it into my synced journal</button><button class="btn btn-t sm" onClick=${() => store.dismissLocal()}>Not now</button></div>`}
@@ -2343,3 +2350,16 @@ function SettingsWrap(p) { return html`<${Settings} ...${p}/>` }
 store.boot();
 render(html`<${App}/>`, document.getElementById('app'));
 window.__compoundUp = true;
+
+function AcctMenu({ open, onClose, S, sel, setSel, tog }) {
+  const accs = Object.values(S.accounts).sort((a, b) => (a.status === 'active' ? 0 : 1) - (b.status === 'active' ? 0 : 1) || (a.created || 0) - (b.created || 0));
+  const quick = (l, f) => { const ids = accs.filter(f).map(a => a.id); return ids.length ? html`<button class="chip" onClick=${() => setSel(ids)}>${l} · ${ids.length}</button>` : null };
+  return html`<${Menu} open=${open} onClose=${onClose} style=${{ top: '36px', left: 0, width: 'min(320px,calc(100vw - 24px))', padding: '8px' }}>
+    <button class=${!sel.length ? 'on' : ''} onClick=${() => setSel([])}><${I} n="layers"/><span style=${{ flex: 1 }}><b>All accounts</b><span class="dim" style=${{ display: 'block', fontSize: '11.5px' }}>Cumulative view of everything</span></span>${!sel.length && html`<${I} n="check"/>`}</button>
+    <hr/>
+    ${accs.length ? accs.map(a => { const on = sel.includes(a.id); return html`<button key=${a.id} class=${on ? 'on' : ''} onClick=${() => tog(a.id)}><span class=${'chk' + (on ? ' on' : '')} style=${{ width: 'auto', padding: 0 }}><span class="bx">${on && html`<${I} n="check" w=${3}/>`}</span></span><${FirmLogo} id=${a.firm} s=${20}/><span style=${{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>${a.label}</span><span class="dim" style=${{ fontSize: '11px' }}>${a.status === 'active' ? (a.type === 'eval' ? 'Eval' : a.type === 'funded' ? 'Funded' : 'Live') : a.status}</span></button>` }) : html`<div class="dim" style=${{ padding: '8px 10px', fontSize: '13px' }}>No accounts yet.</div>`}
+    <hr/>
+    <div class="row" style=${{ gap: '6px', padding: '4px 6px' }}>${quick('Evals', a => a.type === 'eval' && a.status === 'active')}${quick('Funded', a => a.type === 'funded' && a.status === 'active')}${quick('Active', a => a.status === 'active')}</div>
+    <div class="row" style=${{ padding: '6px', justifyContent: 'space-between' }}><span class="dim" style=${{ fontSize: '12px' }}>${sel.length ? sel.length + ' selected' : 'Showing all'}</span><button class="btn btn-w xs" onClick=${onClose}>Done</button></div>
+  <//>`;
+}
