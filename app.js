@@ -1138,7 +1138,7 @@ function FirmPick({ v, set }) {
   const ql = q.trim().toLowerCase();
   const list = [...FIRMS.filter(f => f.id !== 'personal'), ...customs].filter(f => (mk === 'all' || (mk === 'cfd' ? f.market === 'cfd' : f.market !== 'cfd')) && (!ql || f.name.toLowerCase().includes(ql)))
     .sort((a, b) => (used.has(b.id) ? 1 : 0) - (used.has(a.id) ? 1 : 0));
-  const exact = list.some(f => f.name.toLowerCase() === ql);
+  const exact = list.some(f => f.name.toLowerCase().startsWith(ql) || f.name.toLowerCase().split(/\s+/).some(w => w.startsWith(ql)));
   return html`<div class="col" style=${{ gap: '8px' }}>
     <div class="row" style=${{ gap: '8px', flexWrap: 'nowrap' }}><div class="search" style=${{ flex: 1 }}><${I} n="search" s=${14}/><input placeholder=${'Search ' + (FIRMS.length - 1) + ' prop firms, or type a new one'} value=${q} onInput=${e => setQ(e.target.value)}/></div><${Seg} sm v=${mk} set=${setMk} opts=${[['all', 'All'], ['futures', 'Futures'], ['cfd', 'CFD / FX']]}/></div>
     <div class="firmpick">${list.map(f => html`<button type="button" key=${f.id} class=${'fp' + (v === f.id ? ' on' : '')} onClick=${() => set(f.id)}><${FirmLogo} id=${f.id} s=${20}/><span>${f.name}</span>${f.market === 'cfd' && html`<em>CFD</em>`}</button>`)}
@@ -1150,24 +1150,27 @@ function FirmPick({ v, set }) {
 
 function PayoutForm({ id, account, onClose }) {
   const S = store.s; const ex = id ? S.payouts[id] : null;
-  const hasAccs = Object.values(S.accounts).some(a => a.status !== 'blown' && a.status !== 'closed');
-  const [p, setP] = useState(ex ? { ...ex, past: !!ex.past } : { account: account || '', amount: '', d: todayKey(), status: 'paid', note: '', deduct: true, past: !account && !hasAccs, firm: '', acctLabel: '' });
+  const init = () => { if (ex) return { ...ex, firm: payoutFirm(S, ex) }; const a = account ? S.accounts[account] : null; return { account: account || '', firm: a?.firm || '', acctLabel: '', amount: '', d: todayKey(), status: 'paid', note: '', deduct: true } };
+  const [p, setP] = useState(init);
   const up = x => setP(o => ({ ...o, ...x }));
+  const tracked = Object.values(S.accounts).filter(a => a.firm === p.firm && a.status !== 'closed').sort((a, b) => (b.created || 0) - (a.created || 0));
+  const pickFirm = f => up({ firm: f, account: (S.accounts[p.account]?.firm === f) ? p.account : '' });
   const save = () => {
+    if (!p.firm) return toast('Pick the prop firm');
     if (!isNum(p.amount)) return toast('Enter an amount');
-    if (p.past && !p.firm) return toast('Pick the prop firm');
-    const o = store.put('payouts', p.past ? { ...p, account: '', amount: +p.amount, deduct: false } : { ...p, firm: undefined, acctLabel: undefined, amount: +p.amount });
-    if (!ex && !p.past && p.deduct && p.account) store.put('adjust', { id: uid(), account: p.account, v: -Math.abs(+p.amount), d: p.d + 'T23:59', payout: o.id, note: 'Payout withdrawn' });
-    toast('Payout recorded'); onClose();
+    const past = !p.account;
+    const o = store.put('payouts', { ...p, amount: +p.amount, past, acctLabel: past ? (p.acctLabel || '') : '', deduct: past ? false : p.deduct });
+    if (!ex && !past && p.deduct) store.put('adjust', { id: uid(), account: p.account, v: -Math.abs(+p.amount), d: p.d + 'T23:59', payout: o.id, note: 'Payout withdrawn' });
+    toast('Payout recorded · ' + firmById(p.firm).name); onClose();
   };
-  return html`<${Modal} title=${ex ? 'Edit payout' : 'Record payout'} icon=${html`<${I} n="wallet"/>`} onClose=${onClose} foot=${html`${ex && html`<button class="btn btn-d" style=${{ marginRight: 'auto' }} onClick=${() => { store.del('payouts', ex.id); const adj = Object.values(S.adjust).find(x => x.payout === ex.id); adj && store.del('adjust', adj.id); onClose() }}>Delete</button>`}<button class="btn btn-g" onClick=${onClose}>Cancel</button><button class="btn btn-w" onClick=${save}>Save</button>`}>
-    <${Seg} v=${p.past ? 'past' : 'acct'} set=${v => up({ past: v === 'past' })} opts=${[['acct', 'Account in Compound'], ['past', 'Previous payout']]}/>
-    ${p.past ? html`
-      <${Field} label="Prop firm"><${FirmPick} v=${p.firm} set=${v => up({ firm: v })}/><//>
-      <${Field} label="Account (optional)" hint="Size or account ID, so you remember which one paid"><input class="in" placeholder="50K · BG-12345" value=${p.acctLabel || ''} onInput=${e => up({ acctLabel: e.target.value })}/><//>`
-    : html`<${Field} label="Account"><${AccountPicker} S=${S} v=${p.account} set=${v => up({ account: v })}/><//>`}
-    <div class="grid g2"><${Field} label="Amount received"><div class="inwrap"><span class="pre">$</span><input class="in tn" style=${{ fontSize: '17.5px', fontWeight: 700 }} value=${p.amount} onInput=${e => up({ amount: e.target.value })}/></div><//><${Field} label="Date"><input class="in" type="date" value=${p.d} onInput=${e => up({ d: e.target.value })}/><//></div>
-    <div class="row"><${Seg} v=${p.status} set=${v => up({ status: v })} opts=${[['requested', 'Requested'], ['paid', 'Paid']]}/>${!ex && !p.past && html`<label class="row" style=${{ gap: '8px', fontSize: '11.5px', cursor: 'pointer' }}><input type="checkbox" checked=${p.deduct} onChange=${e => up({ deduct: e.target.checked })}/>Deduct from account balance</label>`}</div>
+  return html`<${Modal} title=${ex ? 'Edit payout' : 'Record payout'} size="wide" icon=${html`<${I} n="wallet"/>`} onClose=${onClose} foot=${html`${ex && html`<button class="btn btn-d" style=${{ marginRight: 'auto' }} onClick=${() => { store.del('payouts', ex.id); const adj = Object.values(S.adjust).find(x => x.payout === ex.id); adj && store.del('adjust', adj.id); onClose() }}>Delete</button>`}<button class="btn btn-g" onClick=${onClose}>Cancel</button><button class="btn btn-w" onClick=${save}>Save payout</button>`}>
+    <${Field} label="Prop firm"><${FirmPick} v=${p.firm} set=${pickFirm}/><//>
+    ${p.firm && html`<${Field} label="Which account"><div class="row" style=${{ gap: '6px' }}>
+      ${tracked.map(a => html`<button type="button" key=${a.id} class=${'chip' + (p.account === a.id ? ' on' : '')} onClick=${() => up({ account: a.id })}><${FirmLogo} id=${a.firm} s=${14}/>${a.label}${a.status === 'blown' ? ' · blown' : ''}</button>`)}
+      <button type="button" class=${'chip' + (!p.account ? ' on' : '')} onClick=${() => up({ account: '' })}>${tracked.length ? 'Not in Compound / previous' : 'Previous account (not in Compound)'}</button></div><//>`}
+    ${p.firm && !p.account && html`<${Field} label="Account (optional)" hint="Size or account ID, so you remember which one paid"><input class="in" placeholder="50K · BG-12345" value=${p.acctLabel || ''} onInput=${e => up({ acctLabel: e.target.value })}/><//>`}
+    <div class="grid g2"><${Field} label="Amount received"><div class="inwrap"><span class="pre">$</span><input class="in tn" inputmode="decimal" style=${{ fontSize: '17.5px', fontWeight: 700 }} value=${p.amount} onInput=${e => up({ amount: e.target.value })}/></div><//><${Field} label="Date"><input class="in" type="date" value=${p.d} onInput=${e => up({ d: e.target.value })}/><//></div>
+    <div class="row"><${Seg} v=${p.status} set=${v => up({ status: v })} opts=${[['requested', 'Requested'], ['paid', 'Paid']]}/>${!ex && p.account && html`<label class="row" style=${{ gap: '8px', fontSize: '11.5px', cursor: 'pointer' }}><input type="checkbox" checked=${p.deduct} onChange=${e => up({ deduct: e.target.checked })}/>Deduct from account balance</label>`}</div>
     <${Field} label="Note"><input class="in" value=${p.note} onInput=${e => up({ note: e.target.value })}/><//>
   <//>`;
 }
@@ -2274,6 +2277,18 @@ function Focus({ onClose, quote }) {
 }
 
 /* ---------------- Propfirm ---------------- */
+function PayoutsTab({ S }) {
+  const [pf, setPf] = useState(() => LS.get('compound.payf', [])); const setF = v => { setPf(v); LS.set('compound.payf', v) };
+  const all = Object.values(S.payouts); const firms = [...new Set(all.map(p => payoutFirm(S, p)).filter(Boolean))];
+  const on = pf.filter(f => firms.includes(f)); const list = on.length ? all.filter(p => on.includes(payoutFirm(S, p))) : all;
+  const paid = sum(list.filter(p => p.status === 'paid'), p => +p.amount || 0);
+  return html`<div class="card"><div class="ch"><h3>Payouts</h3><span class="sub tn">${list.length} · <span class="pos">${money(paid, { dec: 0 })}</span> paid</span><span class="sp"></span><button class="btn btn-w sm" onClick=${() => UI.open('payout')}><${I} n="plus"/>Record payout</button></div>
+    ${firms.length > 1 && html`<div class="row" style=${{ gap: '6px', marginBottom: '14px' }}><button class=${'chip' + (!on.length ? ' on' : '')} onClick=${() => setF([])}>All firms</button>${firms.map(f => html`<button key=${f} class=${'chip firmchip' + (on.includes(f) ? ' on' : '')} onClick=${() => setF(on.includes(f) ? on.filter(x => x !== f) : [...on, f])}><${FirmLogo} id=${f} s=${16}/>${firmById(f).name}</button>`)}</div>`}
+    ${list.length ? html`<div style=${{ marginBottom: '14px' }}><${Bars} h=${170} color="var(--pos)" data=${[...list].sort((a, b) => a.d < b.d ? -1 : 1).map(p => ({ l: fmtDate(parseDay(p.d)), v: p.amount, sub: S.accounts[p.account]?.label || firmById(payoutFirm(S, p)).name }))}/></div>
+      <div class="scroll-x"><table class="tbl"><thead><tr><th>Date</th><th>Firm · account</th><th>Status</th><th>Note</th><th class="r">Amount</th></tr></thead><tbody>${[...list].sort((a, b) => a.d < b.d ? 1 : -1).map(p => { const f = payoutFirm(S, p); return html`<tr class="click" key=${p.id} onClick=${() => UI.open('payout', { id: p.id })}><td>${fmtDate(parseDay(p.d), { year: true })}</td><td><span class="row" style=${{ gap: '8px', flexWrap: 'nowrap' }}>${f && html`<${FirmLogo} id=${f} s=${20}/>`}<span>${f ? firmById(f).name : '—'}${S.accounts[p.account] ? ' · ' + S.accounts[p.account].label : p.acctLabel ? ' · ' + p.acctLabel : ''}</span>${!p.account && html`<span class="chip" style=${{ height: '20px' }}>previous</span>`}</span></td><td><span class=${'status ' + (p.status === 'paid' ? 'st-passed' : 'st-active')}>${p.status}</span></td><td class="mut">${p.note}</td><td class="r pos" style=${{ fontWeight: 700 }}>${money(p.amount)}</td></tr>` })}</tbody></table></div>`
+      : html`<${Empty} icon="wallet" title="No payouts yet" body="Record each withdrawal, from any prop firm. Compound shows your real prop ROI: payouts against every fee you paid."><button class="btn btn-w" onClick=${() => UI.open('payout')}>Record payout</button><//>`}</div>`;
+}
+
 function Spending({ S }) {
   const rows = useMemo(() => firmSpend(S).sort((a, b) => b.spent - a.spent), [store.v]);
   const [pick, setPick] = useState(() => LS.get('compound.spendf', []));
@@ -2341,10 +2356,7 @@ function Propfirm({ C }) {
       <div class="card tight row"><${I} n="wallet"/><span class="mut">Already funded? Add the account and track it here.</span><span class="sp"></span><button class="btn btn-w sm" onClick=${() => UI.open('account')}>Add funded account</button></div>
       ${archived.length > 0 && html`<div><button class="sech" onClick=${() => setArch(!arch)} style=${{ width: '100%' }}><span class="lbl">Archive · ${archived.length}</span><${I} n="down" c="chev"/></button>${arch && html`<div class="grid" style=${{ gridTemplateColumns: 'repeat(auto-fill,minmax(330px,1fr))' }}>${archived.map(a => html`<${PropCard} key=${a.id} a=${a} st=${st(a)} S=${S}/>`)}</div>`}</div>`}`}
     ${tab === 'spend' && html`<${Spending} S=${S}/>`}
-    ${tab === 'payouts' && html`<div class="card"><div class="ch"><h3>Payouts</h3><span class="sp"></span><button class="btn btn-w sm" onClick=${() => UI.open('payout')}><${I} n="plus"/>Record payout</button></div>
-      ${Object.values(S.payouts).length ? html`<div style=${{ marginBottom: '14px' }}><${Bars} h=${170} color="var(--pos)" data=${Object.values(S.payouts).sort((a, b) => a.d < b.d ? -1 : 1).map(p => ({ l: fmtDate(parseDay(p.d)), v: p.amount, sub: S.accounts[p.account]?.label || (p.firm ? firmById(p.firm).name : '') }))}/></div>
-        <div class="scroll-x"><table class="tbl"><thead><tr><th>Date</th><th>Account</th><th>Status</th><th>Note</th><th class="r">Amount</th></tr></thead><tbody>${Object.values(S.payouts).sort((a, b) => a.d < b.d ? 1 : -1).map(p => html`<tr class="click" key=${p.id} onClick=${() => UI.open('payout', { id: p.id })}><td>${fmtDate(parseDay(p.d), { year: true })}</td><td><span class="row" style=${{ gap: '8px' }}>${payoutFirm(S, p) && html`<${FirmLogo} id=${payoutFirm(S, p)} s=${20}/>`}${S.accounts[p.account]?.label || (p.past ? firmById(p.firm).name + (p.acctLabel ? ' · ' + p.acctLabel : '') : '—')}${p.past && html`<span class="chip" style=${{ height: '20px' }}>previous</span>`}</span></td><td><span class=${'status ' + (p.status === 'paid' ? 'st-passed' : 'st-active')}>${p.status}</span></td><td class="mut">${p.note}</td><td class="r pos" style=${{ fontWeight: 700 }}>${money(p.amount)}</td></tr>`)}</tbody></table></div>`
-        : html`<${Empty} icon="wallet" title="No payouts yet" body="Record each withdrawal. Compound shows your real prop ROI: payouts against every fee you paid."/>`}</div>`}
+    ${tab === 'payouts' && html`<${PayoutsTab} S=${S}/>`}
     ${tab === 'certs' && html`<div class="grid g3">${[...accs.filter(a => a.status === 'passed' || (a.type === 'funded')).map(a => ({ k: 'pass', a, d: a.passedAt || a.start })), ...payouts.map(p => ({ k: 'pay', p, a: S.accounts[p.account] || (p.firm ? { firm: p.firm, label: p.acctLabel || '' } : null), d: p.d }))].sort((x, y) => x.d < y.d ? 1 : -1).map((c, i) => html`<div class="cert" key=${i}>
         <div class="row"><${Mark} s=${22}/><span class="lbl">${c.k === 'pay' ? 'Payout certificate' : 'Evaluation passed'}</span></div>
         <div><div class="amt tn">${c.k === 'pay' ? money(c.p.amount, { dec: 0 }) : money(+c.a.size, { dec: 0 })}</div><div class="mut">${c.a ? firmById(c.a.firm).name + ' · ' + (c.a.label || '') : ''}</div></div>
