@@ -60,7 +60,7 @@ const INSTR = {
   SIL: { pv: 1000, tick: .005, name: 'Micro Silver', tv: 'COMEX:SIL1!', fam: 'SI', com: 0.94 },
   M6E: { pv: 12500, tick: .0001, name: 'Micro EUR/USD', tv: 'CME:M6E1!', fam: '6E', com: 0.5 },
   '6E': { pv: 125000, tick: .00005, name: 'Euro FX', tv: 'CME:6E1!', fam: '6E', com: 3 },
-  NAS100: { pv: 1, tick: .1, name: 'Nasdaq 100 CFD', tv: 'OANDA:NAS100USD', fam: 'NQ', com: 0, cfd: true, idx: true },
+  NAS100: { pv: 10, tick: .1, name: 'Nasdaq 100 CFD', tv: 'OANDA:NAS100USD', fam: 'NQ', com: 0, cfd: true, idx: true },
   US30: { pv: 1, tick: .1, name: 'Dow 30 CFD', tv: 'OANDA:US30USD', fam: 'YM', com: 0, cfd: true, idx: true },
   US500: { pv: 1, tick: .1, name: 'S&P 500 CFD', tv: 'OANDA:SPX500USD', fam: 'ES', com: 0, cfd: true, idx: true },
   GER40: { pv: 1, tick: .1, name: 'DAX 40 CFD', tv: 'OANDA:DE30EUR', fam: 'DAX', com: 0, cfd: true, idx: true },
@@ -425,9 +425,17 @@ function scopeLabel(S, F) { const ids = (F.accounts || []).filter(id => S.accoun
 function acctMarket(a) { return a ? (a.market || firmById(a.firm).market || 'futures') : 'futures' }
 function isCfdAcct(S, id) { return acctMarket(S.accounts[id]) === 'cfd' }
 /* per-trade fields an account forces: CFD lots use the account's $/point for index CFDs, its per-lot commission and pip size */
+const CFD_PPL = 10; /* Tradeify FX / MT5 NAS100: contract size 10, so $10 per point per 1.00 lot */
+/* v2: NAS100 used $1/pt/lot; real MT5 contract is $10. Fixes accounts still on the old default and their saved trades. */
+function migrateCfdPV(S) {
+  const ids = Object.values(S.accounts).filter(a => acctMarket(a) === 'cfd' && (a.ppl == null || a.ppl === '' || +a.ppl === 1)).map(a => a.id);
+  for (const id of ids) store.put('accounts', { ...S.accounts[id], ppl: CFD_PPL });
+  let n = 0; for (const t of Object.values(S.trades)) { if (!ids.includes(t.account) || !instr(t.symbol).idx) continue; if (t.pv == null || +t.pv === 1) { store.put('trades', { ...t, pv: CFD_PPL }); n++ } }
+  store.setSettings({ cfdV: 2 }); return n;
+}
 function acctExtras(S, id, sym) {
   const a = S.accounts[id]; if (acctMarket(a) !== 'cfd') return { pv: undefined, comPer: undefined, unit: undefined, pip: undefined };
-  const ins = instr(sym); const ppl = num(a.ppl) ?? 1;
+  const ins = instr(sym); const ppl = num(a.ppl) ?? CFD_PPL;
   return { pv: ins.idx ? ppl : undefined, comPer: num(a.lotCom) ?? 0, unit: 'lot', pip: num(a.pip) ?? 1 };
 }
 const unitOf = t => t && t.unit === 'lot' ? 'lots' : 'ct';
@@ -1003,7 +1011,7 @@ function AccountForm({ id, firm, onClose }) {
   const up = p => setA(o => ({ ...o, ...p }));
   const f = firmById(a.firm); const presets = f.presets || SIZE_PRESETS; const mkt = acctMarket(a);
   const applySize = sz => { const p = presets[sz]; up({ size: sz, ...(p ? { target: a.type === 'eval' ? p.target : '', mll: p.mll, dll: p.dll, ...(p.cons != null ? { cons: p.cons } : {}) } : {}) }) };
-  const pickFirm = x => { const p = x.presets ? (x.presets[10000] || Object.values(x.presets)[0]) : null; const sz = x.presets ? (x.presets[10000] ? 10000 : +Object.keys(x.presets)[0]) : a.size; up({ firm: x.id, plan: x.plans[0], market: x.market || 'futures', mode: x.id === 'personal' ? 'live' : a.mode, ...(x.market === 'cfd' ? { ppl: a.ppl ?? 1, pip: a.pip ?? 1, lotCom: a.lotCom ?? 0, defSym: a.defSym || 'NAS100', defLots: a.defLots ?? 1, dd: 'static', lock: '' } : {}), ...(p ? { size: sz, target: p.target, mll: p.mll, dll: p.dll, cons: p.cons } : {}) }) };
+  const pickFirm = x => { const p = x.presets ? (x.presets[10000] || Object.values(x.presets)[0]) : null; const sz = x.presets ? (x.presets[10000] ? 10000 : +Object.keys(x.presets)[0]) : a.size; up({ firm: x.id, plan: x.plans[0], market: x.market || 'futures', mode: x.id === 'personal' ? 'live' : a.mode, ...(x.market === 'cfd' ? { ppl: a.ppl ?? CFD_PPL, pip: a.pip ?? 1, lotCom: a.lotCom ?? 0, defSym: a.defSym || 'NAS100', defLots: a.defLots ?? 1, dd: 'static', lock: '' } : {}), ...(p ? { size: sz, target: p.target, mll: p.mll, dll: p.dll, cons: p.cons } : {}) }) };
   const save = () => { if (!+a.size) return toast('Add the starting balance'); const o = store.put('accounts', { ...a, size: +a.size, created: ex?.created || Date.now(), label: a.label || (f.name.split(' ')[0] + ' ' + (+a.size / 1000) + 'K') }); toast(ex ? 'Account saved' : 'Account added'); onClose() };
   return html`<${Modal} title=${ex ? 'Edit account' : step === 1 ? 'Pick your prop firm' : 'Account details'} onClose=${onClose} size="wide" foot=${step === 1 ? html`<button class="btn btn-g" onClick=${onClose}>Cancel</button><button class="btn btn-w" onClick=${() => setStep(2)}>Continue<${I} n="right"/></button>` : html`${ex && html`<button class="btn btn-d" style=${{ marginRight: 'auto' }} onClick=${() => UI.open('delacct', { id: ex.id, after: onClose })}><${I} n="trash"/>Delete</button>`}${!ex && html`<button class="btn btn-g" onClick=${() => setStep(1)}><${I} n="left"/>Firm</button>`}<button class="btn btn-w" onClick=${save}><${I} n="check"/>${ex ? 'Save' : 'Add account'}</button>`}>
     ${step === 1 ? html`<div class="firms">${FIRMS.map(x => html`<button key=${x.id} class=${'firm' + (a.firm === x.id ? ' on' : '')} onClick=${() => pickFirm(x)} onDblClick=${() => { pickFirm(x); setStep(2) }}><${FirmLogo} id=${x.id}/><span class="nm">${x.name}<small>${x.market === 'cfd' ? 'CFD · ' + (x.platform || 'MT5') : x.plans.slice(0, 2).join(' · ')}</small></span></button>`)}</div>
@@ -1021,13 +1029,13 @@ function AccountForm({ id, firm, onClose }) {
       <${Seg} v=${mkt} set=${v => up({ market: v, ...(v === 'cfd' ? { ppl: a.ppl ?? 1, pip: a.pip ?? 1, lotCom: a.lotCom ?? 0, defSym: a.defSym || 'NAS100', defLots: a.defLots ?? 1 } : {}) })} opts=${[['futures', 'Futures · contracts'], ['cfd', 'CFD · lots (MT5)']]}/>
       ${mkt === 'cfd' && html`<div class="card tight col" style=${{ gap: '12px', background: 'var(--bg)' }}>
         <div class="grid g3">
-          <${Field} label="NAS100: $ per point, per 1.00 lot" hint="Check MT5 → Symbol specification: contract size × $1. Usually 1."><div class="inwrap"><span class="pre">$</span><input class="in tn" inputmode="decimal" value=${a.ppl} onInput=${e => up({ ppl: e.target.value })}/></div><//>
+          <${Field} label="NAS100: $ per point, per 1.00 lot" hint="MT5 → Symbol specification: contract size × $1. Tradeify FX NAS100 = 10."><div class="inwrap"><span class="pre">$</span><input class="in tn" inputmode="decimal" value=${a.ppl} onInput=${e => up({ ppl: e.target.value })}/></div><//>
           <${Field} label="1 pip = how many points" hint="Most brokers: 1 pip = 1.0 point on indices"><select class="sel" value=${String(a.pip ?? 1)} onChange=${e => up({ pip: +e.target.value })}><option value="1">1.0 point</option><option value="0.1">0.1 point</option><option value="0.01">0.01 point</option></select><//>
           <${Field} label="Commission per lot (round trip)"><div class="inwrap"><span class="pre">$</span><input class="in tn" inputmode="decimal" value=${a.lotCom} onInput=${e => up({ lotCom: e.target.value })}/></div><//>
           <${Field} label="Default symbol"><input class="in" list="syms" value=${a.defSym} onInput=${e => up({ defSym: e.target.value.toUpperCase() })}/><datalist id="syms">${Object.keys(INSTR).filter(k => INSTR[k].cfd).map(k => html`<option value=${k}>${INSTR[k].name}</option>`)}</datalist><//>
           <${Field} label="Default lots"><input class="in tn" inputmode="decimal" value=${a.defLots} onInput=${e => up({ defLots: e.target.value })}/><//>
         </div>
-        <div class="row mut" style=${{ fontSize: '11.5px', gap: '14px' }}><${I} n="bolt" s=${14}/><span>1.00 lot × 10 points = <b class="pos">${money((num(a.ppl) ?? 1) * 10, { show: true, dec: 2 })}</b></span><span>0.10 lot × 50 points = <b class="pos">${money((num(a.ppl) ?? 1) * 5, { show: true, dec: 2 })}</b></span><span>1 pip on 1.00 lot = <b>${money((num(a.ppl) ?? 1) * (num(a.pip) ?? 1), { show: true, dec: 2 })}</b></span></div>
+        <div class="row mut" style=${{ fontSize: '11.5px', gap: '14px' }}><${I} n="bolt" s=${14}/><span>1.00 lot × 10 points = <b class="pos">${money((num(a.ppl) ?? CFD_PPL) * 10, { show: true, dec: 2 })}</b></span><span>0.10 lot × 50 points = <b class="pos">${money((num(a.ppl) ?? CFD_PPL) * 5, { show: true, dec: 2 })}</b></span><span>1 pip on 1.00 lot = <b>${money((num(a.ppl) ?? CFD_PPL) * (num(a.pip) ?? 1), { show: true, dec: 2 })}</b></span></div>
       </div>`}
       <div class="lbl">Rules</div>
       <div class="grid g3">
@@ -2737,6 +2745,7 @@ function App() {
   const mainRef = useRef();
   useLayoutEffect(() => { const r = document.documentElement; r.classList.toggle('lt', S.settings.theme === 'light'); r.dataset.acc = S.settings.accent || 'cobalt' }, [S.settings.theme, S.settings.accent]);
   useEffect(() => { if (store.mode !== 'cloud' && store.mode !== 'local') return; if ((S.settings.themeV || 0) < 3) store.setSettings({ themeV: 3, accent: 'cobalt' }) }, [store.mode, S.settings.themeV]);
+  useEffect(() => { if (store.mode !== 'cloud' && store.mode !== 'local') return; if (store.mode === 'cloud' && !(store.ready.root && store.ready.accounts && store.ready.trades)) return; if ((S.settings.cfdV || 0) < 2 && Object.keys(S.accounts).length) { const n = migrateCfdPV(S); if (n) toast(`Fixed NAS100 P&L on ${n} CFD trade${n > 1 ? 's' : ''} ($10 per point per lot)`) } }, [store.mode, S.settings.cfdV, Object.keys(S.accounts).length, store.ready.trades]);
   const go = (v, p) => { setView(v); setParams(p ? { ...p, _: Date.now() } : null); LS.set('compound.view', v); setModals([]); setLo(false); setRo(false); if (mainRef.current) mainRef.current.scrollTop = 0 };
   UI.go = go;
   UI.open = (kind, props = {}) => setModals(m => [...m.filter(x => !(kind === 'detail' && x.kind === 'detail')), { kind, props, id: uid() }]);
