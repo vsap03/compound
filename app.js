@@ -82,6 +82,12 @@ const tvURL = s => 'https://www.tradingview.com/chart/?symbol=' + encodeURICompo
 const GRADES = ['A+', 'A', 'B', 'C', 'D'];
 const gradeCls = g => g === 'A+' ? 'g-Ap' : 'g-' + (g || 'B');
 const gradeScore = g => ({ 'A+': 4, A: 3.4, B: 2.5, C: 1.5, D: 0.5 }[g] ?? null);
+/* daily journal helpers: plan levels used to be one text blob, now a list of chips; day rating moved from 1–5 to 1–10 */
+function planLevels(p) { if (!p || !p.levels) return []; if (Array.isArray(p.levels)) return p.levels.filter(Boolean); return String(p.levels).split(/\n|·|;/).map(x => x.trim()).filter(Boolean) }
+function levelsText(p) { return planLevels(p).join(' / ') }
+function dayScore(d) { const r = d && d.review; if (!r) return null; if (r.score != null) return +r.score; if (r.rating != null) return Math.round(+r.rating * 2); return null }
+function journaledDay(d) { return !!(d && (d.plan || d.review)) }
+const BIAS_L = { bull: 'Bullish', bear: 'Bearish', neutral: 'No bias', wait: 'Wait for it' };
 const DEFAULT_SETTINGS = {
   name: 'Vivek',
   checklist: ['Have you done your high timeframe?', 'Do you have that FVG gap?', 'Do we have an inverse to the upside?', 'Did we think about this entry before entering?'],
@@ -1086,19 +1092,22 @@ function StrategyForm({ id, onClose }) {
 
 function PlanForm({ day, onClose }) {
   const S = store.s; const d = S.days[day] || { id: day };
-  const [p, setP] = useState({ bias: '', levels: '', news: '', a: '', b: '', focus: '', maxTrades: S.settings.maxTrades, maxLoss: S.settings.maxDailyLoss, mood: 3, ...(d.plan || {}) });
+  const [p, setP] = useState(() => { const o = { bias: '', feeling: '', rule: '', news: '', a: '', b: '', focus: '', maxTrades: S.settings.maxTrades, maxLoss: S.settings.maxDailyLoss, mood: 3, ...(d.plan || {}) }; o.levels = planLevels(d.plan).join('\n'); return o });
   const up = x => setP(o => ({ ...o, ...x }));
-  return html`<${Modal} title=${'Pre-market plan · ' + fmtDate(parseDay(day), { wd: true })} size="wide" onClose=${onClose} foot=${html`<button class="btn btn-g" onClick=${onClose}>Cancel</button><button class="btn btn-w" onClick=${() => { store.put('days', { ...d, id: day, plan: { ...p, at: Date.now() } }); toast('Plan saved. Trade the plan.'); onClose() }}>Save plan</button>`}>
+  const save = () => { const levels = String(p.levels || '').split(/\n/).map(x => x.trim()).filter(Boolean); store.put('days', { ...d, id: day, plan: { ...p, levels, at: Date.now() } }); toast('Plan saved. Trade the plan.'); onClose() };
+  return html`<${Modal} title=${'Pre-market plan · ' + fmtDate(parseDay(day), { wd: true })} size="wide" onClose=${onClose} foot=${html`<button class="btn btn-g" onClick=${onClose}>Cancel</button><button class="btn btn-w" onClick=${save}>Save plan</button>`}>
     <div class="grid g2" style=${{ gap: '18px' }}>
       <div class="col" style=${{ gap: '14px' }}>
-        <${Field} label="Bias"><${Seg} v=${p.bias} set=${v => up({ bias: v })} opts=${[['bull', 'Bullish'], ['bear', 'Bearish'], ['neutral', 'Neutral'], ['wait', 'Wait for it']]}/><//>
-        <${Field} label="Key levels · HTF PD arrays, liquidity, opens"><textarea class="ta" rows="4" placeholder=${'PDH 21,450 · PDL 21,212\nNY midnight open 21,330\n1H FVG 21,380–21,402'} value=${p.levels} onInput=${e => up({ levels: e.target.value })}></textarea><//>
+        <${Field} label="Bias"><${Seg} v=${p.bias} set=${v => up({ bias: v })} opts=${[['bull', 'Bullish'], ['bear', 'Bearish'], ['neutral', 'No bias'], ['wait', 'Wait for it']]}/><//>
+        <${Field} label="Feeling"><${Chips} single all=${['Calm', 'Focused', 'Tired', 'Rushed']} v=${p.feeling} set=${v => up({ feeling: v })}/><//>
+        <${Field} label="Key levels · one per line"><textarea class="ta" rows="4" placeholder=${'PDH 21,450\nNY midnight open 21,330\n1H FVG 21,380'} value=${p.levels} onInput=${e => up({ levels: e.target.value })}></textarea><//>
         <${Field} label="News & events"><input class="in" placeholder="8:30 CPI, 10:00 ISM" value=${p.news} onInput=${e => up({ news: e.target.value })}/><//>
       </div>
       <div class="col" style=${{ gap: '14px' }}>
+        <${Field} label="One rule for today"><input class="in" value=${p.rule} placeholder="Wait for the 15m FVG retest" onInput=${e => up({ rule: e.target.value })}/><//>
         <${Field} label="Scenario A · if this happens, I do this"><textarea class="ta" rows="2" value=${p.a} onInput=${e => up({ a: e.target.value })}></textarea><//>
         <${Field} label="Scenario B"><textarea class="ta" rows="2" value=${p.b} onInput=${e => up({ b: e.target.value })}></textarea><//>
-        <${Field} label="One thing to focus on today"><input class="in" value=${p.focus} onInput=${e => up({ focus: e.target.value })}/><//>
+        <${Field} label="One thing to focus on"><input class="in" value=${p.focus} onInput=${e => up({ focus: e.target.value })}/><//>
         <div class="grid g3 keep2"><${Field} label="Max trades"><input class="in tn" value=${p.maxTrades} onInput=${e => up({ maxTrades: e.target.value })}/><//><${Field} label="Max loss"><div class="inwrap"><span class="pre">$</span><input class="in tn" value=${p.maxLoss} onInput=${e => up({ maxLoss: e.target.value })}/></div><//><${Field} label=${'Readiness · ' + p.mood + '/5'}><input type="range" min="1" max="5" value=${p.mood} onInput=${e => up({ mood: +e.target.value })}/><//></div>
       </div>
     </div><//>`;
@@ -1106,15 +1115,17 @@ function PlanForm({ day, onClose }) {
 
 function ReviewForm({ day, onClose }) {
   const S = store.s; const d = S.days[day] || { id: day };
-  const [r, setR] = useState({ text: '', lessons: '', mood: 3, rating: 3, plan: null, ...(d.review || {}) });
+  const [r, setR] = useState(() => ({ text: '', lessons: '', mood: 3, plan: null, ...(d.review || {}), score: dayScore(d) ?? 7 }));
   const up = x => setR(o => ({ ...o, ...x }));
   return html`<${Modal} title=${'Day review · ' + fmtDate(parseDay(day), { wd: true })} onClose=${onClose} foot=${html`<button class="btn btn-g" onClick=${onClose}>Cancel</button><button class="btn btn-w" onClick=${() => { store.put('days', { ...d, id: day, review: { ...r, at: Date.now() } }); toast('Review saved'); onClose() }}>Save review</button>`}>
-    <${Field} label="Did you trade your plan?"><${Seg} v=${r.plan === true ? 'y' : r.plan === false ? 'n' : '-'} set=${v => up({ plan: v === 'y' ? true : v === 'n' ? false : null })} opts=${[['y', 'Yes'], ['n', 'No'], ['-', 'Partly']]}/><//>
-    <${Field} label="What happened today?"><textarea class="ta" rows="5" value=${r.text} onInput=${e => up({ text: e.target.value })}></textarea><//>
-    <${Field} label="Lessons"><textarea class="ta" rows="2" value=${r.lessons} onInput=${e => up({ lessons: e.target.value })}></textarea><//>
-    <div class="grid g2"><${Field} label=${'Mood · ' + r.mood + '/5'}><input type="range" min="1" max="5" value=${r.mood} onInput=${e => up({ mood: +e.target.value })}/><//><${Field} label=${'Execution rating · ' + r.rating + '/5'}><input type="range" min="1" max="5" value=${r.rating} onInput=${e => up({ rating: +e.target.value })}/><//></div>
+    <${Field} label="Did you follow your plan?"><${Seg} v=${r.plan === true ? 'y' : r.plan === false ? 'n' : r.plan === 'part' ? 'p' : ''} set=${v => up({ plan: v === 'y' ? true : v === 'n' ? false : 'part' })} opts=${[['y', 'Yes'], ['p', 'Partly'], ['n', 'No']]}/><//>
+    <${Field} label=${'Rate your day · ' + r.score + '/10'}><${ScorePick} v=${r.score} set=${v => up({ score: v })}/><//>
+    <${Field} label="What happened today?"><textarea class="ta" rows="4" value=${r.text} onInput=${e => up({ text: e.target.value })}></textarea><//>
+    <${Field} label="One lesson"><textarea class="ta" rows="2" value=${r.lessons} onInput=${e => up({ lessons: e.target.value })}></textarea><//>
   <//>`;
 }
+
+function ScorePick({ v, set }) { return html`<div class="scorep">${[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => html`<button type="button" key=${n} class=${'tn' + (+v === n ? ' on' : '') + (n <= 4 ? ' lo' : n >= 8 ? ' hi' : '')} onClick=${() => set(n)}>${n}</button>`)}</div>` }
 
 /* pairs individual fills (Tradesea / Rithmic order exports) into round-trip trades, FIFO per account + symbol */
 function pairFills(fills) {
@@ -1488,11 +1499,13 @@ function Journal({ C, params }) {
   const { S, D } = C; const [tab, setTab] = useState(params?.day ? 'daily' : (LS.get('compound.jtab', 'trades')));
   const [view, setView] = useState(LS.get('compound.jview', 'grid'));
   const [ts, f, setF] = useTradeFilter(D.ts); const s = stats(ts);
+  const [planReq, setPlanReq] = useState(0);
   useEffect(() => { if (params?.day) setTab('daily') }, [params]);
   return html`<div class="page">
     <${PageHead} title="Trade journal" sub=${D.ts.length + ' trades logged · ' + scopeLabel(S, C.F)}>
       <${Seg} v=${tab} set=${v => { setTab(v); LS.set('compound.jtab', v) }} opts=${[['trades', 'Trades', 'book'], ['daily', 'Daily', 'cal'], ['weekly', 'Weekly', 'cal']]}/>
-      <button class="btn btn-g" onClick=${() => UI.open('quick')}><${I} n="bolt"/>Quick log</button><button class="btn btn-w" onClick=${() => UI.open('trade')}><${I} n="plus"/>Log trade</button>
+      ${tab === 'daily' ? html`<button class="btn btn-g" onClick=${() => UI.open('trade')}><${I} n="plus"/>Log trade</button><button class="btn btn-w" onClick=${() => setPlanReq(n => n + 1)}><${I} n="check"/>${S.days[todayKey()]?.plan ? 'Edit today' : 'Plan today'}</button>`
+        : html`<button class="btn btn-g" onClick=${() => UI.open('quick')}><${I} n="bolt"/>Quick log</button><button class="btn btn-w" onClick=${() => UI.open('trade')}><${I} n="plus"/>Log trade</button>`}
     <//>
     ${tab === 'trades' && html`
       <div class="row"><span class="lbl">Performance</span><span class="sp"></span><button class="btn btn-t xs" onClick=${() => UI.open('import')}><${I} n="upload" s=${14}/>Import</button><button class="btn btn-t xs" onClick=${C.toggleHide}><${I} n=${UIS.hide ? 'eye' : 'eyeoff'} s=${14}/>${UIS.hide ? 'Show' : 'Hide'} P&L</button></div>
@@ -1506,35 +1519,9 @@ function Journal({ C, params }) {
       ${!ts.length ? html`<${Empty} title=${D.ts.length ? 'No trades match' : 'No trades yet'} body=${D.ts.length ? 'Loosen the filters to see more.' : 'Log one by hand, or bring your history in from your broker.'}>${!D.ts.length && html`<button class="btn btn-w" onClick=${() => UI.open('trade')}>Log a trade</button><button class="btn btn-t" onClick=${() => UI.open('import')}>Import trades</button>`}<//>`
         : view === 'grid' ? html`<div class="tgrid">${ts.map(t => html`<${TradeCard} key=${t.id} t=${t} S=${S} onClick=${() => UI.open('detail', { id: t.id, list: ts.map(x => x.id) })}/>`)}</div>`
         : html`<div class="card" style=${{ padding: 0 }}><${TradeTable} ts=${ts} S=${S}/></div>`}`}
-    ${tab === 'daily' && html`<${DailyView} C=${C} focus=${params?.day}/>`}
+    ${tab === 'daily' && html`<${DailyView} C=${C} focus=${params?.day} planReq=${planReq}/>`}
     ${tab === 'weekly' && html`<${WeeklyView} C=${C}/>`}
   </div>`;
-}
-
-function DailyView({ C, focus }) {
-  const { S, D } = C; const days = byDay(D.ts);
-  const keys = [...new Set([...Object.keys(days), ...Object.keys(S.days).filter(k => S.days[k].plan || S.days[k].review), todayKey(), ...(focus ? [focus] : [])])].sort().reverse();
-  const [open, setOpen] = useState(focus || keys[0]);
-  useEffect(() => { if (focus) { setOpen(focus); setTimeout(() => document.getElementById('day-' + focus)?.scrollIntoView({ block: 'start' }), 60) } }, [focus]);
-  return html`<div class="col" style=${{ gap: '10px' }}>${keys.slice(0, 120).map(k => { const x = days[k]; const d = S.days[k] || {}; const isOpen = open === k; const ds = x ? stats(x.trades) : null;
-    return html`<div class="card" id=${'day-' + k} key=${k} style=${{ padding: 0, overflow: 'hidden' }}>
-      <button style=${{ width: '100%', display: 'flex', alignItems: 'center', gap: '14px', padding: '14px 18px', textAlign: 'left', flexWrap: 'wrap' }} onClick=${() => setOpen(isOpen ? null : k)}>
-        <div style=${{ minWidth: '130px' }}><b>${fmtDate(parseDay(k), { wd: true })}</b><div class="dim" style=${{ fontSize: '10.5px' }}>${parseDay(k).getFullYear()}</div></div>
-        <span class=${'tn ' + cls(x?.pnl)} style=${{ fontSize: '17.5px', fontWeight: 800, minWidth: '110px' }}>${x ? money(x.pnl, { sign: true, dec: 0 }) : '—'}</span>
-        <span class="mut tn" style=${{ fontSize: '11.5px' }}>${x ? `${x.n} trades · ${x.w}W ${x.l}L` : 'No trades'}</span>
-        <span class="sp"></span>${d.plan && html`<span class="chip on">Plan</span>`}${d.review && html`<span class="chip pos">Reviewed</span>`}${d.review?.plan === false && html`<span class="chip neg">Off plan</span>`}
-        ${x && html`<${Spark} vals=${[0, ...equitySeries(x.trades).map(p => p.v)]} w=${90} h=${28}/>`}<${I} n="down" c=${isOpen ? '' : ''} s=${14}/></button>
-      ${isOpen && html`<div class="dayin">
-        <div class="col" style=${{ gap: '12px' }}>
-          <div class="row"><span class="lbl">Plan</span><span class="sp"></span><button class="lnk" onClick=${() => UI.open('plan', { day: k })}>${d.plan ? 'Edit' : 'Write'}</button></div>
-          ${d.plan ? html`<div class="mdtx" style=${{ fontSize: '12px' }}>${d.plan.bias && html`<b>${({ bull: 'Bullish', bear: 'Bearish', neutral: 'Neutral', wait: 'Wait' })[d.plan.bias]}</b> · `}${d.plan.focus}${d.plan.levels && '\n' + d.plan.levels}${d.plan.a && '\nA: ' + d.plan.a}${d.plan.b && '\nB: ' + d.plan.b}</div>` : html`<div class="dim">No plan written.</div>`}
-          <div class="row"><span class="lbl">Review</span><span class="sp"></span><button class="lnk" onClick=${() => UI.open('review', { day: k })}>${d.review ? 'Edit' : 'Write'}</button><${AskBtn} label="AI recap" q=${`Recap my trading day ${k}. What did I do well, what went wrong, and one concrete rule for tomorrow?`} C=${C}/></div>
-          ${d.review ? html`<div class="mdtx" style=${{ fontSize: '12px' }}>${d.review.text}${d.review.lessons && '\n\nLesson: ' + d.review.lessons}</div><div class="row" style=${{ gap: '6px' }}><span class="chip">Mood ${d.review.mood}/5</span><span class="chip">Execution ${d.review.rating}/5</span></div>` : html`<div class="dim">How did it go? Write it while it is fresh.</div>`}
-        </div>
-        <div class="col" style=${{ gap: '10px' }}>
-          ${ds && html`<div class="grid g3 keep2"><div><div class="lbl">Win rate</div><b>${pct(ds.wr, 0)}</b></div><div><div class="lbl">Best</div><b class="pos">${money(ds.best?.pnl, { sign: true, dec: 0 })}</b></div><div><div class="lbl">Worst</div><b class="neg">${money(ds.worst?.pnl, { sign: true, dec: 0 })}</b></div></div>`}
-          ${x ? x.trades.sort((a, b) => tTime(a) - tTime(b)).map(t => html`<button key=${t.id} class="row" style=${{ padding: '9px 10px', borderRadius: '10px', background: 'var(--card2)', flexWrap: 'nowrap', gap: '10px', width: '100%' }} onClick=${() => UI.open('detail', { id: t.id, list: x.trades.map(y => y.id) })}><span class="dim tn">${fmtTime(t.t)}</span><b>${t.symbol}</b><${Side} s=${t.side}/><${Grade} g=${t.grade}/><span class="sp"></span><${Money} v=${t.pnl}/></button>`) : html`<button class="btn btn-g sm" onClick=${() => UI.open('trade', { preset: { t: k + 'T09:30' } })}><${I} n="plus"/>Log a trade on this day</button>`}
-        </div></div>`}</div>` })}</div>`;
 }
 
 function WeeklyView({ C }) {
@@ -1676,6 +1663,244 @@ function CopyGroupCard({ S, t }) {
     <div class="row"><${I} n="copy" s=${15}/><b>Copy trade</b><span class="mut" style=${{ fontSize: '11px' }}>${g.length} accounts</span><span class="sp"></span><span class="mut" style=${{ fontSize: '11px' }}>Total</span><b class=${'tn ' + cls(tot)}>${money(tot, { sign: true })}</b></div>
     ${g.map(x => { const a = S.accounts[x.account]; return html`<button key=${x.id} class="row" style=${{ flexWrap: 'nowrap', gap: '9px', fontSize: '11.5px', padding: '6px 8px', borderRadius: '9px', background: x.id === t.id ? 'var(--card2)' : 'transparent', width: '100%' }} onClick=${() => UI.open('detail', { id: x.id, list: g.map(y => y.id) })}>${a ? html`<${FirmLogo} id=${a.firm} s=${20}/>` : null}<span style=${{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>${a?.label || 'No account'}</span><span class=${'chip ' + (x.lead ? 'on' : '')} style=${{ height: '20px', fontSize: '9.5px' }}>${x.lead ? 'Main' : 'Copy'}</span><span class="sp"></span><span class="dim tn">${qtyFmt(x)}</span><span class=${'tn ' + cls(x.pnl)} style=${{ minWidth: '70px', textAlign: 'right', fontWeight: 700 }}>${money(x.pnl, { sign: true })}</span></button>` })}
   </div>`;
+}
+
+/* ---------------- Daily journal: today strip + month page + day sheet ---------------- */
+const FEELINGS = ['Calm', 'Focused', 'Tired', 'Rushed'];
+const WDL = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const MONL = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const isWkday = d => { const w = d.getDay(); return w > 0 && w < 6 };
+const prevWkday = d => { let x = addDays(d, -1); while (!isWkday(x)) x = addDays(x, -1); return x };
+
+function nyClock() {
+  let wd, h, m;
+  try { const p = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', weekday: 'short', hour: 'numeric', minute: 'numeric', hourCycle: 'h23' }).formatToParts(new Date()); wd = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(p.find(x => x.type === 'weekday').value); h = +p.find(x => x.type === 'hour').value % 24; m = +p.find(x => x.type === 'minute').value }
+  catch (e) { const d = new Date(); wd = d.getDay(); h = d.getHours(); m = d.getMinutes() }
+  const now = h * 60 + m; const dur = x => { const hh = Math.floor(x / 60), mm = x % 60; return hh ? `${hh}h ${mm}m` : `${mm}m` };
+  if (wd === 6 || (wd === 5 && now >= 17 * 60) || (wd === 0 && now < 18 * 60)) return { tag: 'Weekend', text: wd === 0 ? `futures reopen in ${dur(18 * 60 - now)}` : 'futures reopen Sunday 6pm ET', live: false };
+  if (now < 9 * 60 + 30) return { tag: 'NY AM', text: `market opens in ${dur(9 * 60 + 30 - now)}`, live: false };
+  if (now < 16 * 60) return { tag: now < 12 * 60 ? 'NY AM' : 'NY PM', text: `session live · ${dur(16 * 60 - now)} left`, live: true };
+  return { tag: 'After hours', text: 'cash session closed', live: false };
+}
+
+/* streak = consecutive weekdays with a plan or a review; today does not break it until it is over */
+function dayStreak(S) {
+  const j = k => journaledDay(S.days[k]);
+  let d = new Date(); d.setHours(12); if (!isWkday(d) || !j(dayKey(d))) d = prevWkday(d);
+  let cur = 0; while (j(dayKey(d))) { cur++; d = prevWkday(d) }
+  const keys = Object.keys(S.days).filter(k => /^\d{4}-\d\d-\d\d$/.test(k) && j(k)).sort();
+  let best = 0, run = 0, last = null;
+  for (const k of keys) { const dd = parseDay(k); if (!isWkday(dd)) continue; run = last && dayKey(prevWkday(dd)) === last ? run + 1 : 1; best = Math.max(best, run); last = k }
+  return { cur, best: Math.max(best, cur) };
+}
+
+function daysSay(S, days) {
+  const ks = Object.keys(days).sort(); if (ks.length < 3) return [];
+  const avg = a => a.length ? sum(a, x => x) / a.length : null; const out = [];
+  const wp = ks.filter(k => S.days[k]?.plan).map(k => days[k].pnl), np = ks.filter(k => !S.days[k]?.plan).map(k => days[k].pnl);
+  if (wp.length && np.length) out.push({ k: 'plan', head: 'Days with a plan', a: avg(wp), b: avg(np), bl: 'without', n: wp.length });
+  const byF = {}; for (const k of ks) { const f = S.days[k]?.plan?.feeling; if (f) (byF[f] ||= []).push(days[k].pnl) }
+  const fs = Object.entries(byF).filter(x => x[1].length >= 1).sort((x, y) => avg(y[1]) - avg(x[1]));
+  if (fs.length) out.push({ k: 'feel', head: `Feeling ${fs[0][0]}`, a: avg(fs[0][1]), sub: 'a day', n: fs[0][1].length, worst: fs.length > 1 ? { f: fs[fs.length - 1][0], v: avg(fs[fs.length - 1][1]) } : null });
+  const after = []; for (let i = 0; i < ks.length - 1; i++) if (days[ks[i]].trades.some(t => t.rules === false)) after.push(days[ks[i + 1]].pnl);
+  if (after.length) out.push({ k: 'rule', head: 'After a rule broken', a: avg(after), sub: 'next day', n: after.length });
+  const sc = ks.filter(k => dayScore(S.days[k]) != null); if (sc.length >= 3) { const hi = sc.filter(k => dayScore(S.days[k]) >= 7).map(k => days[k].pnl), lo = sc.filter(k => dayScore(S.days[k]) < 7).map(k => days[k].pnl); if (hi.length && lo.length) out.push({ k: 'score', head: 'Days you rate 7+', a: avg(hi), b: avg(lo), bl: 'below 7', n: hi.length }) }
+  return out;
+}
+
+function planSummary(p) { if (!p) return ''; const l = planLevels(p).length; return [BIAS_L[p.bias], p.feeling, l ? `${l} level${l > 1 ? 's' : ''}` : ''].filter(Boolean).join(' · ') }
+
+function DailyView({ C, focus, planReq }) {
+  const { S, D } = C; const days = useMemo(() => byDay(D.ts), [D]);
+  const tk = todayKey(); const today = S.days[tk] || {}; const tx = days[tk];
+  const [m, setM] = useState(() => { const d = focus ? parseDay(focus) : new Date(); return new Date(d.getFullYear(), d.getMonth(), 1) });
+  const [planOpen, setPlanOpen] = useState(false);
+  const [clock, setClock] = useState(nyClock);
+  const [pv, setPv] = useState(LS.get('compound.dview', 'cards'));
+  useEffect(() => { const t = setInterval(() => setClock(nyClock()), 30000); return () => clearInterval(t) }, []);
+  useEffect(() => { if (focus) { UI.open('day', { day: focus, tab: S.days[focus]?.review || !days[focus] ? 'plan' : 'review' }); const d = parseDay(focus); setM(new Date(d.getFullYear(), d.getMonth(), 1)) } }, [focus]);
+  useEffect(() => { if (planReq) { setPlanOpen(true); setTimeout(() => document.getElementById('dj-today')?.scrollIntoView({ block: 'start', behavior: 'smooth' }), 40) } }, [planReq]);
+  const stk = useMemo(() => dayStreak(S), [S.days]);
+  const say = useMemo(() => daysSay(S, days), [S.days, days]);
+  const past = useMemo(() => [...new Set([...Object.keys(days), ...Object.keys(S.days).filter(k => /^\d{4}-\d\d-\d\d$/.test(k) && journaledDay(S.days[k]))])].filter(k => k < tk).sort().reverse().slice(0, 12), [S.days, days]);
+  const open = (day, tab) => UI.open('day', { day, tab: tab || (days[day] ? (S.days[day]?.review ? 'trades' : 'review') : 'plan') });
+  const steps = [
+    { k: 'plan', t: 'Plan', d: today.plan ? planSummary(today.plan) || 'Plan set' : 'Bias, levels, one rule', done: !!today.plan, go: () => setPlanOpen(o => !o) },
+    { k: 'trade', t: 'Trade', d: tx ? `${tx.n} trade${tx.n > 1 ? 's' : ''} · ${money(tx.pnl, { sign: true, dec: 0 })}` : 'Trades land here by themselves', done: !!tx, go: () => tx ? open(tk, 'trades') : UI.open('trade') },
+    { k: 'review', t: 'Review', d: today.review ? `Rated ${dayScore(today)}/10` : '4 questions, 2 minutes', done: !!today.review, go: () => open(tk, 'review') }];
+  const next = steps.findIndex(s => !s.done);
+  const now = new Date();
+  return html`<div class="dj">
+    <section class="card djtoday" id="dj-today">
+      <div class="djt-top">
+        <div class="col" style=${{ gap: '4px' }}>
+          <span class="lbl">Today · ${WDL[now.getDay()]} ${now.getDate()} ${MONL[now.getMonth()]}</span>
+          <span class="mut" style=${{ fontSize: '11.5px' }}><span class=${'djdot' + (clock.live ? ' live' : '')}></span>${clock.tag} · ${clock.text}</span>
+        </div>
+        <span class="sp"></span>
+        <div class="djsofar"><span class="lbl">Today so far</span><b class=${'tn ' + cls(tx?.pnl)}>${tx ? money(tx.pnl, { sign: true, dec: 0 }) : '$0'}</b><span class="dim" style=${{ fontSize: '10.5px' }}>${tx ? `${tx.n} trade${tx.n > 1 ? 's' : ''} · ${tx.w}W ${tx.l}L` : 'no trades yet'}</span></div>
+        <div class="djstreak" title=${'Best run ' + stk.best + ' days'}><${I} n="flame" s=${15}/><b class="tn">${stk.cur}</b><span class="dim">day streak</span></div>
+      </div>
+      <div class="djsteps">${steps.map((s, i) => html`<button key=${s.k} class=${'djstep' + (s.done ? ' done' : '') + (i === next ? ' next' : '') + (s.k === 'plan' && planOpen ? ' open' : '')} onClick=${s.go}>
+        <span class="n tn">${s.done ? html`<${I} n="check" s=${12}/>` : i + 1}</span><span class="col" style=${{ gap: '2px', minWidth: 0 }}><b>${s.t}</b><span class="d">${s.d}</span></span></button>`)}</div>
+      ${planOpen && html`<div class="djplanwrap"><${PlanInline} day=${tk} S=${S} onSaved=${() => setPlanOpen(false)}/></div>`}
+    </section>
+
+    <div class="djmain">
+      <section class="card djmonth">
+        <${MonthPage} S=${S} days=${days} m=${m} setM=${setM} stk=${stk} onPick=${k => open(k)} onPlan=${() => setPlanOpen(true)}/>
+      </section>
+      <div class="col djside">
+        <section class="card">
+          <div class="ch"><span class="lbl">Streak</span><span class="sp"></span><span class="dim tn" style=${{ fontSize: '10.5px' }}>best ${stk.best}</span></div>
+          <div class="row" style=${{ alignItems: 'baseline', gap: '8px' }}><b class="tn" style=${{ fontSize: '30px', fontWeight: 800, letterSpacing: '-.03em' }}>${stk.cur}</b><span class="mut" style=${{ fontSize: '11.5px' }}>day${stk.cur === 1 ? '' : 's'} journaled in a row</span></div>
+          <${StreakStrip} S=${S}/>
+        </section>
+        <section class="card">
+          <div class="ch"><span class="lbl">What your days say</span></div>
+          ${say.length ? html`<div class="col" style=${{ gap: '8px' }}>${say.map(x => html`<div class="djsay" key=${x.k}>
+            <div class="row" style=${{ gap: '6px' }}><b style=${{ fontSize: '12px' }}>${x.head}</b><span class="sp"></span><b class=${'tn ' + cls(x.a)}>${money(x.a, { sign: true, dec: 0 })}</b></div>
+            <div class="dim" style=${{ fontSize: '10.5px' }}>${x.b != null ? html`vs <span class=${'tn ' + cls(x.b)}>${money(x.b, { sign: true, dec: 0 })}</span> ${x.bl} · avg per day` : html`${x.sub} on average · ${x.n} day${x.n > 1 ? 's' : ''}`}${x.worst ? html` · ${x.worst.f} <span class=${'tn ' + cls(x.worst.v)}>${money(x.worst.v, { sign: true, dec: 0 })}</span>` : ''}</div></div>`)}</div>`
+            : html`<div class="dim" style=${{ fontSize: '11.5px' }}>Plan and review a few days. Compound will show what your best days have in common.</div>`}
+        </section>
+      </div>
+    </div>
+
+    <section>
+      <div class="ch"><span class="lbl">Past days</span><span class="sp"></span><${Seg} sm v=${pv} set=${v => { setPv(v); LS.set('compound.dview', v) }} opts=${[['cards', 'Cards'], ['list', 'List']]}/></div>
+      ${!past.length ? html`<div class="card dim" style=${{ textAlign: 'center', fontSize: '11.5px' }}>Your past days will stack up here.</div>`
+        : pv === 'cards' ? html`<div class="djpast">${past.map(k => html`<${PastDay} key=${k} k=${k} x=${days[k]} d=${S.days[k]} onClick=${() => open(k)}/>`)}</div>`
+        : html`<div class="card" style=${{ padding: 0 }}>${past.map(k => { const x = days[k], d = S.days[k] || {}, sc = dayScore(d); return html`<button key=${k} class="djrow" onClick=${() => open(k)}><span class="tn" style=${{ minWidth: '96px' }}>${fmtDate(parseDay(k), { wd: true })}</span><b class=${'tn ' + cls(x?.pnl)} style=${{ minWidth: '80px' }}>${x ? money(x.pnl, { sign: true, dec: 0 }) : '—'}</b><span class="mut hide-m" style=${{ fontSize: '11px' }}>${dayLine(x)}</span><span class="sp"></span>${d.plan && html`<span class="chip">${planSummary(d.plan) || 'Plan'}</span>`}<span class="tn dim" style=${{ minWidth: '36px', textAlign: 'right' }}>${sc != null ? sc + '/10' : '—'}</span></button>` })}</div>`}
+    </section>
+  </div>`;
+}
+
+function dayLine(x) { if (!x) return 'No trades'; const br = x.trades.some(t => t.rules === false), kp = x.trades.some(t => t.rules === true); return `${x.n} trade${x.n > 1 ? 's' : ''}${br ? ' · rule broken' : kp ? ' · rules kept' : ''}` }
+
+function scoreColor(sc) { return sc == null ? 'var(--line2)' : sc >= 7 ? 'var(--pos)' : sc >= 5 ? 'var(--acc)' : 'var(--neg)' }
+
+function PastDay({ k, x, d, onClick }) {
+  const sc = dayScore(d); const dd = parseDay(k);
+  return html`<button class=${'card djcard ' + (x ? (x.pnl >= 0 ? 'up' : 'dn') : '')} onClick=${onClick}>
+    <div class="row" style=${{ gap: '8px', flexWrap: 'nowrap' }}><div class="col" style=${{ gap: '1px', minWidth: 0 }}><span class="lbl">${WDL[dd.getDay()].slice(0, 3)}</span><b>${dd.getDate()} ${MONL[dd.getMonth()].slice(0, 3)}</b></div><span class="sp"></span>
+      <${Ring} v=${(sc || 0) * 10} size=${34} w=${3} color=${scoreColor(sc)}><span class="tn" style=${{ fontSize: '10.5px' }}>${sc ?? '–'}</span><//></div>
+    <b class=${'tn ' + cls(x?.pnl)} style=${{ fontSize: '19px', fontWeight: 800, letterSpacing: '-.02em' }}>${x ? money(x.pnl, { sign: true, dec: 0 }) : '—'}</b>
+    <span class="dim" style=${{ fontSize: '10.5px' }}>${dayLine(x)}</span>
+    ${(d?.plan || d?.review?.lessons) && html`<span class="mut djclip">${d.review?.lessons || planSummary(d.plan)}</span>`}
+  </button>`;
+}
+
+function StreakStrip({ S }) {
+  const cells = []; let d = new Date(); d.setHours(12); if (!isWkday(d)) d = prevWkday(d);
+  for (let i = 0; i < 20; i++) { cells.unshift(dayKey(d)); d = prevWkday(d) }
+  const tk = todayKey();
+  return html`<div class="djstrip">${cells.map(k => { const dd = S.days[k]; const on = journaledDay(dd); return html`<span key=${k} title=${fmtDate(parseDay(k), { wd: true })} class=${(on ? (dd.plan && dd.review ? 'on full' : 'on') : '') + (k === tk ? ' tdy' : '')}></span>` })}</div>`;
+}
+
+function MonthPage({ S, days, m, setM, stk, onPick, onPlan }) {
+  const first = (m.getDay() + 6) % 7; const n = new Date(m.getFullYear(), m.getMonth() + 1, 0).getDate();
+  const cells = []; for (let i = 0; i < first; i++) cells.push(null); for (let i = 1; i <= n; i++) cells.push(new Date(m.getFullYear(), m.getMonth(), i)); while (cells.length % 7) cells.push(null);
+  const pre = `${m.getFullYear()}-${pad(m.getMonth() + 1)}`;
+  const mo = Object.entries(days).filter(([k]) => k.startsWith(pre)); const net = sum(mo, x => x[1].pnl); const mx = Math.max(1, ...mo.map(x => Math.abs(x[1].pnl)));
+  const jn = Object.keys(S.days).filter(k => k.startsWith(pre) && journaledDay(S.days[k])).length;
+  const tk = todayKey();
+  return html`
+    <div class="djmh">
+      <div class="row" style=${{ gap: '6px' }}><button class="ib" onClick=${() => setM(new Date(m.getFullYear(), m.getMonth() - 1, 1))} aria-label="Previous month"><${I} n="left"/></button><h3 style=${{ minWidth: '128px', textAlign: 'center' }}>${MONL[m.getMonth()]} ${m.getFullYear()}</h3><button class="ib" onClick=${() => setM(new Date(m.getFullYear(), m.getMonth() + 1, 1))} aria-label="Next month"><${I} n="right"/></button></div>
+      <span class="sp"></span>
+      <div class="djstats"><div><b class=${'tn ' + cls(net)}>${mo.length ? money(net, { sign: true, dec: 0 }) : '$0'}</b><span>month</span></div><div><b class="tn">${jn}</b><span>days journaled</span></div><div><b class="tn">${stk.cur}</b><span>day streak</span></div></div>
+    </div>
+    <div class="djcal">${['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'].map(x => html`<div class="dh" key=${x}>${x}</div>`)}
+      ${cells.map((d, i) => { if (!d) return html`<div key=${'e' + i} class="djc empty"></div>`; const k = dayKey(d); const x = days[k]; const dj = S.days[k]; const sc = dayScore(dj); const isT = k === tk; const fut = k > tk; const wk = !isWkday(d);
+        const a = x ? .16 + .42 * Math.abs(x.pnl) / mx : 0;
+        const bg = x ? `color-mix(in srgb,${x.pnl >= 0 ? 'var(--pos)' : 'var(--neg)'} ${Math.round(a * 100)}%,var(--card2))` : undefined;
+        return html`<button key=${k} class=${'djc' + (isT ? ' today' : '') + (fut ? ' fut' : '') + (wk ? ' wk' : '') + (x ? ' has' : '')} style=${{ background: bg }} onClick=${() => isT && !dj?.plan ? onPlan() : onPick(k)} disabled=${fut && !dj}>
+          <div class="row" style=${{ gap: '4px', flexWrap: 'nowrap' }}><span class="dn tn">${d.getDate()}</span><span class="sp"></span>${sc != null && html`<span class="rg"><${Ring} v=${sc * 10} size=${20} w=${2.2} color=${scoreColor(sc)}><span class="tn" style=${{ fontSize: '8px' }}>${sc}</span><//></span>`}</div>
+          ${x ? html`<b class="pl tn">${money(x.pnl, { sign: true, dec: 0, compact: Math.abs(x.pnl) >= 10000 })}</b>` : isT ? html`<span class="tl">${dj?.plan ? 'Today · plan set' : '+ Plan today'}</span>` : html`<span></span>`}
+          <div class="dots">${x ? x.trades.slice(0, 6).map((t, j) => html`<i key=${j} class=${t.pnl >= 0 ? 'w' : 'l'}></i>`) : ''}${dj?.plan && html`<i class="p" title="Plan"></i>`}${dj?.review && html`<i class="r" title="Reviewed"></i>`}</div>
+        </button>` })}
+    </div>`;
+}
+
+function PlanInline({ day, S, onSaved, compact }) {
+  const d = S.days[day] || { id: day };
+  const prevK = useMemo(() => Object.keys(S.days).filter(k => /^\d{4}-\d\d-\d\d$/.test(k) && k < day && S.days[k]?.plan).sort().pop(), [S.days, day]);
+  const init = () => ({ bias: '', feeling: '', rule: '', ...(d.plan || {}), levels: planLevels(d.plan) });
+  const [p, setP] = useState(init); const [lv, setLv] = useState(''); const [rules, setRules] = useState(false);
+  useEffect(() => setP(init()), [day]);
+  const up = x => setP(o => ({ ...o, ...x }));
+  const addLv = () => { const v = lv.trim(); if (!v) return; up({ levels: [...p.levels, v] }); setLv('') };
+  const fromPrev = () => { const q = S.days[prevK].plan; setP(o => ({ ...o, bias: q.bias || '', feeling: q.feeling || '', rule: q.rule || '', levels: planLevels(q) })); toast(`Copied ${WDL[parseDay(prevK).getDay()]}'s plan`) };
+  const save = () => { const levels = lv.trim() ? [...p.levels, lv.trim()] : p.levels; store.put('days', { ...d, id: day, plan: { ...(d.plan || {}), ...p, levels, at: Date.now() } }); setLv(''); toast(day === todayKey() ? 'Plan saved. It shows on every trade you log today.' : 'Plan saved'); onSaved && onSaved() };
+  const ruleList = [...(S.settings.checklist || []), ...Object.values(S.strategies || {}).flatMap(s => s.entry || [])].filter(Boolean).slice(0, 12);
+  return html`<div class=${'djplan' + (compact ? ' compact' : '')}>
+    <div class="row"><b style=${{ fontSize: '13px' }}>Your plan</b><span class="sp"></span>${prevK && !d.plan && html`<button class="lnk" onClick=${fromPrev}>Start from ${WDL[parseDay(prevK).getDay()]}'s plan</button>`}<button class="lnk" onClick=${() => UI.open('plan', { day })}>Full plan</button></div>
+    <div class="djpg">
+      <div class="djf"><span class="lbl">Bias</span><div class="row" style=${{ gap: '6px' }}>${[['bull', 'Bullish', 'pos'], ['bear', 'Bearish', 'neg'], ['neutral', 'No bias', '']].map(([k, l, c]) => html`<button type="button" key=${k} class=${'chip ' + (p.bias === k ? 'on ' + c : '')} onClick=${() => up({ bias: p.bias === k ? '' : k })}>${l}</button>`)}</div></div>
+      <div class="djf"><span class="lbl">Feeling</span><${Chips} single all=${FEELINGS} v=${p.feeling} set=${v => up({ feeling: v })}/></div>
+    </div>
+    <div class="djf"><span class="lbl">Levels</span><div class="row" style=${{ gap: '6px' }}>${p.levels.map((x, i) => html`<span class="chip on tn" key=${i}>${x}<button type="button" class="chx" aria-label="Remove level" onClick=${() => up({ levels: p.levels.filter((_, j) => j !== i) })}>×</button></span>`)}
+      <input class="in sm lvin tn" placeholder="+ level  (15m FVG 25,914)" value=${lv} onInput=${e => setLv(e.target.value)} onKeyDown=${e => { if (e.key === 'Enter') { e.preventDefault(); addLv() } }} onBlur=${addLv}/></div></div>
+    <div class="djf"><div class="row"><span class="lbl">One rule</span><span class="sp"></span>${ruleList.length > 0 && html`<button class="lnk" style=${{ fontSize: '10.5px' }} onClick=${() => setRules(r => !r)}>from your rules</button>`}</div>
+      <input class="in" placeholder="No trade before the 9:50 FVG forms" value=${p.rule} onInput=${e => up({ rule: e.target.value })}/>
+      ${rules && html`<div class="row" style=${{ gap: '6px', marginTop: '6px' }}>${ruleList.map((r, i) => html`<button type="button" key=${i} class="chip" onClick=${() => { up({ rule: r }); setRules(false) }}>${r}</button>`)}</div>`}</div>
+    <div class="row djpfoot"><span class="dim" style=${{ fontSize: '10.5px' }}>${day === todayKey() ? 'Your plan shows on every trade you log today.' : 'Saved to ' + fmtDate(parseDay(day), { wd: true }) + '.'}</span><span class="sp"></span><button class="btn btn-w sm" onClick=${save}><${I} n="check"/>Save plan</button></div>
+  </div>`;
+}
+
+function DaySheet({ C, day, tab: tab0, days, onClose }) {
+  const S = useStore(); const d = S.days[day] || { id: day }; const x = days[day]; const dd = parseDay(day);
+  const [tab, setTab] = useState(tab0 || 'plan');
+  const [r, setR] = useState(() => ({ text: '', lessons: '', plan: null, ...(d.review || {}), score: dayScore(d) }));
+  const [busy, setBusy] = useState(false);
+  useEffect(() => { setTab(tab0 || 'plan') }, [day, tab0]);
+  useEffect(() => { const k = e => { if (e.key === 'Escape') onClose() }; addEventListener('keydown', k); return () => removeEventListener('keydown', k) }, [onClose]);
+  const up = o => setR(v => ({ ...v, ...o }));
+  const sc = dayScore(d);
+  const saveReview = () => { store.put('days', { ...d, id: day, review: { ...r, score: r.score ?? 7, at: Date.now() } }); toast('Day reviewed') };
+  const draft = async () => {
+    const smp = store.caps.sample; if (!smp) return toast('Add your AI key in Settings to draft lessons');
+    setBusy(true);
+    try {
+      const lines = (x?.trades || []).map(t => tradeLine(t, S)).join('\n') || 'No trades taken.';
+      const res = await smp(`You are a concise futures trading coach. From this trader's day, write ONE lesson they should carry into tomorrow. One or two sentences, first person ("I..."), concrete and measurable, no preamble.\n\nDate: ${day}\nPlan: ${d.plan ? planSummary(d.plan) + (d.plan.rule ? '; rule: ' + d.plan.rule : '') + (planLevels(d.plan).length ? '; levels: ' + levelsText(d.plan) : '') : 'none'}\nFollowed plan: ${r.plan === true ? 'yes' : r.plan === false ? 'no' : r.plan === 'part' ? 'partly' : 'not answered'}\nDay rating: ${r.score ?? '-'}/10\nNotes: ${r.text || '-'}\nTrades:\n${lines}`, { modelTier: 'default' });
+      up({ lessons: String(res.text || '').trim() });
+    } catch (e) { toast('AI draft did not run') }
+    setBusy(false);
+  };
+  const share = async () => {
+    const txt = `${WDL[dd.getDay()]} ${dd.getDate()} ${MONL[dd.getMonth()]}: ${x ? money(x.pnl, { sign: true, dec: 0 }) + ' · ' + x.n + ' trades' : 'no trades'}${sc != null ? ' · ' + sc + '/10' : ''}${d.plan ? '\nPlan: ' + planSummary(d.plan) : ''}${d.review?.lessons ? '\nLesson: ' + d.review.lessons : ''}\n— Compound`;
+    try { if (navigator.share) await navigator.share({ text: txt }); else { await navigator.clipboard.writeText(txt); toast('Day copied') } } catch (e) { }
+  };
+  const tabs = [['plan', 'Plan'], ['trades', 'Trades' + (x ? ' · ' + x.n : '')], ['review', 'Review'], ['notes', 'Notes']];
+  return html`<div class="ov sheetov" onMouseDown=${e => { if (e.target === e.currentTarget) onClose() }}>
+    <div class="sheet" role="dialog" aria-modal="true" aria-label=${'Day ' + day}>
+      <div class="grab"></div>
+      <div class="sh-h">
+        <div class="col" style=${{ gap: '3px' }}><span class="lbl">${WDL[dd.getDay()]} ${dd.getDate()} ${MONL[dd.getMonth()]}</span>
+          <div class="row" style=${{ gap: '8px', alignItems: 'baseline' }}><b class=${'tn ' + cls(x?.pnl)} style=${{ fontSize: '22px', fontWeight: 800, letterSpacing: '-.03em' }}>${x ? money(x.pnl, { sign: true, dec: 0 }) : '$0'}</b><span class="mut tn" style=${{ fontSize: '11.5px' }}>${x ? x.n + ' trade' + (x.n > 1 ? 's' : '') : 'no trades'}${sc != null ? ' · ' + sc + '/10' : ''}</span></div></div>
+        <span class="sp"></span>
+        <button class="btn btn-g sm" onClick=${share}><${I} n="upload" s=${13}/>Share day</button>
+        <button class="ib" onClick=${onClose} aria-label="Close"><${I} n="x"/></button>
+      </div>
+      <div class="sh-tabs">${tabs.map(([k, l]) => html`<button key=${k} class=${tab === k ? 'on' : ''} onClick=${() => setTab(k)}>${l}</button>`)}</div>
+      <div class="sh-b">
+        ${tab === 'plan' && html`<${PlanInline} day=${day} S=${S} compact/>${d.plan && (d.plan.a || d.plan.b || d.plan.news || d.plan.focus) && html`<div class="mdtx mut" style=${{ fontSize: '11.5px', marginTop: '12px' }}>${[d.plan.focus && 'Focus: ' + d.plan.focus, d.plan.news && 'News: ' + d.plan.news, d.plan.a && 'A: ' + d.plan.a, d.plan.b && 'B: ' + d.plan.b].filter(Boolean).join('\n')}</div>`}`}
+        ${tab === 'trades' && html`<div class="col" style=${{ gap: '8px' }}>
+          ${x && html`<div class="grid g3 keep2" style=${{ gap: '8px' }}>${(() => { const s = stats(x.trades); return [['Win rate', pct(s.wr, 0), ''], ['Best', money(s.best?.pnl, { sign: true, dec: 0 }), 'pos'], ['Worst', money(s.worst?.pnl, { sign: true, dec: 0 }), 'neg']].map(([k, v, c]) => html`<div class="card tight" key=${k}><div class="lbl">${k}</div><b class=${'tn ' + c}>${v}</b></div>`) })()}</div>`}
+          ${x ? [...x.trades].sort((a, b) => tTime(a) - tTime(b)).map(t => html`<button key=${t.id} class="djtrade" onClick=${() => UI.open('detail', { id: t.id, list: x.trades.map(y => y.id) })}><span class="dim tn">${fmtTime(t.t)}</span><b>${t.symbol}</b><${Side} s=${t.side}/><${Grade} g=${t.grade}/>${t.rules === false && html`<span class="chip neg">rule broken</span>`}<span class="sp"></span><${Money} v=${t.pnl}/></button>`)
+            : html`<div class="dim" style=${{ fontSize: '11.5px' }}>No trades on this day.</div>`}
+          <button class="btn btn-g sm" style=${{ alignSelf: 'flex-start' }} onClick=${() => UI.open('trade', { preset: { t: day + 'T09:30' } })}><${I} n="plus"/>Log a trade on this day</button></div>`}
+        ${tab === 'review' && html`<div class="col" style=${{ gap: '16px' }}>
+          <div class="djf"><span class="lbl">Did you follow your plan?</span><div class="seg">${[[true, 'Yes'], ['part', 'Partly'], [false, 'No']].map(([v, l]) => html`<button key=${l} class=${r.plan === v ? 'on' : ''} onClick=${() => up({ plan: v })}>${l}</button>`)}</div></div>
+          <div class="djf"><span class="lbl">Rate your day${r.score != null ? ' · ' + r.score + '/10' : ''}</span><${ScorePick} v=${r.score} set=${v => up({ score: v })}/></div>
+          <div class="djf"><span class="lbl">What happened?</span><textarea class="ta" rows="3" placeholder="Two lines while it's fresh" value=${r.text} onInput=${e => up({ text: e.target.value })}></textarea></div>
+          <div class="djf"><div class="row"><span class="lbl">One lesson</span><span class="sp"></span><button class="lnk" style=${{ fontSize: '10.5px' }} disabled=${busy} onClick=${draft}><${I} n="spark" s=${12}/>${busy ? 'Drafting…' : 'AI draft from your trades'}</button></div>
+            <textarea class="ta" rows="2" placeholder="I wait for the retest before I size up." value=${r.lessons} onInput=${e => up({ lessons: e.target.value })}></textarea>${r.lessons && html`<span class="dim" style=${{ fontSize: '10.5px' }}>Edit it so it sounds like you.</span>`}</div>
+          <div class="row"><${AskBtn} label="Full AI recap" q=${`Recap my trading day ${day}. What did I do well, what went wrong, and one concrete rule for tomorrow?`} C=${C}/><span class="sp"></span><button class="btn btn-w sm" onClick=${saveReview}><${I} n="check"/>Save review</button></div></div>`}
+        ${tab === 'notes' && html`<div class="col" style=${{ gap: '8px' }}><textarea class="ta" rows="9" placeholder="Anything about the day: market, mindset, life." value=${d.notes || ''} onInput=${e => store.put('days', { ...(store.s.days[day] || { id: day }), id: day, notes: e.target.value }, 700)}></textarea><span class="dim" style=${{ fontSize: '10.5px' }}>Saves as you type.</span></div>`}
+      </div>
+    </div></div>`;
 }
 
 /* ================= Compound · Chart, Study, Propfirm, Progress ================= */
@@ -2175,7 +2400,7 @@ function buildContext(S, D) {
   const { all } = computeTrades(S, { mode: 'all', dedupe: false });
   const accs = Object.values(S.accounts).map(a => { const st = acctState(a, all, Object.values(S.adjust).filter(x => x.account === a.id)); return `${a.label} | ${firmById(a.firm).name} ${a.plan || ''} ${a.size} ${a.type} ${a.status} | balance ${Math.round(st.bal)}, profit ${Math.round(st.profit)}, drawdown left ${Math.round(st.left)} (floor ${Math.round(st.floor)}, ${a.dd} trailing max loss ${a.mll})${st.toGo != null ? ', to target ' + Math.round(st.toGo) : ''}${st.dll ? ', daily loss limit ' + st.dll + ' (left today ' + Math.round(st.dllLeft) + ')' : ''}${st.consLimit ? `, consistency rule ${a.cons}% (best day is ${pct(st.consUsed, 0)} of profit${st.consOk ? '' : ', needs +' + Math.round(st.consNeed)})` : ''}, trading days ${st.tradingDays}` }).join('\n');
   const strats = Object.values(S.strategies).map(x => `"${x.name}": ${x.desc || ''} | TF ${x.tf} | entry: ${(x.entry || []).join('; ')} | invalidation: ${x.invalid || '-'} | min RR ${x.minRR} | management: ${x.manage || '-'}`).join('\n');
-  const recentDays = Object.keys(S.days).filter(k => /^\d{4}-/.test(k)).sort().slice(-10).map(k => { const d = S.days[k]; return `${k}: ${d.plan ? 'PLAN bias ' + (d.plan.bias || '-') + '; focus ' + (d.plan.focus || '-') + '; levels ' + (d.plan.levels || '-').replace(/\n/g, ' / ') : 'no plan'}${d.review ? ' | REVIEW mood ' + d.review.mood + ', execution ' + d.review.rating + ', followed plan ' + d.review.plan + ': ' + (d.review.text || '').slice(0, 300) + (d.review.lessons ? ' Lesson: ' + d.review.lessons : '') : ''}${d.study ? ' | studied ' + d.study + 'min' : ''}` }).join('\n');
+  const recentDays = Object.keys(S.days).filter(k => /^\d{4}-/.test(k)).sort().slice(-10).map(k => { const d = S.days[k]; return `${k}: ${d.plan ? 'PLAN bias ' + (d.plan.bias || '-') + '; focus ' + (d.plan.focus || '-') + '; feeling ' + (d.plan.feeling || '-') + '; levels ' + (levelsText(d.plan) || '-') + '; rule ' + (d.plan.rule || '-') : 'no plan'}${d.review ? ' | REVIEW mood ' + d.review.mood + ', day rating ' + (dayScore(d) ?? '-') + '/10, followed plan ' + (d.review.plan === true ? 'yes' : d.review.plan === false ? 'no' : d.review.plan === 'part' ? 'partly' : '-') + ': ' + (d.review.text || '').slice(0, 300) + (d.review.lessons ? ' Lesson: ' + d.review.lessons : '') : ''}${d.study ? ' | studied ' + d.study + 'min' : ''}` }).join('\n');
   const trades = D.ts.slice(0, 90).map(t => tradeLine(t, S) + (t.notes ? ' | notes: ' + t.notes.slice(0, 160).replace(/\n/g, ' ') : '')).join('\n');
   const st = S.settings; const ins = insightsOf(D.ts, S).map(x => '- ' + x.title + ': ' + x.body).join('\n');
   return `TRADER: ${st.name}. Trades futures (mainly MNQ) on prop firm accounts, ICT/SMC style. Today is ${fmtLong(new Date())}, local time ${fmtTime(new Date())} (New York ${Math.floor(nyHM(new Date()))}:${pad(Math.round(nyHM(new Date()) % 1 * 60))}).
@@ -2476,7 +2701,7 @@ function Rail({ C }) {
     <${Sec} id="plan" title="The plan" right=${html`<button class="lnk" onClick=${() => UI.open('plan', { day: k })}>${day.plan ? 'Edit' : 'Write'}</button>`}>
       ${day.plan ? html`<button class="card tight" style=${{ textAlign: 'left', width: '100%', fontSize: '11.5px', display: 'flex', flexDirection: 'column', gap: '6px' }} onClick=${() => UI.open('plan', { day: k })}>
         ${day.plan.bias && html`<span class=${'chip ' + (day.plan.bias === 'bull' ? 'pos' : day.plan.bias === 'bear' ? 'neg' : '')} style=${{ alignSelf: 'flex-start' }}>${({ bull: 'Bullish', bear: 'Bearish', neutral: 'Neutral', wait: 'Wait for it' })[day.plan.bias]}</span>`}
-        ${day.plan.focus && html`<b>${day.plan.focus}</b>`}${day.plan.levels && html`<span class="mut mdtx" style=${{ fontSize: '11px', fontFamily: 'var(--mono)' }}>${day.plan.levels}</span>`}${day.plan.news && html`<span class="dim">News: ${day.plan.news}</span>`}</button>`
+        ${day.plan.focus && html`<b>${day.plan.focus}</b>`}${planLevels(day.plan).length > 0 && html`<span class="mut mdtx" style=${{ fontSize: '11px', fontFamily: 'var(--mono)' }}>${levelsText(day.plan)}</span>`}${day.plan.rule && html`<span class="dim">Rule: ${day.plan.rule}</span>`}${day.plan.news && html`<span class="dim">News: ${day.plan.news}</span>`}</button>`
         : html`<button class="card tight dim" style=${{ width: '100%', fontSize: '11.5px', textAlign: 'center', borderStyle: 'dashed' }} onClick=${() => UI.open('plan', { day: k })}>No pre-market plan yet</button>`}<//>
     <${Sec} id="check" title="Checklist" right=${html`<span class="row" style=${{ gap: '4px' }}><span class="dim tn" style=${{ fontSize: '10.5px' }}>${done}/${st.checklist.length}</span><button class="ib" style=${{ width: '24px', height: '24px' }} onClick=${() => UI.open('settings', { tab: 'journal' })} aria-label="Edit checklist"><${I} n="edit" s=${12}/></button></span>`}>
       ${st.checklist.map((c, i) => html`<button key=${i} class=${'chk' + (checks[i] ? ' on' : '')} onClick=${() => store.put('days', { ...day, id: k, checks: { ...checks, [i]: !checks[i] } })}><span class="bx">${checks[i] && html`<${I} n="check" w=${3}/>`}</span><span>${c}</span></button>`)}
@@ -2560,7 +2785,7 @@ function App() {
       case 'detail': return html`<${TradeDetail} ...${p}/>`; case 'account': return html`<${AccountForm} ...${p}/>`; case 'payout': return html`<${PayoutForm} ...${p}/>`;
       case 'strategy': return html`<${StrategyForm} ...${p}/>`; case 'plan': return html`<${PlanForm} ...${p}/>`; case 'review': return html`<${ReviewForm} ...${p}/>`;
       case 'import': return html`<${ImportTrades} ...${p} mode=${p.mode || mode}/>`; case 'settings': return html`<${SettingsWrap} ...${p}/>`; case 'confirm': return html`<${Confirm} ...${p}/>`;
-      case 'assign': return html`<${AssignTrades} ...${p}/>`; case 'delacct': return html`<${DeleteAccount} ...${p}/>`; case 'balance': return html`<${BalanceSync} ...${p}/>`; default: return null;
+      case 'assign': return html`<${AssignTrades} ...${p}/>`; case 'delacct': return html`<${DeleteAccount} ...${p}/>`; case 'balance': return html`<${BalanceSync} ...${p}/>`; case 'day': return html`<${DaySheet} ...${p} C=${C} days=${byDay(D.ts)}/>`; default: return null;
     } })}
   <${Toasts}/><${Tip}/>`;
 }
