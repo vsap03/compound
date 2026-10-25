@@ -831,9 +831,9 @@ const fx = (() => {
     const lvl = S.level; if (lvl === 'off' || S.reduced) { S.dust = []; return }
     const base = (S.w * S.h) / (phone ? 26000 : 17000) * (lvl === 'subtle' ? .55 : 1) * (S.network ? 1.6 : 1);
     const n = Math.min(S.network ? 150 : 110, Math.round(base)); S.dust = [];
-    for (let i = 0; i < n; i++) { const z = Math.random(); S.dust.push({ x: rnd(0, S.w), y: rnd(0, S.h), z, vx: rnd(-.06, .06), vy: rnd(-.12, -.02), r: .5 + z * 1.6, a: .08 + z * .32, tw: rnd(0, 6.28), ts: rnd(.6, 1.8), c: Math.random() < .14 ? 'ai' : Math.random() < .08 ? 'gold' : 'acc' }) }
-    const orbs = S.network ? 0 : (lvl === 'subtle' ? 3 : phone ? 3 : 6);
-    for (let i = 0; i < orbs; i++) S.dust.push({ orb: true, x: rnd(0, S.w), y: rnd(0, S.h), vx: rnd(-.08, .08), vy: rnd(-.06, .06), r: rnd(70, 180), a: rnd(.025, .055), c: pick(['acc', 'ai', 'acc']), z: .2, tw: rnd(0, 6), ts: rnd(.1, .3) });
+    for (let i = 0; i < n; i++) { const z = Math.random(); S.dust.push({ x: rnd(0, S.w), y: rnd(0, S.h), z, vx: rnd(-.04, .04), vy: rnd(-.08, -.015), r: .4 + z * 1.1, a: .05 + z * .17, tw: rnd(0, 6.28), ts: rnd(.15, .35), c: 'fg' }) }
+    const orbs = S.network ? 0 : (lvl === 'subtle' ? 2 : phone ? 2 : 4);
+    for (let i = 0; i < orbs; i++) S.dust.push({ orb: true, x: rnd(0, S.w), y: rnd(0, S.h), vx: rnd(-.05, .05), vy: rnd(-.04, .04), r: rnd(120, 240), a: rnd(.018, .035), c: 'acc', z: .2, tw: rnd(0, 6), ts: rnd(.05, .12) });
   }
   function add(p) { if (S.parts.length > (phone ? 360 : 700)) S.parts.shift(); S.parts.push(p); wake() }
   /* ---------- spawners ---------- */
@@ -844,7 +844,7 @@ const fx = (() => {
   function firework(x, y, col) { add({ k: 'rocket', x, y: S.h + 10, tx: x, ty: y, vx: rnd(-1, 1), vy: -rnd(13, 16), life: 0, max: 200, c: col, r: 2.4, drag: 1, g: .19 }) }
   function ring(x, y, col, R = 40) { add({ k: 'ring', x, y, life: 0, max: 34, R, c: col }) }
   /* ---------- emitters bound to elements ---------- */
-  function emitter(el, o) { if (!el) return () => { }; S.emit.set(el, { ...o, acc: 0, rect: null, rf: -99, ang: rnd(0, 6.28) }); wake(); return () => S.emit.delete(el) }
+  function emitter(el, o) { return () => { }; if (!el) return () => { }; S.emit.set(el, { ...o, acc: 0, rect: null, rf: -99, ang: rnd(0, 6.28) }); wake(); return () => S.emit.delete(el) }
   function runEmitters() {
     if (S.level === 'off' || S.reduced) return;
     for (const [el, e] of S.emit) {
@@ -875,20 +875,22 @@ const fx = (() => {
     for (const d of S.dust) {
       if (d.orb) { d.x += d.vx; d.y += d.vy; if (d.x < -d.r) d.x = S.w + d.r; if (d.x > S.w + d.r) d.x = -d.r; if (d.y < -d.r) d.y = S.h + d.r; if (d.y > S.h + d.r) d.y = -d.r; const g = x.createRadialGradient(d.x, d.y, 0, d.x, d.y, d.r); g.addColorStop(0, hex(P[d.c], d.a * am * (.8 + .2 * Math.sin(S.t * d.ts + d.tw)))); g.addColorStop(1, hex(P[d.c], 0)); x.fillStyle = g; x.beginPath(); x.arc(d.x, d.y, d.r, 0, 6.283); x.fill(); continue }
       const dx = d.x - mx, dy = d.y - my, dist2 = dx * dx + dy * dy;
-      if (dist2 < 22000) { const f = (1 - dist2 / 22000) * (.6 + d.z); d.vx += (dx * .0009 - dy * .0012) * f + S.mvx * .02 * f; d.vy += (dy * .0009 + dx * .0012) * f + S.mvy * .02 * f }
+      if (dist2 < 16000) { const f = (1 - dist2 / 16000) * (.4 + d.z); d.vx += dx * .0007 * f; d.vy += dy * .0007 * f }
       d.vx = d.vx * .985 + (Math.random() - .5) * .004; d.vy = d.vy * .985 + (-.05 * (.3 + d.z) - d.vy) * .01;
       d.x += d.vx * (.5 + d.z); d.y += d.vy * (.5 + d.z);
       if (d.y < -5) { d.y = S.h + 5; d.x = rnd(0, S.w) } if (d.x < -5) d.x = S.w + 5; if (d.x > S.w + 5) d.x = -5; if (d.y > S.h + 5) d.y = -5;
-      const tw = .55 + .45 * Math.sin(S.t * d.ts * 2 + d.tw);
+      const tw = .8 + .2 * Math.sin(S.t * d.ts + d.tw);
       x.fillStyle = hex(P[d.c], d.a * tw * am); x.beginPath(); x.arc(d.x, d.y, d.r, 0, 6.283); x.fill();
     }
-    if (S.network) { x.lineWidth = .6; const D = S.dust; for (let i = 0; i < D.length; i++) { const a = D[i]; if (a.orb) continue; for (let j = i + 1; j < D.length; j++) { const b = D[j]; if (b.orb) continue; const dx = a.x - b.x, dy = a.y - b.y, q = dx * dx + dy * dy; if (q < 13000) { x.strokeStyle = hex(P.acc, (1 - q / 13000) * .22 * am); x.beginPath(); x.moveTo(a.x, a.y); x.lineTo(b.x, b.y); x.stroke() } } if (mx > 0) { const dx = a.x - mx, dy = a.y - my, q = dx * dx + dy * dy; if (q < 26000) { x.strokeStyle = hex(P.ai, (1 - q / 26000) * .45 * am); x.beginPath(); x.moveTo(a.x, a.y); x.lineTo(mx, my); x.stroke() } } } }
+    if (S.network) { x.lineWidth = .6; const D = S.dust; for (let i = 0; i < D.length; i++) { const a = D[i]; if (a.orb) continue; for (let j = i + 1; j < D.length; j++) { const b = D[j]; if (b.orb) continue; const dx = a.x - b.x, dy = a.y - b.y, q = dx * dx + dy * dy; if (q < 13000) { x.strokeStyle = hex(P.fg, (1 - q / 13000) * .12 * am); x.beginPath(); x.moveTo(a.x, a.y); x.lineTo(b.x, b.y); x.stroke() } } if (mx > 0) { const dx = a.x - mx, dy = a.y - my, q = dx * dx + dy * dy; if (q < 26000) { x.strokeStyle = hex(P.fg, (1 - q / 26000) * .28 * am); x.beginPath(); x.moveTo(a.x, a.y); x.lineTo(mx, my); x.stroke() } } } }
     runEmitters();
     // particles
     const keep = [];
     for (const p of S.parts) {
       p.life++; const t = p.life / p.max; if (t >= 1) { if (p.k === 'rocket') burstAt(p) ; continue }
       if (p.k === 'orb') { p.a += p.va; const px = p.cx + Math.cos(p.a) * p.R, py = p.cy + Math.sin(p.a) * p.R * .42; const al = Math.sin(t * Math.PI) * am; x.fillStyle = hex(p.c, al * .9); x.beginPath(); x.arc(px, py, p.r, 0, 6.283); x.fill(); keep.push(p); continue }
+      if (p.k === 'flash') { const al = Math.pow(1 - t, 2) * (p.a || .35) * am; const g = x.createRadialGradient(S.w / 2, S.h / 2, Math.min(S.w, S.h) * .35, S.w / 2, S.h / 2, Math.max(S.w, S.h) * .75); g.addColorStop(0, hex(p.c, 0)); g.addColorStop(1, hex(p.c, al)); x.fillStyle = g; x.fillRect(0, 0, S.w, S.h); keep.push(p); continue }
+      if (p.k === 'wave') { const e = 1 - Math.pow(1 - t, 3); const al = (1 - t) * (p.a || .5) * am; x.strokeStyle = hex(p.c, al); x.lineWidth = (p.lw || 1.5) * (1 - t * .6); x.beginPath(); x.arc(p.x, p.y, p.R * e, 0, 6.283); x.stroke(); keep.push(p); continue }
       if (p.k === 'ring') { const al = (1 - t) * .7 * am; x.strokeStyle = hex(p.c, al); x.lineWidth = 2 * (1 - t) + .5; x.beginPath(); x.arc(p.x, p.y, p.R * (.2 + t), 0, 6.283); x.stroke(); keep.push(p); continue }
       p.vx *= p.drag; p.vy = p.vy * p.drag + p.g; if (p.sway != null) { p.sway += .05; p.vx += Math.sin(p.sway) * .02 }
       p.x += p.vx; p.y += p.vy;
@@ -921,22 +923,16 @@ const fx = (() => {
     theme() { P = pal(); S.light = document.documentElement.classList.contains('lt'); },
     network(on) { if (S.network === !!on) return; S.network = !!on; if (S.cv) S.cv.style.zIndex = on ? '0' : ''; seedDust(); wake() },
     emitter, spark, ring,
-    trail(e) { if (!fine || S.level !== 'full' || S.reduced) return; const now = performance.now(); if (now - S.lastTrail < 34) return; const el = e.target.closest && e.target.closest('.tc,.card,.cert,.acct,.btn-w,.btn-ai,.hero,.flexwrap'); if (!el) return; S.lastTrail = now; const sp = Math.hypot(S.mvx, S.mvy); if (sp < 2) return; const col = el.classList.contains('btn-ai') ? P.ai : el.classList.contains('cert') ? P.gold : P.acc; add({ k: 'spark', x: e.clientX + rnd(-3, 3), y: e.clientY + rnd(-3, 3), vx: -S.mvx * .04 + rnd(-.3, .3), vy: -S.mvy * .04 + rnd(-.3, .3), life: 0, max: rnd(22, 38), r: rnd(.7, 1.6), c: col, drag: .94, g: .01 }) },
+    trail(e) { return; if (!fine || S.level !== 'full' || S.reduced) return; const now = performance.now(); if (now - S.lastTrail < 34) return; const el = e.target.closest && e.target.closest('.tc,.card,.cert,.acct,.btn-w,.btn-ai,.hero,.flexwrap'); if (!el) return; S.lastTrail = now; const sp = Math.hypot(S.mvx, S.mvy); if (sp < 2) return; const col = el.classList.contains('btn-ai') ? P.ai : el.classList.contains('cert') ? P.gold : P.acc; add({ k: 'spark', x: e.clientX + rnd(-3, 3), y: e.clientY + rnd(-3, 3), vx: -S.mvx * .04 + rnd(-.3, .3), vy: -S.mvy * .04 + rnd(-.3, .3), life: 0, max: rnd(22, 38), r: rnd(.7, 1.6), c: col, drag: .94, g: .01 }) },
     click(e) {
-      if (S.level === 'off' || S.reduced) return; const t = e.target.closest && e.target.closest('.btn-w,.btn-ai,.btn-a,.chk,.grade,.copytog,.tab,.chip,.seg button,.cell,.firm'); if (!t) return;
-      const x = e.clientX, y = e.clientY; const cl = t.classList; const sub = S.level === 'subtle';
-      if (cl.contains('btn-ai')) { spark(x, y, { n: sub ? 10 : 22, color: [P.ai, '#C9B6FF', '#fff'], speed: 3.6 }); ring(x, y, P.ai, 34) }
-      else if (cl.contains('chk')) { const on = !cl.contains('on'); if (on) { spark(x, y, { n: sub ? 8 : 16, color: [P.pos, '#bff5df'], speed: 2.6 }); ring(x, y, P.pos, 22) } }
-      else if (cl.contains('grade')) { const g = t.textContent.trim(); spark(x, y, { n: g === 'A+' ? 30 : 10, color: g === 'A+' ? [P.gold, '#FFE7A8', '#fff'] : g === 'D' ? [P.neg] : [P.acc, '#fff'], speed: g === 'A+' ? 4.5 : 2.4, big: g === 'A+' }); if (g === 'A+') ring(x, y, P.gold, 40) }
-      else if (cl.contains('btn-w') || cl.contains('btn-a')) { spark(x, y, { n: sub ? 8 : 16, color: [P.fg, P.acc], speed: 3 }); ring(x, y, P.acc, 30) }
-      else if (cl.contains('cell')) { spark(x, y, { n: 10, color: [P.acc, '#fff'], speed: 2.2 }) }
-      else { if (!sub) spark(x, y, { n: 6, color: P.acc, speed: 1.8 }) }
+      if (S.level === 'off' || S.reduced) return; const t = e.target.closest && e.target.closest('.btn-w,.btn-a,.btn-ai'); if (!t) return;
+      add({ k: 'wave', x: e.clientX, y: e.clientY, life: 0, max: 26, R: 34, c: P.fg, a: .35, lw: 1 });
     },
-    /* outcome of a logged trade: confetti for wins, quiet ash for losses */
-    trade(pnl, big) { if (S.level === 'off' || S.reduced || pnl == null) return; const cx = S.w / 2, cy = S.h * .62; if (pnl > 0) { confetti(cx, cy, { n: big ? 140 : 80, power: big ? 1.15 : .9 }); spark(cx, cy, { n: 40, color: [P.pos, P.gold, '#fff'], speed: 6, long: true }); ring(cx, cy, P.pos, 120) } else if (pnl < 0) { ash(cx, S.h * .35, { n: 26 }) } else spark(cx, cy, { n: 20, color: '#8E8E8E', speed: 3 }) },
-    payout() { if (S.level === 'off' || S.reduced) return; coins(S.w / 2, S.h * .7, { n: 34 }); confetti(S.w / 2, S.h * .7, { n: 60, colors: [P.gold, '#FFE7A8', P.pos] }) },
-    passed() { if (S.level === 'off' || S.reduced) return; const xs = [.25, .5, .75, .38, .62]; xs.forEach((f, i) => setTimeout(() => firework(S.w * f, S.h * rnd(.18, .38), i % 2 ? 'multi' : [P.gold, P.pos, P.acc, P.ai][i % 4]), i * 280)); setTimeout(() => confetti(S.w / 2, S.h * .8, { n: 120, power: 1.25 }), 900) },
-    clearedChecklist(el) { if (S.level === 'off' || S.reduced || !el) return; const r = el.getBoundingClientRect(); for (let i = 0; i < 4; i++) setTimeout(() => spark(rnd(r.left, r.right), rnd(r.top, r.bottom), { n: 14, color: [P.pos, '#fff', P.gold], speed: 3 }), i * 90); ring(r.left + r.width / 2, r.top + r.height / 2, P.pos, 120) },
+    /* a logged win lands as one heavy pulse: a clean shockwave and a brief edge glow. Losses stay silent. */
+    trade(pnl, big) { if (S.level === 'off' || S.reduced || pnl == null || pnl <= 0) return; const cx = S.w / 2, cy = S.h / 2; add({ k: 'flash', life: 0, max: 50, c: P.pos, a: big ? .28 : .18 }); add({ k: 'wave', x: cx, y: cy, life: 0, max: 55, R: Math.max(S.w, S.h) * .6, c: P.pos, a: .45, lw: 2 }); if (big) setTimeout(() => add({ k: 'wave', x: cx, y: cy, life: 0, max: 60, R: Math.max(S.w, S.h) * .8, c: P.fg, a: .25, lw: 1.2 }), 140) },
+    payout() { if (S.level === 'off' || S.reduced) return; const cx = S.w / 2, cy = S.h / 2; add({ k: 'flash', life: 0, max: 60, c: P.gold, a: .22 }); [0, 160, 320].forEach((d, i) => setTimeout(() => add({ k: 'wave', x: cx, y: cy, life: 0, max: 60, R: Math.max(S.w, S.h) * (.45 + i * .18), c: i ? P.fg : P.gold, a: .4 - i * .1, lw: 2 - i * .4 }), d)) },
+    passed() { if (S.level === 'off' || S.reduced) return; const cx = S.w / 2, cy = S.h / 2; add({ k: 'flash', life: 0, max: 80, c: P.pos, a: .3 }); [0, 200, 400, 600].forEach((d, i) => setTimeout(() => add({ k: 'wave', x: cx, y: cy, life: 0, max: 70, R: Math.max(S.w, S.h) * (.4 + i * .16), c: i % 2 ? P.fg : P.pos, a: .5 - i * .08, lw: 2.4 - i * .4 }), d)) },
+    clearedChecklist(el) { if (S.level === 'off' || S.reduced || !el) return; const r = el.getBoundingClientRect(); add({ k: 'wave', x: r.left + r.width / 2, y: r.top + r.height / 2, life: 0, max: 40, R: Math.max(r.width, r.height) * .8, c: P.pos, a: .5, lw: 1.5 }) },
   };
   return api;
 })();
@@ -1370,7 +1366,7 @@ function Settings({ onClose, tab: tab0 }) {
     ${tab === 'general' && html`<div class="grid g2" style=${{ gap: '18px' }}>
       <${Field} label="Your name"><input class="in" value=${st.name} onInput=${e => set({ name: e.target.value })}/><//>
       <${Field} label="Appearance"><${Seg} v=${st.theme} set=${v => set({ theme: v })} opts=${[['dark', 'Dark', 'moon'], ['light', 'Light', 'sun']]}/><//>
-      <${Field} label="Particles" hint="Ambient dust, click sparks, win confetti, payout coins"><${Seg} v=${st.fx || 'full'} set=${v => set({ fx: v })} opts=${[['full', 'Full'], ['subtle', 'Subtle'], ['off', 'Off']]}/><//>
+      <${Field} label="Motion effects" hint="Background dust and the pulse when you log a win"><${Seg} v=${st.fx || 'full'} set=${v => set({ fx: v })} opts=${[['full', 'Full'], ['subtle', 'Subtle'], ['off', 'Off']]}/><//>
       <${Field} label="Accent"><div class="row" style=${{ gap: '8px' }}>${[['cobalt', '#5B8CFF'], ['violet', '#9D7BFF'], ['ember', '#FF8A4C'], ['ice', '#6FD3FF'], ['gold', '#F3B43F'], ['mono', '#E9EAEE']].map(([k, c]) => html`<button key=${k} onClick=${() => set({ accent: k })} title=${k} style=${{ width: '30px', height: '30px', borderRadius: '9px', background: c, outline: st.accent === k ? '2px solid var(--fg)' : 'none', outlineOffset: '2px' }}></button>`)}</div><//>
       <${Field} label="Default symbol & size"><div class="row" style=${{ flexWrap: 'nowrap' }}><input class="in" list="syms" value=${st.defaultSymbol} onInput=${e => set({ defaultSymbol: e.target.value.toUpperCase() })}/><input class="in tn" style=${{ width: '90px' }} value=${st.defaultQty} onInput=${e => set({ defaultQty: +e.target.value || 1 })}/></div><//>
       <label class="row" style=${{ gap: '8px', fontSize: '13.5px', cursor: 'pointer' }}><input type="checkbox" checked=${st.dedupeCopies} onChange=${e => set({ dedupeCopies: e.target.checked })}/>Count copy-traded ideas once in analytics (when viewing all accounts)</label></div>`}

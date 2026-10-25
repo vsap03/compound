@@ -428,11 +428,11 @@ button.chip:hover{border-color:var(--line3)}
   /* certificates: tilt + holographic foil */
   .cert{transform:perspective(800px) rotateX(var(--rx,0deg)) rotateY(var(--ry,0deg));transition:transform .2s ease-out,box-shadow .3s}
   .cert::after{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;opacity:0;transition:opacity .3s;mix-blend-mode:color-dodge;background:linear-gradient(115deg,transparent 20%,rgba(255,0,170,.35) 35%,rgba(0,220,255,.35) 45%,rgba(255,230,0,.35) 55%,transparent 70%) var(--hx,50%) 0/250% 100%}
-  .cert:hover::after{opacity:.9}.cert:hover{box-shadow:0 30px 70px -30px var(--golds)}
+  .cert:hover::after{opacity:0}.cert:hover{box-shadow:0 30px 70px -30px var(--golds)}
 
   /* hero P&L: chromatic glitch */
   .hero .big{transition:letter-spacing .4s cubic-bezier(.2,.8,.2,1);cursor:default}
-  .hero:hover .big{animation:glitch .9s steps(2,end) infinite;letter-spacing:-.04em}
+  .hero:hover .big{letter-spacing:-.062em}
   .hero .glow{transition:left .5s ease-out,top .5s ease-out,opacity .4s;left:var(--gx,50%);top:var(--gy,44%)}
   .hero:hover .glow{opacity:.9}
 
@@ -444,8 +444,8 @@ button.chip:hover{border-color:var(--line3)}
   .tab{position:relative}
   .tab::after{content:"";position:absolute;left:22%;right:22%;bottom:2px;height:2px;border-radius:2px;background:var(--acc);box-shadow:0 0 12px var(--acc);transform:scaleX(0);transition:transform .25s}
   .tab:hover::after{transform:scaleX(1)}.tab.on::after{transform:scaleX(0)}
-  .tab:hover svg{animation:bob .5s ease}
-  .ib:hover svg{transform:rotate(-12deg) scale(1.12);transition:transform .2s}.ib svg{transition:transform .2s}
+
+  .ib:hover svg{transform:scale(1.08);transition:transform .2s}.ib svg{transition:transform .2s}
 
   /* buttons: light sweep + glow */
   .btn{position:relative;overflow:hidden}
@@ -457,7 +457,7 @@ button.chip:hover{border-color:var(--line3)}
   .chip{transition:transform .15s,border-color .15s,box-shadow .2s}
   button.chip:hover{transform:translateY(-1px);border-color:var(--accg);box-shadow:0 6px 18px -8px var(--accg)}
   .grade{transition:transform .2s cubic-bezier(.3,1.8,.5,1)}
-  button.grade:hover,.tc:hover .grade{transform:scale(1.15) rotate(-4deg)}
+  button.grade:hover,.tc:hover .grade{transform:scale(1.08)}
 
   /* calendar cells pop with their own colour */
   .cell{transition:transform .2s cubic-bezier(.3,1.6,.5,1),box-shadow .25s,filter .2s}
@@ -475,7 +475,7 @@ button.chip:hover{border-color:var(--line3)}
   /* brand mark: arcs spin at different speeds */
   .mark:hover .a1{animation:spin 1.1s linear infinite}.mark:hover .a2{animation:spin 1.8s linear infinite reverse}.mark:hover .a3{animation:spin 2.6s linear infinite}
   .a1,.a2,.a3{transform-origin:16px 16px}
-  .fab::before{content:"";position:absolute;inset:-3px;border-radius:50%;z-index:-1;opacity:0;transition:opacity .3s;background:conic-gradient(var(--acc),var(--ai),#35D49A,var(--gold),var(--acc));animation:spin 2.2s linear infinite}
+  .fab::before{content:"";position:absolute;inset:-3px;border-radius:50%;z-index:-1;opacity:0;transition:opacity .3s;background:conic-gradient(from 0deg,transparent 0 70%,var(--fg) 100%);animation:spin 2.6s linear infinite}
   .fab{isolation:isolate}.fab:hover::before{opacity:1}
   .fab:hover .a1{animation:spin 1.1s linear infinite}.fab:hover .a2{animation:spin 1.8s linear infinite reverse}.fab:hover .a3{animation:spin 2.6s linear infinite}
 
@@ -483,11 +483,11 @@ button.chip:hover{border-color:var(--line3)}
   .pac:hover .gauge .mk{animation:pulse 1.2s infinite}
   .pac:hover .bal{text-shadow:0 0 26px var(--accg)}
   .logo{transition:transform .3s cubic-bezier(.3,1.6,.5,1)}
-  .firm:hover .logo,.pac:hover .logo,.acct:hover .logo{transform:rotate(-8deg) scale(1.08)}
+  .firm:hover .logo,.pac:hover .logo,.acct:hover .logo{transform:scale(1.06)}
   .tbl tr.click{transition:background .15s}
   .tbl tr.click:hover td:first-child{box-shadow:inset 3px 0 0 var(--acc)}
   .badge{transition:transform .35s cubic-bezier(.3,1.6,.5,1)}
-  .card:hover>.badge.got{transform:rotate(-10deg) scale(1.12);box-shadow:0 0 30px -6px var(--gold)}
+  .card:hover>.badge.got{transform:scale(1.06)}
   .msg.a .av{transition:box-shadow .3s}.msg.a:hover .av{box-shadow:0 0 18px var(--ai)}
 }
 
