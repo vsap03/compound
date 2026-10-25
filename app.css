@@ -520,8 +520,10 @@ button.chip:hover{border-color:var(--line3)}
 @media (hover:hover) and (pointer:fine){.flexcv{transition:transform .4s cubic-bezier(.2,.8,.2,1),box-shadow .4s}.flexcv:hover{transform:perspective(1400px) rotateX(2deg) translateY(-4px);box-shadow:0 40px 90px -30px var(--accg),0 0 0 1px var(--accg)}}
 .ib.flexon{color:var(--gold);background:var(--golds)}
 @media (hover:hover) and (pointer:fine){.ib:hover svg[data-x]{}}
+.tvwrap{position:relative;width:100%;border-radius:14px;overflow:hidden;border:1px solid var(--line);background:var(--bg)}
+.tvwrap.full{position:fixed;inset:0;z-index:95;border-radius:0;border:0;padding-top:env(safe-area-inset-top,0px)}
+.tvwrap .tvfull{position:absolute;z-index:3;right:62px;top:8px;opacity:.85}
+.tvwrap.full .tvfull{top:calc(8px + env(safe-area-inset-top,0px))}
+.tvwrap .tradingview-widget-container{height:100%}
 
-
-
-html.lt 
 body{padding-top:env(safe-area-inset-top,0px)}

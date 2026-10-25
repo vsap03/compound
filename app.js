@@ -1583,7 +1583,7 @@ function TradeDetail({ id, list, onClose }) {
         <button class="btn btn-ai sm" onClick=${review} disabled=${ai}><${I} n="spark"/>${ai ? 'Reviewing…' : 'AI review'}</button>
       </div>
       <div class="card" style=${{ padding: '14px' }}><div class="ch"><span class="lbl">Price action</span>${LIVE_OK && html`<${Seg} sm v=${pa} set=${v => { setPa(v); LS.set('compound.pa', v) }} opts=${[['replay', 'Replay'], ['live', 'Live']]}/>`}<span class="sp"></span><a class="btn btn-t xs" href=${tvURL(t.symbol)} target="_blank" rel="noopener"><${I} n="ext" s=${13}/>Open ${t.symbol} in TradingView</a>${t.tv && html`<a class="btn btn-t xs" href=${t.tv} target="_blank" rel="noopener"><${I} n="link" s=${13}/>Snapshot</a>`}</div>
-        ${pa === 'live' && LIVE_OK ? html`<div class="row" style=${{ marginBottom: '8px' }}><${TVSymPicker} sym=${tsym} setSym=${setTsym} fam=${instr(t.symbol).fam}/></div><${TVLive} symbol=${tsym} interval="1" h=${420}/><div class="dim" style=${{ fontSize: '10.5px', marginTop: '6px' }}>Live chart. Scroll back to ${fmtDate(t.t)} ${fmtTime(t.t)} to see this entry. The Replay tab marks it on the candles automatically.</div>`
+        ${pa === 'live' && LIVE_OK ? html`<div class="row" style=${{ marginBottom: '8px' }}><${TVSymPicker} sym=${tsym} setSym=${setTsym} fam=${instr(t.symbol).fam}/></div><${TVLive} symbol=${tsym} interval="1" h=${460}/><div class="dim" style=${{ fontSize: '10.5px', marginTop: '6px' }}>Live chart. Scroll back to ${fmtDate(t.t)} ${fmtTime(t.t)} to see this entry. The Replay tab marks it on the candles automatically.</div>`
         : bars ? html`<${PriceChart} bars=${bars.bars} trades=${[t]} focus=${t} h=${340}/>` : html`<div style=${{ height: '170px' }}><${MiniLadder} t=${t} h=${170}/></div><div class="dim" style=${{ fontSize: '11px', marginTop: '8px' }}>Import ${instr(t.symbol).fam} bars on the Chart page (TradingView → Export chart data) and this trade plots on real candles.</div>`}
       </div>
       ${(t.shots || []).length > 0 && html`<div class="shots" style=${{ gridTemplateColumns: 'repeat(auto-fill,minmax(240px,1fr))' }}>${t.shots.map(s => html`<div class="s" key=${s.id}><img src=${s.url} alt="Trade screenshot" onClick=${() => setLb(s.url)}/></div>`)}</div>`}
@@ -1750,10 +1750,18 @@ function ChartImport({ onClose }) {
 
 /* ---------- live TradingView chart (standalone app only; Claude pages block outside embeds) ---------- */
 const LIVE_OK = typeof STANDALONE !== 'undefined' && STANDALONE;
-const TV_PICKS = [['CME_MINI:MNQ1!', 'MNQ1!'], ['CME_MINI:NQ1!', 'NQ1!'], ['OANDA:NAS100USD', 'NAS100'], ['CME_MINI:MES1!', 'MES1!'], ['COMEX:MGC1!', 'MGC1!']];
-function tvSymFor(sym) { const f = instr(sym).fam; const saved = LS.get('compound.tvsym.' + f, ''); return saved || instr(sym).tv || 'CME_MINI:MNQ1!' }
-function TVLive({ symbol, interval = '5', h = 560, studies = [] }) {
-  const el = useRef();
+/* CME/COMEX futures are blocked in embedded widgets ("only available on TradingView"), so live charts use free CFD equivalents of the same index */
+const TV_PICKS = [['OANDA:NAS100USD', 'NAS100'], ['OANDA:SPX500USD', 'S&P 500'], ['OANDA:US30USD', 'Dow 30'], ['OANDA:XAUUSD', 'Gold'], ['OANDA:DE30EUR', 'DAX'], ['BITSTAMP:BTCUSD', 'BTC']];
+const TV_FREE = { NQ: 'OANDA:NAS100USD', ES: 'OANDA:SPX500USD', YM: 'OANDA:US30USD', GC: 'OANDA:XAUUSD', DAX: 'OANDA:DE30EUR', RTY: 'OANDA:SPX500USD', CL: 'OANDA:WTICOUSD' };
+function tvSymFor(sym) { const f = instr(sym).fam; const saved = LS.get('compound.tvsym.' + f, ''); if (saved && !/^(CME|COMEX|NYMEX|CBOT)/.test(saved)) return saved; return TV_FREE[f] || 'OANDA:NAS100USD' }
+/* fills the rest of the window below it; "full" covers the whole window */
+function TVLive({ symbol, interval = '5', h, studies = [], fill = false }) {
+  const wrap = useRef(); const el = useRef(); const [hh, setHh] = useState(h || 560); const [full, setFull] = useState(false);
+  useLayoutEffect(() => {
+    if (!fill) return; const fit = () => { const r = wrap.current?.getBoundingClientRect(); if (!r) return; setHh(Math.max(420, Math.round(innerHeight - r.top - (innerWidth < 760 ? 86 : 64)))) };
+    fit(); addEventListener('resize', fit); const t = setTimeout(fit, 120); return () => { removeEventListener('resize', fit); clearTimeout(t) };
+  }, [fill]);
+  useEffect(() => { if (!full) return; const k = e => e.key === 'Escape' && setFull(false); addEventListener('keydown', k); return () => removeEventListener('keydown', k) }, [full]);
   useEffect(() => {
     const box = el.current; if (!box) return; box.innerHTML = '';
     const w = document.createElement('div'); w.className = 'tradingview-widget-container__widget'; w.style.height = '100%'; w.style.width = '100%'; box.appendChild(w);
@@ -1765,7 +1773,10 @@ function TVLive({ symbol, interval = '5', h = 560, studies = [] }) {
     box.appendChild(sc);
     return () => { box.innerHTML = '' };
   }, [symbol, interval, store.s.settings.theme]);
-  return html`<div class="tradingview-widget-container tvchart" ref=${el} style=${{ height: h + 'px' }}></div>`;
+  const height = full ? '100%' : (fill ? hh : (h || 560)) + 'px';
+  return html`<div ref=${wrap} class=${'tvwrap' + (full ? ' full' : '')} style=${{ height }}>
+    <button class="tvfull btn btn-g xs" onClick=${() => setFull(!full)} title=${full ? 'Exit full screen (Esc)' : 'Full screen'}><${I} n=${full ? 'x' : 'ext'} s=${13}/>${full ? 'Close' : 'Full screen'}</button>
+    <div class="tradingview-widget-container" ref=${el} style=${{ position: 'absolute', inset: 0 }}></div></div>`;
 }
 function TVSymPicker({ sym, setSym, fam }) {
   return html`<div class="row" style=${{ gap: '6px' }}>${TV_PICKS.map(([k, l]) => html`<button key=${k} class=${'chip' + (sym === k ? ' on' : '')} onClick=${() => { setSym(k); fam && LS.set('compound.tvsym.' + fam, k) }}>${l}</button>`)}</div>`;
@@ -1784,11 +1795,11 @@ function ChartPage({ C }) {
   return html`<div class="page">
     <${PageHead} title="Price action" sub=${mode === 'live' ? 'Live charts from TradingView' : "TradingView's chart engine with your trades on the candles"}>
       ${ch && html`<a class="btn btn-g" href=${tvURL(ch.symbol)} target="_blank" rel="noopener"><${I} n="ext"/>Live ${ch.symbol} on TradingView</a>`}
-      ${LIVE_OK && html`<${Seg} v=${mode} set=${v => { setMode(v); LS.set('compound.chartmode', v) }} opts=${[['live', 'Live TradingView', 'chartl'], ['replay', 'My trades on candles', 'candle']]}/>`}
+      ${LIVE_OK && html`<${Seg} v=${mode} set=${v => { setMode(v); LS.set('compound.chartmode', v); store.emit() }} opts=${[['live', 'Live TradingView', 'chartl'], ['replay', 'My trades on candles', 'candle']]}/>`}
       ${mode === 'replay' && html`<button class="btn btn-w" onClick=${() => setImp(true)}><${I} n="upload"/>Import bars</button>`}<//>
     ${mode === 'live' ? html`<div class="bar"><${TVSymPicker} sym=${lsym} setSym=${setLsym} fam=${instr(S.settings.defaultSymbol || 'MNQ').fam}/><span class="sp"></span><${Seg} sm v=${liv} set=${v => { setLiv(v); LS.set('compound.tvint', v) }} opts=${[['1', '1m'], ['5', '5m'], ['15', '15m'], ['60', '1h'], ['240', '4h'], ['D', '1D']]}/></div>
-      <div class="card" style=${{ padding: '8px' }}><${TVLive} symbol=${lsym} interval=${liv} h=${Math.max(460, Math.round(innerHeight * .68))}/></div>
-      <div class="dim" style=${{ fontSize: '11px' }}>Live chart from TradingView. Use its toolbar to draw, add indicators and change symbol. If a futures symbol says it is only available on TradingView, pick NAS100, which tracks the same index. To see your own entries and exits on the candles, switch to "My trades on candles".</div>`
+      <${TVLive} symbol=${lsym} interval=${liv} fill/>
+      <div class="dim" style=${{ fontSize: '11px' }}>CME futures can only be charted live on TradingView's own site, so this uses the same indexes as CFDs (NAS100 moves with NQ/MNQ). Search any other symbol in the chart's toolbar. To see your own entries on the candles, switch to "My trades on candles".</div>`
     : !charts.length ? html`<div class="grid g2">
       <div class="card" style=${{ padding: '26px' }}><h3 style=${{ fontSize: '16px' }}>See every entry on real candles</h3><p class="mut" style=${{ fontSize: '12.5px', lineHeight: 1.6 }}>Compound draws with TradingView's own charting library. Live TradingView widgets can't run inside this page, so bring the bars in once: export chart data from TradingView and drop the CSV here. Each trade then shows its entry arrow, exit, stop and target on the exact candles, and every trade's detail page gets its own zoomed chart.</p>
         <div class="row"><button class="btn btn-w" onClick=${() => setImp(true)}><${I} n="upload"/>Import TradingView CSV</button><a class="btn btn-g" href=${tvURL(S.settings.defaultSymbol || 'MNQ')} target="_blank" rel="noopener"><${I} n="ext"/>Open ${S.settings.defaultSymbol || 'MNQ'} chart</a></div></div>
@@ -2516,10 +2527,10 @@ function App() {
   const V = { flex: Flex, dashboard: Dashboard, journal: Journal, showcase: Showcase, strategy: Strategy, study: Study, chart: ChartPage, analytics: Analytics, propfirm: Propfirm, ai: AIPage, progress: Progress, flex: Flex }[view] || Dashboard;
   const tabs = VIEWS.filter(v => v !== '|');
   const sync = store.mode === 'cloud' ? (store.syncErr ? ['wait', 'Reconnecting…'] : ['ok', 'Synced across devices' + (store.lastSync ? ' · ' + fmtTime(store.lastSync) : '')]) : store.mode === 'local' ? ['loc', 'This browser only · not syncing'] : ['wait', 'Connecting…'];
-  const full = view === 'ai';
+  const full = view === 'ai'; const wide = view === 'chart' && LIVE_OK && LS.get('compound.chartmode', 'live') === 'live';
   if (store.mode === 'login') return html`<${Login}/><${Toasts}/>`;
   if (store.mode === 'setup') return html`<${Setup}/><${Toasts}/>`;
-  return html`<div class=${'shell' + (lc ? ' ldc' : '') + (rc || full ? ' rdc' : '') + (lo ? ' ldo' : '') + (ro ? ' rdo' : '') + (full ? ' ldc' : '')}>
+  return html`<div class=${'shell' + (lc ? ' ldc' : '') + (rc || full || wide ? ' rdc' : '') + (lo ? ' ldo' : '') + (ro ? ' rdo' : '') + (full || wide ? ' ldc' : '')}>
     <header class="top">
       <div class="l"><button class="ib" style=${{ display: lc || innerWidth <= 1020 || full ? 'grid' : 'none' }} onClick=${() => { if (innerWidth <= 1020) setLo(!lo); else { setLc(false); LS.set('compound.ldc', false) } }} aria-label="Accounts"><${I} n="dright" s=${14}/></button>
         <button class="mark" onClick=${() => go('dashboard')} aria-label="Compound home"><${Mark} s=${26}/><span class="wm mob-only" style=${{ fontSize: '15px' }}>Compound</span></button>
@@ -2532,17 +2543,17 @@ function App() {
         <button class="ib" style=${{ display: rc || innerWidth <= 1280 || full ? 'grid' : 'none' }} onClick=${() => { if (innerWidth <= 1280) setRo(!ro); else { setRc(false); LS.set('compound.rdc', false) } }} aria-label="Today panel"><${I} n="cal"/></button>
         <span class="ava hide-m">${(S.settings.name || 'V')[0]}</span></div>
     </header>
-    ${!full && html`<${Desk} C=${C} onPick=${id => togAcct(id)}/>`}
+    ${!full && !wide && html`<${Desk} C=${C} onPick=${id => togAcct(id)}/>`}
     <main class="main" ref=${mainRef} style=${full ? { overflow: 'hidden' } : null}>
       ${store.mode === 'local' && html`<div class="card tight row" style=${{ margin: '14px 30px 0', borderColor: 'var(--warn)' }}><span class="dot wait"></span><span style=${{ flex: 1, fontSize: '12px' }}>Not syncing. This copy saves to this browser only. Use your Compound app (home-screen / taskbar icon) so trades show up on every device.</span></div>`}
       ${store.localPending && html`<div class="card tight row" style=${{ margin: '14px 30px 0', borderColor: 'var(--accg)' }}><${I} n="refresh"/><span style=${{ flex: 1 }}>You have journal data saved in this browser from before sync was on.</span><button class="btn btn-w sm" onClick=${() => store.migrateLocal()}>Move it into my synced journal</button><button class="btn btn-t sm" onClick=${() => store.dismissLocal()}>Not now</button></div>`}
       <${V} C=${C} params=${params}/></main>
-    ${!full && html`<${Rail} C=${C}/>`}
+    ${!full && !wide && html`<${Rail} C=${C}/>`}
     <footer class="foot"><span class="sync"><span class=${'dot ' + sync[0]}></span>${sync[1]}</span><span class="dim hide-m">n new trade · q quick log · / search · h hide P&L · 1–9 pages</span>
       <span class="mid"><a class="dim hide-m" href="https://www.tradingview.com/" target="_blank" rel="noopener" style=${{ fontSize: '10px', textDecoration: 'none' }}>Charts by TradingView</a></span><button class="btn btn-t xs" onClick=${() => UI.open('import', { mode })}><${I} n="upload" s=${13}/>Import</button><button class="btn btn-t xs" onClick=${() => UI.open('settings', { tab: 'data' })}><${I} n="download" s=${13}/>Backup</button></footer>
     <nav class="nav-m" aria-label="Sections">${tabs.map(v => html`<button key=${v[0]} class=${view === v[0] ? 'on' : ''} onClick=${() => go(v[0])}><${I} n=${v[2]}/>${v[1]}</button>`)}</nav>
   </div>
-  ${view !== 'ai' && html`<button class="fab" onClick=${() => go('ai')} aria-label="Ask your coach" title="Ask your coach"><${Mark} s=${26}/></button>`}
+  ${view !== 'ai' && view !== 'chart' && html`<button class="fab" onClick=${() => go('ai')} aria-label="Ask your coach" title="Ask your coach"><${Mark} s=${26}/></button>`}
   ${modals.map((m, i) => { const close = () => setModals(x => x.filter(y => y.id !== m.id)); const p = { ...m.props, onClose: close, key: m.id };
     switch (m.kind) {
       case 'trade': return html`<${TradeForm} ...${p} mode=${p.mode || mode}/>`; case 'quick': return html`<${QuickLog} ...${p} mode=${p.mode || mode}/>`;
