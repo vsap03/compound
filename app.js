@@ -1141,11 +1141,10 @@ function BlownForm({ id, onClose }) {
   };
   return html`<${Modal} title=${ex ? 'Edit blown account' : 'Add blown account'} size="wide" icon=${html`<${I} n="flame"/>`} onClose=${onClose} foot=${html`${ex && html`<button class="btn btn-d" style=${{ marginRight: 'auto' }} onClick=${() => UI.confirm({ title: 'Remove this entry?', body: 'Its fees come off your spending totals.', onYes: () => { store.del('blown', ex.id); onClose() } })}>Delete</button>`}<button class="btn btn-g" onClick=${onClose}>Cancel</button>${!ex && html`<button class="btn btn-g" onClick=${() => save(true)}>Save & add another</button>`}<button class="btn btn-w" onClick=${() => save(false)}>Save</button>`}>
     <${Field} label="Prop firm"><${FirmPick} v=${b.firm} set=${v => up({ firm: v, plan: firmById(v).plans?.[0] || '' })}/><//>
-    <div class="grid g4 keep2">
+    <div class="grid g3 keep2">
       <${Field} label="Plan"><select class="sel" value=${b.plan} onChange=${e => up({ plan: e.target.value })}><option value="">—</option>${(f?.plans || []).map(x => html`<option key=${x} value=${x} selected=${b.plan === x}>${x}</option>`)}</select><//>
       <${Field} label="Account size"><select class="sel" value=${b.size} onChange=${e => up({ size: +e.target.value })}>${BLOWN_SIZES.map(x => html`<option key=${x} value=${x}>$${(x / 1000)}K</option>`)}</select><//>
       <${Field} label="Blown at"><${Seg} v=${b.stage} set=${v => up({ stage: v })} opts=${[['eval', 'Eval'], ['funded', 'Funded']]}/><//>
-      <${Field} label="How many like this" hint="Blew the same one 4 times? Put 4"><input class="in tn" inputmode="numeric" value=${b.count} onInput=${e => up({ count: e.target.value })}/><//>
     </div>
     <div class="grid g3 keep2">
       <${Field} label="Eval fee, per account"><div class="inwrap"><span class="pre">$</span><input class="in tn" inputmode="decimal" placeholder="0" value=${b.fee} onInput=${e => up({ fee: e.target.value })}/></div><//>
@@ -1156,6 +1155,12 @@ function BlownForm({ id, onClose }) {
       <${Field} label="Bought (optional)"><input class="in" type="date" value=${b.bought} onInput=${e => up({ bought: e.target.value })}/><//>
       <${Field} label="Blown on"><input class="in" type="date" value=${b.d} onInput=${e => up({ d: e.target.value })}/><//>
       <${Field} label="Note"><input class="in" placeholder="What blew it?" value=${b.note} onInput=${e => up({ note: e.target.value })}/><//>
+    </div>
+    <div class="mult">
+      <div class="col" style=${{ gap: '2px' }}><b style=${{ fontSize: '12.5px' }}>Multiplier</b><span class="dim" style=${{ fontSize: '10.5px' }}>Same account blown more than once? Set how many. Fees multiply.</span></div>
+      <span class="sp"></span>
+      <div class="row" style=${{ gap: '5px' }}>${[2, 3, 5, 10].map(n => html`<button type="button" key=${n} class=${'chip tn' + (+b.count === n ? ' on' : '')} onClick=${() => up({ count: n })}>×${n}</button>`)}</div>
+      <div class="stepper"><button type="button" aria-label="One less" onClick=${() => up({ count: Math.max(1, (+b.count || 1) - 1) })}>−</button><input class="tn" inputmode="numeric" aria-label="How many accounts" value=${b.count} onInput=${e => up({ count: e.target.value.replace(/[^0-9]/g, '') })} onBlur=${() => up({ count: Math.max(1, +b.count || 1) })}/><button type="button" aria-label="One more" onClick=${() => up({ count: (+b.count || 1) + 1 })}>+</button></div>
     </div>
     <div class="card tight row" style=${{ background: 'var(--negs)', borderColor: 'transparent' }}><span class="lbl">Total paid</span><span class="sp"></span><b class="tn neg" style=${{ fontSize: '19px' }}>${money(total, { dec: 0, show: true })}</b>${(+b.count || 1) > 1 && html`<span class="dim tn" style=${{ fontSize: '11px' }}>${b.count} × ${money(total / (+b.count || 1), { dec: 0, show: true })}</span>`}</div>
   <//>`;
@@ -2257,7 +2262,7 @@ function Spending({ S }) {
       </tbody></table></div></div></div>
       <div class="card" style=${{ padding: 0 }}><div class="ch" style=${{ padding: '16px 20px 0' }}><span class="lbl">Blown accounts · ${hist.length + dead.length}</span><span class="sp"></span><button class="btn btn-t xs" onClick=${() => UI.open('blown')}><${I} n="plus" s=${13}/>Add</button></div>
         <div class="scroll-x"><table class="tbl"><thead><tr><th>Blown on</th><th>Firm</th><th>Account</th><th>Stage</th><th class="r">Count</th><th class="r">Fees</th><th>Note</th></tr></thead><tbody>
-          ${hist.map(b => html`<tr key=${b.id} class="click" onClick=${() => UI.open('blown', { id: b.id })}><td class="tn">${b.d ? fmtDate(parseDay(b.d), { year: true }) : '—'}</td><td><span class="row" style=${{ gap: '8px', flexWrap: 'nowrap' }}><${FirmLogo} id=${b.firm} s=${18}/>${firmById(b.firm).name}</span></td><td class="mut">${b.size ? '$' + (b.size / 1000) + 'K' : ''}${b.plan ? ' · ' + b.plan : ''}</td><td><span class="chip">${b.stage === 'funded' ? 'Funded' : 'Eval'}</span></td><td class="r tn">${Math.max(1, +b.count || 1)}</td><td class="r tn neg" style=${{ fontWeight: 700 }}>${money(blownCost(b), { dec: 0 })}</td><td class="mut">${b.note || ''}</td></tr>`)}
+          ${hist.map(b => html`<tr key=${b.id} class="click" onClick=${() => UI.open('blown', { id: b.id })}><td class="tn">${b.d ? fmtDate(parseDay(b.d), { year: true }) : '—'}</td><td><span class="row" style=${{ gap: '8px', flexWrap: 'nowrap' }}><${FirmLogo} id=${b.firm} s=${18}/>${firmById(b.firm).name}</span></td><td class="mut">${b.size ? '$' + (b.size / 1000) + 'K' : ''}${b.plan ? ' · ' + b.plan : ''}</td><td><span class="chip">${b.stage === 'funded' ? 'Funded' : 'Eval'}</span></td><td class="r tn">${(+b.count || 1) > 1 ? html`<span class="chip" style=${{ height: '20px' }}>×${b.count}</span>` : 1}</td><td class="r tn neg" style=${{ fontWeight: 700 }}>${money(blownCost(b), { dec: 0 })}</td><td class="mut">${b.note || ''}</td></tr>`)}
           ${dead.map(a => html`<tr key=${a.id} class="click" onClick=${() => UI.open('account', { id: a.id })}><td class="tn">${a.blownAt ? fmtDate(parseDay(String(a.blownAt).slice(0, 10)), { year: true }) : '—'}</td><td><span class="row" style=${{ gap: '8px', flexWrap: 'nowrap' }}><${FirmLogo} id=${a.firm} s=${18}/>${firmById(a.firm).name}</span></td><td class="mut">${a.label}</td><td><span class="chip">${a.type === 'funded' ? 'Funded' : 'Eval'}</span></td><td class="r tn">1</td><td class="r tn neg" style=${{ fontWeight: 700 }}>${money(acctCost(a), { dec: 0 })}</td><td class="mut">tracked in Compound</td></tr>`)}
         </tbody></table></div></div>`}`;
 }
