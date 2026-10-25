@@ -90,7 +90,7 @@ const DEFAULT_SETTINGS = {
   emotions: ['Calm', 'Confident', 'Patient', 'Focused', 'Anxious', 'FOMO', 'Greedy', 'Frustrated', 'Bored', 'Fearful', 'Euphoric', 'Tilted'],
   maxDailyLoss: 1200, maxTrades: 4, maxConsecLosses: 3, dailyGoal: 500,
   defaultSymbol: 'MNQ', defaultQty: 2, commissions: {}, dedupeCopies: true,
-  theme: 'dark', accent: 'cobalt', firmLogos: {}, onboarded: false,
+  theme: 'dark', accent: 'obsidian', bg: 'live', themeV: 2, firmLogos: {}, onboarded: false,
 };
 const POS_EMO = new Set(['Calm', 'Confident', 'Patient', 'Focused']);
 const QUOTES = [
@@ -556,7 +556,6 @@ const fileDownloads = { save: async ({ filename, data }) => { const b = data ins
 
 /* login screen for the standalone app */
 function Login() {
-  useEffect(() => { fx.init(); fx.network(true); return () => fx.network(false) }, []);
   const [email, setEmail] = useState(LS.get('compound.email', '')); const [pw, setPw] = useState(''); const [mode, setMode] = useState('in'); const [busy, setBusy] = useState(false); const [err, setErr] = useState('');
   const go = async e => {
     e.preventDefault(); setBusy(true); setErr('');
@@ -569,7 +568,7 @@ function Login() {
     setBusy(false);
   };
   return html`<div style=${{ minHeight: '100%', display: 'grid', placeItems: 'center', padding: '24px max(16px,env(safe-area-inset-left,0px))', background: 'radial-gradient(60% 40% at 50% 30%,var(--accs),transparent)', position: 'relative', zIndex: 1 }}>
-    <form onSubmit=${go} class="col" style=${{ width: 'min(380px,100%)', gap: '14px' }}>
+    <form onSubmit=${go} class="col loginglass" style=${{ width: 'min(420px,100%)', gap: '14px' }}>
       <div class="col" style=${{ alignItems: 'center', gap: '10px', marginBottom: '10px' }}><${Mark} s=${54}/><div class="wm" style=${{ fontSize: '30px' }}>Compound</div><div class="mut" style=${{ textAlign: 'center' }}>${mode === 'in' ? 'Sign in to your journal. It syncs to every device you sign in on.' : 'Create your private journal account. Use it on every device.'}</div></div>
       <${Field} label="Email"><input id="lg-email" class="in" type="email" autocomplete="email" required value=${email} onInput=${e => setEmail(e.target.value)}/><//>
       <${Field} label="Password"><input id="lg-pw" class="in" type="password" autocomplete=${mode === 'in' ? 'current-password' : 'new-password'} minlength="6" required value=${pw} onInput=${e => setPw(e.target.value)}/><//>
@@ -814,135 +813,103 @@ function EquityChart({ series, h = 260, area = true }) {
   document.addEventListener('pointerleave', () => { if (last) { last.style.removeProperty('--rx'); last.style.removeProperty('--ry'); last = null } });
 })();
 
-/* ================= Compound · particle engine =================
-   One full-screen canvas above the page (pointer-events: none), drawn additively in dark mode.
-   Layers: ambient dust + bokeh with cursor swirl, element emitters (hero embers, radar sparkles,
-   orbiting rings, AI thinking motes), click sparks, and event bursts (win confetti, loss ash,
-   payout coins, eval-pass fireworks). Pauses when hidden; scales down on phones; off with reduced motion. */
-const fx = (() => {
-  const S = { level: 'full', cv: null, x: null, w: 0, h: 0, dpr: 1, run: false, dust: [], parts: [], emit: new Map(), mx: -9999, my: -9999, mvx: 0, mvy: 0, t: 0, light: false, reduced: false, network: false, frame: 0, lastTrail: 0 };
-  const fine = matchMedia('(hover:hover) and (pointer:fine)').matches; const phone = innerWidth < 760;
-  const rnd = (a, b) => a + Math.random() * (b - a); const pick = a => a[(Math.random() * a.length) | 0];
-  const hex = (h, a) => { h = (h || '#5B8CFF').trim(); if (h.startsWith('rgb')) return h.replace(/rgba?\(([^)]+)\)/, (m, v) => `rgba(${v.split(',').slice(0, 3).join(',')},${a})`); if (h.length === 4) h = '#' + [...h.slice(1)].map(c => c + c).join(''); const n = parseInt(h.slice(1, 7), 16); return `rgba(${n >> 16 & 255},${n >> 8 & 255},${n & 255},${a})` };
-  const pal = () => ({ acc: cssv('--acc') || '#5B8CFF', ai: cssv('--ai') || '#9D7BFF', pos: cssv('--pos') || '#35D49A', neg: cssv('--neg') || '#FF5A6E', gold: cssv('--gold') || '#F3B43F', fg: cssv('--fg') || '#F2F2F2' });
-  let P = pal();
-  function size() { const c = S.cv; S.dpr = Math.min(2, devicePixelRatio || 1); S.w = innerWidth; S.h = innerHeight; c.width = S.w * S.dpr; c.height = S.h * S.dpr; c.style.width = S.w + 'px'; c.style.height = S.h + 'px'; S.x.setTransform(S.dpr, 0, 0, S.dpr, 0, 0); seedDust() }
-  function seedDust() {
-    const lvl = S.level; if (lvl === 'off' || S.reduced) { S.dust = []; return }
-    const base = (S.w * S.h) / (phone ? 26000 : 17000) * (lvl === 'subtle' ? .55 : 1) * (S.network ? 1.6 : 1);
-    const n = Math.min(S.network ? 150 : 110, Math.round(base)); S.dust = [];
-    for (let i = 0; i < n; i++) { const z = Math.random(); S.dust.push({ x: rnd(0, S.w), y: rnd(0, S.h), z, vx: rnd(-.04, .04), vy: rnd(-.08, -.015), r: .4 + z * 1.1, a: .05 + z * .17, tw: rnd(0, 6.28), ts: rnd(.15, .35), c: 'fg' }) }
-    const orbs = S.network ? 0 : (lvl === 'subtle' ? 2 : phone ? 2 : 4);
-    for (let i = 0; i < orbs; i++) S.dust.push({ orb: true, x: rnd(0, S.w), y: rnd(0, S.h), vx: rnd(-.05, .05), vy: rnd(-.04, .04), r: rnd(120, 240), a: rnd(.018, .035), c: 'acc', z: .2, tw: rnd(0, 6), ts: rnd(.05, .12) });
-  }
-  function add(p) { if (S.parts.length > (phone ? 360 : 700)) S.parts.shift(); S.parts.push(p); wake() }
-  /* ---------- spawners ---------- */
-  function spark(x, y, o = {}) { const n = o.n ?? 14, col = o.color || P.acc, sp = o.speed ?? 3.2; for (let i = 0; i < n; i++) { const a = o.dir != null ? o.dir + rnd(-(o.spread ?? .6), o.spread ?? .6) : rnd(0, 6.283), v = rnd(.35, 1) * sp; add({ k: 'spark', x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 0, max: rnd(28, 52) * (o.long ? 1.6 : 1), r: rnd(.8, 2.2) * (o.big ? 1.6 : 1), c: Array.isArray(col) ? pick(col) : col, drag: .93, g: o.g ?? .04 }) } }
-  function confetti(x, y, o = {}) { const n = o.n ?? 90, cols = o.colors || [P.gold, P.pos, P.acc, P.ai, '#ffffff']; for (let i = 0; i < n; i++) { const a = rnd(-Math.PI * .92, -Math.PI * .08), v = rnd(5, 13) * (o.power ?? 1); add({ k: 'conf', x: x + rnd(-20, 20), y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 0, max: rnd(90, 150), w: rnd(5, 9), h: rnd(8, 14), rot: rnd(0, 6.28), vr: rnd(-.25, .25), flip: rnd(0, 6.28), vf: rnd(.08, .2), c: pick(cols), drag: .975, g: .16 }) } }
-  function coins(x, y, o = {}) { const n = o.n ?? 26; for (let i = 0; i < n; i++) { const a = rnd(-Math.PI * .85, -Math.PI * .15), v = rnd(5, 11); add({ k: 'coin', x: x + rnd(-30, 30), y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 0, max: rnd(100, 150), r: rnd(6, 10), flip: rnd(0, 6.28), vf: rnd(.15, .3), drag: .98, g: .22 }) } spark(x, y, { n: 30, color: [P.gold, '#fff3c4'], speed: 5, long: true }) }
-  function ash(x, y, o = {}) { const n = o.n ?? 22; for (let i = 0; i < n; i++) add({ k: 'ash', x: x + rnd(-140, 140), y: y + rnd(-30, 30), vx: rnd(-.3, .3), vy: rnd(-.4, .3), life: 0, max: rnd(120, 200), r: rnd(1, 2.6), c: Math.random() < .3 ? P.neg : '#8E8E8E', drag: .99, g: .012, sway: rnd(0, 6) }) }
-  function firework(x, y, col) { add({ k: 'rocket', x, y: S.h + 10, tx: x, ty: y, vx: rnd(-1, 1), vy: -rnd(13, 16), life: 0, max: 200, c: col, r: 2.4, drag: 1, g: .19 }) }
-  function ring(x, y, col, R = 40) { add({ k: 'ring', x, y, life: 0, max: 34, R, c: col }) }
-  /* ---------- emitters bound to elements ---------- */
-  function emitter(el, o) { return () => { }; if (!el) return () => { }; S.emit.set(el, { ...o, acc: 0, rect: null, rf: -99, ang: rnd(0, 6.28) }); wake(); return () => S.emit.delete(el) }
-  function runEmitters() {
-    if (S.level === 'off' || S.reduced) return;
-    for (const [el, e] of S.emit) {
-      if (!el.isConnected) { S.emit.delete(el); continue }
-      if (S.frame - e.rf > 20) { e.rect = el.getBoundingClientRect(); e.rf = S.frame }
-      const r = e.rect; if (!r || r.bottom < 0 || r.top > S.h || r.width === 0) continue;
-      const mul = S.level === 'subtle' ? .45 : 1; e.acc += (e.rate || .3) * mul;
-      const col = typeof e.color === 'function' ? e.color() : (e.color || P.acc);
-      while (e.acc >= 1) {
-        e.acc -= 1;
-        if (e.type === 'rise') add({ k: 'ember', x: rnd(r.left + r.width * .05, r.right - r.width * .05), y: rnd(r.top + r.height * .55, r.bottom), vx: rnd(-.25, .25), vy: -rnd(.35, 1.1), life: 0, max: rnd(70, 130), r: rnd(.8, 2.2), c: col, drag: .995, g: -.004, sway: rnd(0, 6.28) });
-        else if (e.type === 'sparkle') { const a = rnd(0, 6.28), rr = Math.max(r.width, r.height) * .5 * rnd(.55, 1.05); add({ k: 'twinkle', x: r.left + r.width / 2 + Math.cos(a) * rr, y: r.top + r.height / 2 + Math.sin(a) * rr, vx: 0, vy: -rnd(0, .2), life: 0, max: rnd(40, 80), r: rnd(1.5, 3.2), c: col, drag: 1, g: 0 }) }
-        else if (e.type === 'orbit') { e.ang += .55; const cx = r.left + r.width / 2, cy = r.top + r.height / 2, R = r.width * .62; add({ k: 'orb', cx, cy, a: e.ang, R, va: .045, life: 0, max: rnd(50, 80), r: rnd(.9, 1.8), c: col }) }
-        else if (e.type === 'think') { const a = rnd(0, 6.28); add({ k: 'spark', x: r.left + r.width / 2 + Math.cos(a) * 12, y: r.top + r.height / 2 + Math.sin(a) * 12, vx: Math.cos(a) * rnd(.3, 1), vy: Math.sin(a) * rnd(.3, 1) - .3, life: 0, max: rnd(30, 60), r: rnd(.8, 1.8), c: col, drag: .97, g: -.01 }) }
-        else if (e.type === 'edge') { const per = 2 * (r.width + r.height); let d = rnd(0, per), px, py; if (d < r.width) { px = r.left + d; py = r.top } else if ((d -= r.width) < r.height) { px = r.right; py = r.top + d } else if ((d -= r.height) < r.width) { px = r.right - d; py = r.bottom } else { px = r.left; py = r.bottom - (d - r.width) } add({ k: 'twinkle', x: px, y: py, vx: rnd(-.2, .2), vy: rnd(-.3, 0), life: 0, max: rnd(40, 70), r: rnd(1, 2.4), c: col, drag: 1, g: 0 }) }
-      }
-    }
-  }
-  /* ---------- loop ---------- */
-  function wake() { if (!S.run && S.cv && document.visibilityState === 'visible') { S.run = true; requestAnimationFrame(loop) } }
-  function loop() {
-    if (!S.run) return; S.frame++; S.t += 1 / 60;
-    const x = S.x; x.clearRect(0, 0, S.w, S.h);
-    x.globalCompositeOperation = S.light ? 'source-over' : 'lighter';
-    const am = S.light ? .55 : 1;
-    // ambient
-    const mx = S.mx, my = S.my; S.mvx *= .9; S.mvy *= .9;
-    for (const d of S.dust) {
-      if (d.orb) { d.x += d.vx; d.y += d.vy; if (d.x < -d.r) d.x = S.w + d.r; if (d.x > S.w + d.r) d.x = -d.r; if (d.y < -d.r) d.y = S.h + d.r; if (d.y > S.h + d.r) d.y = -d.r; const g = x.createRadialGradient(d.x, d.y, 0, d.x, d.y, d.r); g.addColorStop(0, hex(P[d.c], d.a * am * (.8 + .2 * Math.sin(S.t * d.ts + d.tw)))); g.addColorStop(1, hex(P[d.c], 0)); x.fillStyle = g; x.beginPath(); x.arc(d.x, d.y, d.r, 0, 6.283); x.fill(); continue }
-      const dx = d.x - mx, dy = d.y - my, dist2 = dx * dx + dy * dy;
-      if (dist2 < 16000) { const f = (1 - dist2 / 16000) * (.4 + d.z); d.vx += dx * .0007 * f; d.vy += dy * .0007 * f }
-      d.vx = d.vx * .985 + (Math.random() - .5) * .004; d.vy = d.vy * .985 + (-.05 * (.3 + d.z) - d.vy) * .01;
-      d.x += d.vx * (.5 + d.z); d.y += d.vy * (.5 + d.z);
-      if (d.y < -5) { d.y = S.h + 5; d.x = rnd(0, S.w) } if (d.x < -5) d.x = S.w + 5; if (d.x > S.w + 5) d.x = -5; if (d.y > S.h + 5) d.y = -5;
-      const tw = .8 + .2 * Math.sin(S.t * d.ts + d.tw);
-      x.fillStyle = hex(P[d.c], d.a * tw * am); x.beginPath(); x.arc(d.x, d.y, d.r, 0, 6.283); x.fill();
-    }
-    if (S.network) { x.lineWidth = .6; const D = S.dust; for (let i = 0; i < D.length; i++) { const a = D[i]; if (a.orb) continue; for (let j = i + 1; j < D.length; j++) { const b = D[j]; if (b.orb) continue; const dx = a.x - b.x, dy = a.y - b.y, q = dx * dx + dy * dy; if (q < 13000) { x.strokeStyle = hex(P.fg, (1 - q / 13000) * .12 * am); x.beginPath(); x.moveTo(a.x, a.y); x.lineTo(b.x, b.y); x.stroke() } } if (mx > 0) { const dx = a.x - mx, dy = a.y - my, q = dx * dx + dy * dy; if (q < 26000) { x.strokeStyle = hex(P.fg, (1 - q / 26000) * .28 * am); x.beginPath(); x.moveTo(a.x, a.y); x.lineTo(mx, my); x.stroke() } } } }
-    runEmitters();
-    // particles
-    const keep = [];
-    for (const p of S.parts) {
-      p.life++; const t = p.life / p.max; if (t >= 1) { if (p.k === 'rocket') burstAt(p) ; continue }
-      if (p.k === 'orb') { p.a += p.va; const px = p.cx + Math.cos(p.a) * p.R, py = p.cy + Math.sin(p.a) * p.R * .42; const al = Math.sin(t * Math.PI) * am; x.fillStyle = hex(p.c, al * .9); x.beginPath(); x.arc(px, py, p.r, 0, 6.283); x.fill(); keep.push(p); continue }
-      if (p.k === 'flash') { const al = Math.pow(1 - t, 2) * (p.a || .35) * am; const g = x.createRadialGradient(S.w / 2, S.h / 2, Math.min(S.w, S.h) * .35, S.w / 2, S.h / 2, Math.max(S.w, S.h) * .75); g.addColorStop(0, hex(p.c, 0)); g.addColorStop(1, hex(p.c, al)); x.fillStyle = g; x.fillRect(0, 0, S.w, S.h); keep.push(p); continue }
-      if (p.k === 'wave') { const e = 1 - Math.pow(1 - t, 3); const al = (1 - t) * (p.a || .5) * am; x.strokeStyle = hex(p.c, al); x.lineWidth = (p.lw || 1.5) * (1 - t * .6); x.beginPath(); x.arc(p.x, p.y, p.R * e, 0, 6.283); x.stroke(); keep.push(p); continue }
-      if (p.k === 'ring') { const al = (1 - t) * .7 * am; x.strokeStyle = hex(p.c, al); x.lineWidth = 2 * (1 - t) + .5; x.beginPath(); x.arc(p.x, p.y, p.R * (.2 + t), 0, 6.283); x.stroke(); keep.push(p); continue }
-      p.vx *= p.drag; p.vy = p.vy * p.drag + p.g; if (p.sway != null) { p.sway += .05; p.vx += Math.sin(p.sway) * .02 }
-      p.x += p.vx; p.y += p.vy;
-      if (p.k === 'rocket') { if (p.vy >= -1 || p.y <= p.ty) { burstAt(p); continue } x.fillStyle = hex('#ffffff', .9 * am); x.beginPath(); x.arc(p.x, p.y, 2, 0, 6.283); x.fill(); if (S.frame % 2 === 0) add({ k: 'spark', x: p.x, y: p.y, vx: rnd(-.3, .3), vy: rnd(.5, 1.5), life: 0, max: 26, r: 1.2, c: p.c, drag: .95, g: .02 }); keep.push(p); continue }
-      const al = (p.k === 'ember' || p.k === 'twinkle' ? Math.sin(t * Math.PI) : 1 - t * t) * am;
-      if (p.k === 'conf') { p.rot += p.vr; p.flip += p.vf; const sx = Math.cos(p.flip); x.save(); x.translate(p.x, p.y); x.rotate(p.rot); x.scale(sx, 1); x.fillStyle = hex(p.c, Math.min(1, (1 - t) * 1.6) * am); x.fillRect(-p.w / 2, -p.h / 2, p.w, p.h); x.restore() }
-      else if (p.k === 'coin') { p.flip += p.vf; const sx = Math.abs(Math.cos(p.flip)) * .9 + .1; x.save(); x.translate(p.x, p.y); x.scale(sx, 1); const g = x.createRadialGradient(-p.r * .3, -p.r * .3, 0, 0, 0, p.r); g.addColorStop(0, hex('#FFF1C2', al)); g.addColorStop(.6, hex(P.gold, al)); g.addColorStop(1, hex('#9A6A10', al)); x.fillStyle = g; x.beginPath(); x.arc(0, 0, p.r, 0, 6.283); x.fill(); if (sx > .5) { x.fillStyle = hex('#7A520A', al * .8); x.font = `900 ${p.r * 1.3}px Satoshi, sans-serif`; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('$', 0, 1) } x.restore() }
-      else if (p.k === 'twinkle') { const s = p.r * (1 + .3 * Math.sin(p.life * .3)); x.strokeStyle = hex(p.c, al * .95); x.lineWidth = 1; x.beginPath(); x.moveTo(p.x - s * 2.2, p.y); x.lineTo(p.x + s * 2.2, p.y); x.moveTo(p.x, p.y - s * 2.2); x.lineTo(p.x, p.y + s * 2.2); x.stroke(); x.fillStyle = hex('#ffffff', al * .9); x.beginPath(); x.arc(p.x, p.y, s * .55, 0, 6.283); x.fill() }
-      else { x.fillStyle = hex(p.c, al * .95); x.beginPath(); x.arc(p.x, p.y, p.r * (p.k === 'spark' ? (1 - t * .5) : 1), 0, 6.283); x.fill(); if (p.r > 1.4 && !S.light) { x.fillStyle = hex(p.c, al * .18); x.beginPath(); x.arc(p.x, p.y, p.r * 3.2, 0, 6.283); x.fill() } }
-      keep.push(p);
-    }
-    S.parts = keep;
-    if (!S.dust.length && !S.parts.length && !S.emit.size) { S.run = false; x.clearRect(0, 0, S.w, S.h); return }
-    requestAnimationFrame(loop);
-  }
-  function burstAt(p) { const cols = p.c === 'multi' ? [P.gold, P.pos, P.acc, P.ai, '#fff'] : [p.c, '#ffffff']; for (let i = 0; i < 70; i++) { const a = rnd(0, 6.283), v = rnd(1.5, 6.5); add({ k: 'spark', x: p.x, y: p.y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 0, max: rnd(50, 90), r: rnd(1, 2.4), c: pick(cols), drag: .955, g: .06 }) } ring(p.x, p.y, p.c === 'multi' ? P.gold : p.c, 90) }
-  /* ---------- public ---------- */
-  const api = {
-    init() {
-      if (S.cv) return; S.reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
-      const c = document.createElement('canvas'); c.className = 'fxcanvas'; c.setAttribute('aria-hidden', 'true'); document.body.appendChild(c); S.cv = c; S.x = c.getContext('2d'); size();
-      addEventListener('resize', () => { clearTimeout(S.rz); S.rz = setTimeout(size, 150) });
-      document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') wake(); else S.run = false });
-      addEventListener('pointermove', e => { if (e.pointerType !== 'mouse') return; S.mvx = e.clientX - S.mx; S.mvy = e.clientY - S.my; if (Math.abs(S.mvx) > 200) S.mvx = 0; if (Math.abs(S.mvy) > 200) S.mvy = 0; S.mx = e.clientX; S.my = e.clientY; api.trail(e) }, { passive: true });
-      document.addEventListener('pointerleave', () => { S.mx = S.my = -9999 });
-      document.addEventListener('pointerdown', e => api.click(e), { passive: true, capture: true });
-      wake();
-    },
-    setLevel(l) { S.level = l || 'full'; seedDust(); wake() },
-    theme() { P = pal(); S.light = document.documentElement.classList.contains('lt'); },
-    network(on) { if (S.network === !!on) return; S.network = !!on; if (S.cv) S.cv.style.zIndex = on ? '0' : ''; seedDust(); wake() },
-    emitter, spark, ring,
-    trail(e) { return; if (!fine || S.level !== 'full' || S.reduced) return; const now = performance.now(); if (now - S.lastTrail < 34) return; const el = e.target.closest && e.target.closest('.tc,.card,.cert,.acct,.btn-w,.btn-ai,.hero,.flexwrap'); if (!el) return; S.lastTrail = now; const sp = Math.hypot(S.mvx, S.mvy); if (sp < 2) return; const col = el.classList.contains('btn-ai') ? P.ai : el.classList.contains('cert') ? P.gold : P.acc; add({ k: 'spark', x: e.clientX + rnd(-3, 3), y: e.clientY + rnd(-3, 3), vx: -S.mvx * .04 + rnd(-.3, .3), vy: -S.mvy * .04 + rnd(-.3, .3), life: 0, max: rnd(22, 38), r: rnd(.7, 1.6), c: col, drag: .94, g: .01 }) },
-    click(e) {
-      if (S.level === 'off' || S.reduced) return; const t = e.target.closest && e.target.closest('.btn-w,.btn-a,.btn-ai'); if (!t) return;
-      add({ k: 'wave', x: e.clientX, y: e.clientY, life: 0, max: 26, R: 34, c: P.fg, a: .35, lw: 1 });
-    },
-    /* a logged win lands as one heavy pulse: a clean shockwave and a brief edge glow. Losses stay silent. */
-    trade(pnl, big) { if (S.level === 'off' || S.reduced || pnl == null || pnl <= 0) return; const cx = S.w / 2, cy = S.h / 2; add({ k: 'flash', life: 0, max: 50, c: P.pos, a: big ? .28 : .18 }); add({ k: 'wave', x: cx, y: cy, life: 0, max: 55, R: Math.max(S.w, S.h) * .6, c: P.pos, a: .45, lw: 2 }); if (big) setTimeout(() => add({ k: 'wave', x: cx, y: cy, life: 0, max: 60, R: Math.max(S.w, S.h) * .8, c: P.fg, a: .25, lw: 1.2 }), 140) },
-    payout() { if (S.level === 'off' || S.reduced) return; const cx = S.w / 2, cy = S.h / 2; add({ k: 'flash', life: 0, max: 60, c: P.gold, a: .22 }); [0, 160, 320].forEach((d, i) => setTimeout(() => add({ k: 'wave', x: cx, y: cy, life: 0, max: 60, R: Math.max(S.w, S.h) * (.45 + i * .18), c: i ? P.fg : P.gold, a: .4 - i * .1, lw: 2 - i * .4 }), d)) },
-    passed() { if (S.level === 'off' || S.reduced) return; const cx = S.w / 2, cy = S.h / 2; add({ k: 'flash', life: 0, max: 80, c: P.pos, a: .3 }); [0, 200, 400, 600].forEach((d, i) => setTimeout(() => add({ k: 'wave', x: cx, y: cy, life: 0, max: 70, R: Math.max(S.w, S.h) * (.4 + i * .16), c: i % 2 ? P.fg : P.pos, a: .5 - i * .08, lw: 2.4 - i * .4 }), d)) },
-    clearedChecklist(el) { if (S.level === 'off' || S.reduced || !el) return; const r = el.getBoundingClientRect(); add({ k: 'wave', x: r.left + r.width / 2, y: r.top + r.height / 2, life: 0, max: 40, R: Math.max(r.width, r.height) * .8, c: P.pos, a: .5, lw: 1.5 }) },
-  };
-  return api;
-})();
-
-/* hook: bind a particle emitter to an element for as long as it is mounted */
-function useFx(opts, deps = []) {
-  const ref = useRef();
-  useEffect(() => { if (!opts) return; return fx.emitter(ref.current, opts) }, deps);
-  return ref;
+/* ================= Compound · liquid obsidian backdrop =================
+   A full-screen WebGL fragment shader behind the glass UI: domain-warped flowing bands of polished
+   obsidian, bright specular ridges, and red/blue chromatic splitting where the light bends.
+   Rendered at reduced resolution and stretched (the glass blurs it anyway), ~30fps, paused when
+   hidden. Modes: live (flowing), still (one frame), off (plain black). Falls back to CSS if no WebGL. */
+const liquid = (() => {
+  const FS = `
+precision highp float;
+uniform vec2 R; uniform float T; uniform vec2 M; uniform float L;
+float h(vec2 p){ p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
+float n(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3. - 2. * f);
+  return mix(mix(h(i), h(i + vec2(1, 0)), f.x), mix(h(i + vec2(0, 1)), h(i + vec2(1, 1)), f.x), f.y); }
+float fbm(vec2 p){ float v = 0., a = .55; mat2 m = mat2(1.5, 1.1, -1.1, 1.5); for (int i = 0; i < 3; i++){ v += a * n(p); p = m * p; a *= .45; } return v; }
+/* soft, out-of-focus studio lights behind the glass */
+float blob(vec2 q, vec2 c, float r){ vec2 d = q - c; return exp(-dot(d, d) / r); }
+float env(vec2 q){
+  float t = T * .05;
+  float b = blob(q, vec2(-.9 + .3 * sin(t), .7 + .2 * cos(t * .7)), .35) * 1.1
+          + blob(q, vec2(.8 + .25 * cos(t * .8), -.2 + .3 * sin(t * .6)), .55) * .9
+          + blob(q, vec2(-.2 + .4 * sin(t * .5 + 2.), -1. + .2 * cos(t)), .28) * .8
+          + blob(q, vec2(1.3, .9 + .2 * sin(t * .9)), .22) * .7;
+  float band = smoothstep(.35, .0, abs(q.y * .8 + q.x * .45 - .55 + .15 * sin(t * .6))) * .55;
+  return b + band;
 }
+/* the molten ribbons: one warped field, folded into sweeping sheets */
+float U(vec2 p){ return p.y + .55 * sin(p.x * .85 + T * .06) + .9 * fbm(p * .45 + vec2(T * .018, -T * .01)) + .22 * sin(p.x * 2. - T * .045 + p.y * .6); }
+float S(vec2 p){ return sin(U(p) * 3.1); }
+void main(){
+  vec2 uv = gl_FragCoord.xy / R;
+  vec2 p = (gl_FragCoord.xy - .5 * R) / R.y * 2. + (M - .5) * .1;
+  p = mat2(.8, -.6, .6, .8) * p;
+  float e = .01; float s0 = S(p); vec2 g = vec2(S(p + vec2(e, 0.)) - s0, S(p + vec2(0., e)) - s0) / e;
+  float gl = length(g) + 1e-4; vec2 gn = g / gl;
+  float inside = smoothstep(-.05, .35, s0);                       /* clear glass ribbon vs obsidian gap */
+  vec3 bg = vec3(env(p)) * .09;                                   /* lights seen dimly through dark stone */
+  float k = .11;                                                  /* refraction: the ribbon bends what is behind it */
+  vec3 rf = vec3(env(p - g * k * 1.0), env(p - g * k * 1.13), env(p - g * k * 1.28));
+  rf = pow(rf, vec3(1.55)) * 1.05;
+  vec3 col = mix(bg, rf, inside);
+  /* razor edges where the sheet turns: split warm and cool like a lens */
+  float o = .012 / max(gl * .25, .6);
+  float eW = exp(-abs(s0) * 48.), eR = exp(-abs(S(p + gn * o * 1.6)) * 16.), eB = exp(-abs(S(p - gn * o * 1.6)) * 16.);
+  float lit = .3 + .9 * env(p);
+  col += vec3(1.) * eW * lit * 1.1;
+  col += vec3(1., .5, .2) * eR * lit * .32 + vec3(.25, .55, 1.) * eB * lit * .36;
+  /* inner reflection line near the crest, and a slow specular glint */
+  col += exp(-abs(s0 - .93) * 34.) * .28 * vec3(.95, .97, 1.);
+  float spec = pow(max(0., s0), 18.) * pow(.5 + .5 * sin(U(p) * .7 + p.x * 1.3 - T * .12), 8.) * .8;
+  col += spec;
+  float v = smoothstep(1.45, .35, length((uv - vec2(.52, .5)) * vec2(1.05, 1.)));
+  col *= .42 + .58 * v;
+  col = col / (1. + col * .45);
+  col = pow(col, vec3(1.08));
+  if (L > .5) col = vec3(.955, .957, .962) - col * vec3(.36, .36, .34);
+  gl_FragColor = vec4(col, 1.);
+}`;
+  const VS = 'attribute vec2 a;void main(){gl_Position=vec4(a,0.,1.);}';
+  const S = { cv: null, gl: null, u: {}, mode: 'live', light: false, run: false, t0: performance.now(), last: 0, mx: .5, my: .5, tx: .5, ty: .5, ok: false };
+  const phone = Math.min(innerWidth, innerHeight) < 600;
+  const scale = () => (phone ? .32 : .42) * Math.min(1.5, devicePixelRatio || 1);
+  function size() { if (!S.ok) return; const s = scale(); S.cv.width = Math.max(2, Math.round(innerWidth * s)); S.cv.height = Math.max(2, Math.round(innerHeight * s)); S.gl.viewport(0, 0, S.cv.width, S.cv.height); draw(performance.now()) }
+  function compile(gl) {
+    const sh = (t, src) => { const o = gl.createShader(t); gl.shaderSource(o, src); gl.compileShader(o); if (!gl.getShaderParameter(o, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(o)); return o };
+    const pr = gl.createProgram(); gl.attachShader(pr, sh(gl.VERTEX_SHADER, VS)); gl.attachShader(pr, sh(gl.FRAGMENT_SHADER, FS)); gl.linkProgram(pr); if (!gl.getProgramParameter(pr, gl.LINK_STATUS)) throw new Error('link'); gl.useProgram(pr);
+    const b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+    const a = gl.getAttribLocation(pr, 'a'); gl.enableVertexAttribArray(a); gl.vertexAttribPointer(a, 2, gl.FLOAT, false, 0, 0);
+    ['R', 'T', 'M', 'L'].forEach(k => S.u[k] = gl.getUniformLocation(pr, k));
+  }
+  function draw(now) {
+    const gl = S.gl; if (!gl) return;
+    S.mx += (S.tx - S.mx) * .04; S.my += (S.ty - S.my) * .04;
+    gl.uniform2f(S.u.R, S.cv.width, S.cv.height); gl.uniform1f(S.u.T, S.mode === 'live' ? (now - S.t0) / 1000 + 40 : 57.3); gl.uniform2f(S.u.M, S.mx, S.my); gl.uniform1f(S.u.L, S.light ? 1 : 0);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+  }
+  function loop(now) { if (!S.run) return; if (now - S.last > (phone ? 50 : 33)) { S.last = now; draw(now) } requestAnimationFrame(loop) }
+  function start() { if (S.run || !S.ok || S.mode !== 'live' || document.visibilityState !== 'visible') return; S.run = true; requestAnimationFrame(loop) }
+  function apply() {
+    if (!S.cv) return; const off = S.mode === 'off';
+    document.documentElement.classList.toggle('liquid', !off);
+    document.documentElement.classList.toggle('liquid-css', !off && !S.ok);
+    S.cv.style.display = off || !S.ok ? 'none' : 'block';
+    S.run = false; if (S.ok && !off) { draw(performance.now()); if (S.mode === 'live' && !matchMedia('(prefers-reduced-motion: reduce)').matches) start() }
+  }
+  return {
+    init() {
+      if (S.cv) return; const c = document.createElement('canvas'); c.className = 'liquidbg'; c.setAttribute('aria-hidden', 'true'); document.body.prepend(c); S.cv = c;
+      try { const gl = c.getContext('webgl', { antialias: false, alpha: false, preserveDrawingBuffer: false, powerPreference: 'low-power' }); if (!gl) throw 0; S.gl = gl; compile(gl); S.ok = true } catch (e) { S.ok = false; console.warn('liquid background fallback', e) }
+      addEventListener('resize', () => { clearTimeout(S.rz); S.rz = setTimeout(size, 150) });
+      document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') start(); else S.run = false });
+      addEventListener('pointermove', e => { S.tx = e.clientX / innerWidth; S.ty = 1 - e.clientY / innerHeight }, { passive: true });
+      c.addEventListener('webglcontextlost', e => { e.preventDefault(); S.run = false });
+      c.addEventListener('webglcontextrestored', () => { try { compile(S.gl); size(); apply() } catch (e) { } });
+      size(); apply();
+    },
+    set(mode, light) { S.mode = mode || 'live'; S.light = !!light; apply() },
+  };
+})();
 
 /* ================= Compound · forms ================= */
 function ListEdit({ v, set, placeholder = 'Add item' }) {
@@ -1043,7 +1010,6 @@ function TradeForm({ id, onClose, preset = {}, mode }) {
     base.tx = base.tx || base.t;
     for (const k of ['id', 'account', 'group', 'lead', 'role', 'copyOf', 'created', 'u']) delete base[k];
     const n = saveCopyGroup(S, base, { ...cp, copies: (cp.copyOn ?? cp.copies.length > 0) ? cp.copies : [] }, ex);
-    if (!ex) fx.trade(calc.pnl, t.grade === 'A+');
     toast(ex ? (n > 1 ? `Updated on ${n} accounts` : 'Trade updated') : (n > 1 ? `Logged to main + ${n - 1} cop${n - 1 === 1 ? "y" : "ies"}` : 'Trade logged'));
     onClose();
   };
@@ -1106,7 +1072,7 @@ function QuickLog({ onClose, mode }) {
   const [t, setT] = useState({ symbol: st.defaultSymbol || 'MNQ', side: 'long', qty: st.defaultQty || 1, pnl: '', grade: '', setups: [] }); const [cp, setCp] = useState(() => initialCopy(S, null));
   const up = p => setT(o => ({ ...o, ...p })); const ref = useRef();
   useEffect(() => ref.current?.focus(), []);
-  const save = () => { if (!isNum(t.pnl)) return toast('Enter the P&L'); fx.trade(+t.pnl); const n = saveCopyGroup(S, { ...t, symbol: normSym(t.symbol), pnlManual: true, t: localISO(), tx: localISO(), mode: mode || 'live', quick: true }, { ...cp, copies: (cp.copyOn ?? cp.copies.length > 0) ? cp.copies : [] }, null); toast(n > 1 ? `Logged to main + ${n - 1} cop${n - 1 === 1 ? "y" : "ies"}` : 'Logged. Add notes later from the journal.'); onClose() };
+  const save = () => { if (!isNum(t.pnl)) return toast('Enter the P&L'); const n = saveCopyGroup(S, { ...t, symbol: normSym(t.symbol), pnlManual: true, t: localISO(), tx: localISO(), mode: mode || 'live', quick: true }, { ...cp, copies: (cp.copyOn ?? cp.copies.length > 0) ? cp.copies : [] }, null); toast(n > 1 ? `Logged to main + ${n - 1} cop${n - 1 === 1 ? "y" : "ies"}` : 'Logged. Add notes later from the journal.'); onClose() };
   return html`<${Modal} title="Quick log" icon=${html`<${I} n="bolt"/>`} onClose=${onClose} foot=${html`<button class="btn btn-g" onClick=${onClose}>Cancel</button><button class="btn btn-w" onClick=${save}>Log it</button>`}>
     <div class="grid g3 keep2"><${Field} label="Symbol"><input class="in" list="syms" value=${t.symbol} onInput=${e => up({ symbol: e.target.value.toUpperCase() })}/><datalist id="syms">${Object.keys(INSTR).map(k => html`<option value=${k}/>`)}</datalist><//><${Field} label="Side"><${Seg} v=${t.side} set=${v => up({ side: v })} opts=${[['long', 'Long'], ['short', 'Short']]}/><//><${Field} label=${isCfdAcct(S, cp.main) ? 'Lots' : 'Contracts'}><input class="in tn" type="number" step="any" inputmode="decimal" value=${t.qty} onInput=${e => up({ qty: e.target.value })}/><//></div>
     <${Field} label="Net P&L"><div class="inwrap"><span class="pre">$</span><input ref=${ref} class="in tn" style=${{ fontSize: '22px', fontWeight: 700, height: '52px' }} inputmode="decimal" placeholder="240" value=${t.pnl} onInput=${e => up({ pnl: e.target.value })} onKeyDown=${e => e.key === 'Enter' && save()}/></div><//>
@@ -1183,7 +1149,7 @@ function PayoutForm({ id, account, onClose }) {
   const S = store.s; const ex = id ? S.payouts[id] : null;
   const [p, setP] = useState(ex ? { ...ex } : { account: account || '', amount: '', d: todayKey(), status: 'paid', note: '', deduct: true });
   const up = x => setP(o => ({ ...o, ...x }));
-  return html`<${Modal} title=${ex ? 'Edit payout' : 'Record payout'} icon=${html`<${I} n="wallet"/>`} onClose=${onClose} foot=${html`${ex && html`<button class="btn btn-d" style=${{ marginRight: 'auto' }} onClick=${() => { store.del('payouts', ex.id); const adj = Object.values(S.adjust).find(x => x.payout === ex.id); adj && store.del('adjust', adj.id); onClose() }}>Delete</button>`}<button class="btn btn-g" onClick=${onClose}>Cancel</button><button class="btn btn-w" onClick=${() => { if (!isNum(p.amount)) return toast('Enter an amount'); const o = store.put('payouts', { ...p, amount: +p.amount }); if (!ex && p.deduct && p.account) store.put('adjust', { id: uid(), account: p.account, v: -Math.abs(+p.amount), d: p.d + 'T23:59', payout: o.id, note: 'Payout withdrawn' }); toast('Payout recorded'); if (!ex && p.status === 'paid') fx.payout(); onClose() }}>Save</button>`}>
+  return html`<${Modal} title=${ex ? 'Edit payout' : 'Record payout'} icon=${html`<${I} n="wallet"/>`} onClose=${onClose} foot=${html`${ex && html`<button class="btn btn-d" style=${{ marginRight: 'auto' }} onClick=${() => { store.del('payouts', ex.id); const adj = Object.values(S.adjust).find(x => x.payout === ex.id); adj && store.del('adjust', adj.id); onClose() }}>Delete</button>`}<button class="btn btn-g" onClick=${onClose}>Cancel</button><button class="btn btn-w" onClick=${() => { if (!isNum(p.amount)) return toast('Enter an amount'); const o = store.put('payouts', { ...p, amount: +p.amount }); if (!ex && p.deduct && p.account) store.put('adjust', { id: uid(), account: p.account, v: -Math.abs(+p.amount), d: p.d + 'T23:59', payout: o.id, note: 'Payout withdrawn' }); toast('Payout recorded'); onClose() }}>Save</button>`}>
     <${Field} label="Account"><${AccountPicker} S=${S} v=${p.account} set=${v => up({ account: v })}/><//>
     <div class="grid g2"><${Field} label="Amount received"><div class="inwrap"><span class="pre">$</span><input class="in tn" style=${{ fontSize: '20px', fontWeight: 700 }} value=${p.amount} onInput=${e => up({ amount: e.target.value })}/></div><//><${Field} label="Date"><input class="in" type="date" value=${p.d} onInput=${e => up({ d: e.target.value })}/><//></div>
     <div class="row"><${Seg} v=${p.status} set=${v => up({ status: v })} opts=${[['requested', 'Requested'], ['paid', 'Paid']]}/>${!ex && html`<label class="row" style=${{ gap: '8px', fontSize: '13px', cursor: 'pointer' }}><input type="checkbox" checked=${p.deduct} onChange=${e => up({ deduct: e.target.checked })}/>Deduct from account balance</label>`}</div>
@@ -1366,8 +1332,8 @@ function Settings({ onClose, tab: tab0 }) {
     ${tab === 'general' && html`<div class="grid g2" style=${{ gap: '18px' }}>
       <${Field} label="Your name"><input class="in" value=${st.name} onInput=${e => set({ name: e.target.value })}/><//>
       <${Field} label="Appearance"><${Seg} v=${st.theme} set=${v => set({ theme: v })} opts=${[['dark', 'Dark', 'moon'], ['light', 'Light', 'sun']]}/><//>
-      <${Field} label="Motion effects" hint="Background dust and the pulse when you log a win"><${Seg} v=${st.fx || 'full'} set=${v => set({ fx: v })} opts=${[['full', 'Full'], ['subtle', 'Subtle'], ['off', 'Off']]}/><//>
-      <${Field} label="Accent"><div class="row" style=${{ gap: '8px' }}>${[['cobalt', '#5B8CFF'], ['violet', '#9D7BFF'], ['ember', '#FF8A4C'], ['ice', '#6FD3FF'], ['gold', '#F3B43F'], ['mono', '#E9EAEE']].map(([k, c]) => html`<button key=${k} onClick=${() => set({ accent: k })} title=${k} style=${{ width: '30px', height: '30px', borderRadius: '9px', background: c, outline: st.accent === k ? '2px solid var(--fg)' : 'none', outlineOffset: '2px' }}></button>`)}</div><//>
+      <${Field} label="Background" hint="Liquid obsidian behind the glass"><${Seg} v=${st.bg || 'live'} set=${v => set({ bg: v })} opts=${[['live', 'Flowing'], ['still', 'Still'], ['off', 'Plain black']]}/><//>
+      <${Field} label="Accent"><div class="row" style=${{ gap: '8px' }}>${[['obsidian', 'linear-gradient(135deg,#fff,#7d8693 50%,#e6e9ee)'], ['cobalt', '#5B8CFF'], ['violet', '#9D7BFF'], ['ember', '#FF8A4C'], ['ice', '#6FD3FF'], ['gold', '#F3B43F'], ['mono', '#E9EAEE']].map(([k, c]) => html`<button key=${k} onClick=${() => set({ accent: k })} title=${k} style=${{ width: '30px', height: '30px', borderRadius: '9px', background: c, outline: st.accent === k ? '2px solid var(--fg)' : 'none', outlineOffset: '2px' }}></button>`)}</div><//>
       <${Field} label="Default symbol & size"><div class="row" style=${{ flexWrap: 'nowrap' }}><input class="in" list="syms" value=${st.defaultSymbol} onInput=${e => set({ defaultSymbol: e.target.value.toUpperCase() })}/><input class="in tn" style=${{ width: '90px' }} value=${st.defaultQty} onInput=${e => set({ defaultQty: +e.target.value || 1 })}/></div><//>
       <label class="row" style=${{ gap: '8px', fontSize: '13.5px', cursor: 'pointer' }}><input type="checkbox" checked=${st.dedupeCopies} onChange=${e => set({ dedupeCopies: e.target.checked })}/>Count copy-traded ideas once in analytics (when viewing all accounts)</label></div>`}
     ${tab === 'journal' && html`<div class="grid g2" style=${{ gap: '18px' }}>
@@ -1487,8 +1453,6 @@ function Dashboard({ C }) {
   const wkS = stats(D.ts.filter(t => new Date(t.t) >= weekStart(new Date())));
   const setR = r => { setRange(r); LS.set('compound.range', r); setRm(false) };
   const noTrades = !Object.keys(S.trades).length;
-  const heroFx = useFx({ type: 'rise', rate: .5, color: () => document.querySelector('.hero .big.neg') ? cssv('--neg') : cssv('--acc') });
-  const radarFx = useFx({ type: 'sparkle', rate: .1, color: () => cssv('--acc') });
   return html`<div class="page">
     <${PageHead} title="Dashboard" sub=${fmtLong(new Date()) + ' · ' + scopeLabel(S, C.F)}><button class="btn btn-t sm" onClick=${() => UI.open('settings')}><${I} n="gear"/>Settings</button><//>
     ${noTrades && html`<div class="card" style=${{ padding: '22px 24px', background: 'radial-gradient(120% 160% at 0% 0%,var(--accs),transparent 55%),var(--card)' }}>
@@ -1497,7 +1461,7 @@ function Dashboard({ C }) {
     <div class="hero"><div class="glow"></div>
       <div class="dd lbl" style=${{ justifyContent: 'center', display: 'flex' }} onClick=${() => setRm(!rm)}>Total P&L · ${RANGES.find(r => r[0] === range)[1]}<${I} n="down" s=${12}/>
         <${Menu} open=${rm} onClose=${() => setRm(false)} style=${{ top: '22px', left: '50%', transform: 'translateX(-50%)' }}>${RANGES.map(([k, l]) => html`<button key=${k} class=${range === k ? 'on' : ''} onClick=${e => { e.stopPropagation(); setR(k) }}>${l}</button>`)}<//></div>
-      <div ref=${heroFx} class=${'big ' + (s.net < 0 ? 'neg' : '')} style=${{ marginTop: '14px' }}><${CountUp} v=${s.net} fmt=${v => money(v, { dec: 0 })}/></div>
+      <div class=${'big ' + (s.net < 0 ? 'neg' : '')} style=${{ marginTop: '14px' }}><${CountUp} v=${s.net} fmt=${v => money(v, { dec: 0 })}/></div>
       <div class="meta"><span class="mut tn" style=${{ fontWeight: 600 }}>${s.w}W / ${s.l}L${s.be ? ' / ' + s.be + 'BE' : ''}</span>
         ${today?.plan ? html`<button class="chip on" onClick=${() => UI.open('plan', { day: todayKey() })}><${I} n="check" s=${12}/>Plan set${today.plan.bias ? ' · ' + ({ bull: 'Bullish', bear: 'Bearish', neutral: 'Neutral', wait: 'Waiting' })[today.plan.bias] : ''}</button>` : html`<button class="lnk" style=${{ fontSize: '14px' }} onClick=${() => UI.open('plan', { day: todayKey() })}>Start pre-market plan →</button>`}</div></div>
 
@@ -1517,7 +1481,7 @@ function Dashboard({ C }) {
         <div class="kv" style=${{ marginTop: '10px' }}><span>Trades</span><b>${wkS.n || '—'}</b></div><div class="kv" style=${{ marginTop: '6px' }}><span>Win rate</span><b>${wkS.n ? pct(wkS.wr, 0) : '—'}</b></div>
         <div style=${{ marginTop: '14px' }}><${Bars} data=${wk} h=${140} onPick=${d => C.go('journal', { day: d.k })}/></div></div>
       <div class="card" style=${{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}><div class="ch" style=${{ width: '100%' }}><span class="lbl">Compound score</span><span class="sp"></span><span style=${{ fontSize: '26px', fontWeight: 900, letterSpacing: '-.04em' }}>${sc.total}<span class="dim" style=${{ fontSize: '13px', fontWeight: 500 }}>/100</span></span></div>
-        <div ref=${radarFx} style=${{ display: 'grid', placeItems: 'center' }}><${Radar} spokes=${sc.spokes} size=${232}/></div><div class="dim" style=${{ fontSize: '12px', textAlign: 'center', marginTop: '4px' }}>${D.ts.length < 10 ? 'Gets reliable after ~20 trades' : 'Win rate · profit factor · expectancy · journaling · discipline'}</div></div>
+        <div style=${{ display: 'grid', placeItems: 'center' }}><${Radar} spokes=${sc.spokes} size=${232}/></div><div class="dim" style=${{ fontSize: '12px', textAlign: 'center', marginTop: '4px' }}>${D.ts.length < 10 ? 'Gets reliable after ~20 trades' : 'Win rate · profit factor · expectancy · journaling · discipline'}</div></div>
     </div>
 
     <div class="grid g2">
@@ -2075,7 +2039,7 @@ function PropCard({ a, st, S }) {
           <button onClick=${() => { setMenu(false); UI.open('account', { id: a.id }) }}><${I} n="edit"/>Edit rules</button>
           <button onClick=${() => { setMenu(false); UI.open('payout', { account: a.id }) }}><${I} n="wallet"/>Record payout</button>
           <button onClick=${() => { setMenu(false); setMc(true) }}><${I} n="layers"/>Pass probability</button>
-          <hr/>${a.type === 'eval' && a.status === 'active' && html`<button onClick=${() => { setMenu(false); store.put('accounts', { ...a, status: 'passed', passedAt: todayKey() }); toast('Congrats. Eval marked passed.'); fx.passed() }}><${I} n="check"/>Mark passed</button>`}
+          <hr/>${a.type === 'eval' && a.status === 'active' && html`<button onClick=${() => { setMenu(false); store.put('accounts', { ...a, status: 'passed', passedAt: todayKey() }); toast('Congrats. Eval marked passed.') }}><${I} n="check"/>Mark passed</button>`}
           ${a.status === 'active' && html`<button onClick=${() => { setMenu(false); store.put('accounts', { ...a, status: 'blown', blownAt: todayKey() }) }}><${I} n="x"/>Mark blown</button>`}
           ${a.status !== 'active' && html`<button onClick=${() => { setMenu(false); store.put('accounts', { ...a, status: 'active' }) }}><${I} n="rotate"/>Reactivate</button>`}
           <hr/><button style=${{ color: 'var(--neg)' }} onClick=${() => { setMenu(false); UI.open('delacct', { id: a.id }) }}><${I} n="trash"/>Delete account</button>
@@ -2422,7 +2386,7 @@ function Report({ C, auto }) {
   </div>`;
 }
 
-function Thinking() { const r = useFx({ type: 'think', rate: .6, color: () => cssv('--ai') }); return html`<span ref=${r} style=${{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}><span class="typing"><i></i><i></i><i></i></span><span class="dim">Reading your journal…</span></span>` }
+function Thinking() { return html`<span style=${{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}><span class="typing"><i></i><i></i><i></i></span><span class="dim">Reading your journal…</span></span>` }
 
 /* ================= Compound · Flex (shareable P&L card) ================= */
 function flexData(C, range, rangeOpt) {
@@ -2522,7 +2486,6 @@ function Flex({ C }) {
   const [range, setRange] = useState(LS.get('compound.flex.range', 'all')); const [ro, setRo] = useState({ m: now.getMonth(), y: now.getFullYear() });
   const [o, setO] = useState(() => ({ format: innerWidth < 760 ? 'story' : 'landscape', theme: 'midnight', money: true, cents: true, color: false, anon: false, payouts: true, ...LS.get('compound.flex.opts', {}) }));
   const cv = useRef(); const [busy, setBusy] = useState(false);
-  const flexFx = useFx({ type: 'edge', rate: .4, color: () => o.theme === 'gold' ? cssv('--gold') : o.theme === 'aurora' ? cssv('--ai') : cssv('--acc') }, [o.theme]);
   const d = useMemo(() => flexData(C, range, ro), [C.D, range, ro.m, ro.y]);
   const setOpt = p => { const n = { ...o, ...p }; setO(n); LS.set('compound.flex.opts', n) };
   useEffect(() => { let live = true; const go = () => live && cv.current && drawFlex(cv.current, d, o); Promise.all([document.fonts?.load?.('900 100px Satoshi'), document.fonts?.load?.('500 20px "Geist Mono"')].filter(Boolean)).then(go, go); go(); return () => { live = false } }, [d, o, store.s.settings.accent]);
@@ -2538,7 +2501,7 @@ function Flex({ C }) {
       ${range !== 'all' && html`<div class="row" style=${{ gap: '4px' }}><button class="ib" onClick=${() => shift(-1)} aria-label="Previous"><${I} n="left"/></button><b style=${{ minWidth: '110px', textAlign: 'center' }}>${range === 'month' ? MON[ro.m] + ' ' + ro.y : ro.y}</b><button class="ib" onClick=${() => shift(1)} aria-label="Next"><${I} n="right"/></button></div>`}
       <span class="sp"></span><span class="mut hide-m" style=${{ fontSize: '13px' }}>${scopeLabel(C.S, C.F)}</span>
       <button class="btn btn-g sm" onClick=${copy}><${I} n="copy"/>Copy</button><button class="btn btn-g sm" onClick=${() => download()}><${I} n="download"/>Save image</button><button class="btn btn-w" disabled=${busy} onClick=${share}><${I} n="send"/>Share</button></div>
-    <div class="flexwrap" ref=${flexFx}><canvas ref=${cv} class=${'flexcv ' + o.format} aria-label=${`${d.label} P&L card`}></canvas></div>
+    <div class="flexwrap"><canvas ref=${cv} class=${'flexcv ' + o.format} aria-label=${`${d.label} P&L card`}></canvas></div>
     <div class="card"><div class="grid g4 keep2" style=${{ gap: '16px', alignItems: 'start' }}>
       <${Field} label="Format"><${Seg} sm v=${o.format} set=${v => setOpt({ format: v })} opts=${[['landscape', 'Post'], ['story', 'Story']]}/><//>
       <${Field} label="Style"><div class="row" style=${{ gap: '8px' }}>${Object.entries({ midnight: '#1a1a1a', aurora: 'linear-gradient(135deg,#5B35E8,#13D6B4)', gold: 'linear-gradient(135deg,#F3B43F,#E2622A)', ice: 'linear-gradient(135deg,#6FD3FF,#5B8CFF)' }).map(([k, bg]) => html`<button key=${k} title=${k} onClick=${() => setOpt({ theme: k })} style=${{ width: '30px', height: '30px', borderRadius: '9px', background: bg, outline: o.theme === k ? '2px solid var(--fg)' : 'none', outlineOffset: '2px', border: '1px solid var(--line2)' }}></button>`)}</div><//>
@@ -2604,7 +2567,7 @@ function Rail({ C }) {
         ${day.plan.focus && html`<b>${day.plan.focus}</b>`}${day.plan.levels && html`<span class="mut mdtx" style=${{ fontSize: '12.5px', fontFamily: 'var(--mono)' }}>${day.plan.levels}</span>`}${day.plan.news && html`<span class="dim">News: ${day.plan.news}</span>`}</button>`
         : html`<button class="card tight dim" style=${{ width: '100%', fontSize: '13px', textAlign: 'center', borderStyle: 'dashed' }} onClick=${() => UI.open('plan', { day: k })}>No pre-market plan yet</button>`}<//>
     <${Sec} id="check" title="Checklist" right=${html`<span class="row" style=${{ gap: '4px' }}><span class="dim tn" style=${{ fontSize: '12px' }}>${done}/${st.checklist.length}</span><button class="ib" style=${{ width: '24px', height: '24px' }} onClick=${() => UI.open('settings', { tab: 'journal' })} aria-label="Edit checklist"><${I} n="edit" s=${12}/></button></span>`}>
-      ${st.checklist.map((c, i) => html`<button key=${i} class=${'chk' + (checks[i] ? ' on' : '')} onClick=${e => { const nc = { ...checks, [i]: !checks[i] }; store.put('days', { ...day, id: k, checks: nc }); if (nc[i] && st.checklist.every((_, j) => nc[j])) { const box = e.currentTarget.closest('.sec'); setTimeout(() => fx.clearedChecklist(box), 60) } }}><span class="bx">${checks[i] && html`<${I} n="check" w=${3}/>`}</span><span>${c}</span></button>`)}
+      ${st.checklist.map((c, i) => html`<button key=${i} class=${'chk' + (checks[i] ? ' on' : '')} onClick=${() => store.put('days', { ...day, id: k, checks: { ...checks, [i]: !checks[i] } })}><span class="bx">${checks[i] && html`<${I} n="check" w=${3}/>`}</span><span>${c}</span></button>`)}
       ${done === st.checklist.length && st.checklist.length > 0 && html`<div class="chip pos" style=${{ marginTop: '6px' }}>Cleared to trade</div>`}<//>
     <${Sec} id="sess" title="Session" right=${sess?.start && !sess.end ? html`<span class="chip pos tn">● ${fmtDur(elapsed)}</span>` : null}>
       <div class="row" style=${{ alignItems: 'baseline' }}><span class="tn" style=${{ fontSize: '26px', fontWeight: 800, letterSpacing: '-.03em' }}>${sess?.start ? fmtDur(elapsed) : '—'}</span><span class="sp"></span>
@@ -2629,9 +2592,10 @@ function App() {
   const [lc, setLc] = useState(LS.get('compound.ldc', false)); const [rc, setRc] = useState(LS.get('compound.rdc', false));
   const [lo, setLo] = useState(false); const [ro, setRo] = useState(false);
   const mainRef = useRef();
-  useLayoutEffect(() => { const r = document.documentElement; r.classList.toggle('lt', S.settings.theme === 'light'); if (S.settings.accent && S.settings.accent !== 'cobalt') r.dataset.acc = S.settings.accent; else delete r.dataset.acc }, [S.settings.theme, S.settings.accent]);
-  useEffect(() => { fx.init() }, []);
-  useEffect(() => { fx.theme(); fx.setLevel(S.settings.fx || 'full') }, [S.settings.theme, S.settings.accent, S.settings.fx]);
+  useLayoutEffect(() => { const r = document.documentElement; r.classList.toggle('lt', S.settings.theme === 'light'); r.dataset.acc = S.settings.accent || 'obsidian' }, [S.settings.theme, S.settings.accent]);
+  useEffect(() => { liquid.init() }, []);
+  useEffect(() => { liquid.set(S.settings.bg || 'live', S.settings.theme === 'light') }, [S.settings.bg, S.settings.theme]);
+  useEffect(() => { if (store.mode !== 'cloud' && store.mode !== 'local') return; if ((S.settings.themeV || 0) < 2) store.setSettings({ themeV: 2, accent: 'obsidian' }) }, [store.mode, S.settings.themeV]);
   const go = (v, p) => { setView(v); setParams(p ? { ...p, _: Date.now() } : null); LS.set('compound.view', v); setModals([]); setLo(false); setRo(false); if (mainRef.current) mainRef.current.scrollTop = 0 };
   UI.go = go;
   UI.open = (kind, props = {}) => setModals(m => [...m.filter(x => !(kind === 'detail' && x.kind === 'detail')), { kind, props, id: uid() }]);
@@ -2654,7 +2618,6 @@ function App() {
   const tabs = VIEWS.filter(v => v !== '|');
   const sync = store.mode === 'cloud' ? (store.syncErr ? ['wait', 'Reconnecting…'] : ['ok', 'Synced across devices' + (store.lastSync ? ' · ' + fmtTime(store.lastSync) : '')]) : store.mode === 'local' ? ['loc', 'This browser only · not syncing'] : ['wait', 'Connecting…'];
   const full = view === 'ai';
-  const fabFx = useFx({ type: 'orbit', rate: .22, color: () => cssv('--ai') }, [view !== 'ai']);
   if (store.mode === 'login') return html`<${Login}/><${Toasts}/>`;
   if (store.mode === 'setup') return html`<${Setup}/><${Toasts}/>`;
   return html`<div class=${'shell' + (lc ? ' ldc' : '') + (rc || full ? ' rdc' : '') + (lo ? ' ldo' : '') + (ro ? ' rdo' : '') + (full ? ' ldc' : '')}>
@@ -2680,7 +2643,7 @@ function App() {
       <span class="mid"><a class="dim hide-m" href="https://www.tradingview.com/" target="_blank" rel="noopener" style=${{ fontSize: '11.5px', textDecoration: 'none' }}>Charts by TradingView</a></span><button class="btn btn-t xs" onClick=${() => UI.open('import', { mode })}><${I} n="upload" s=${13}/>Import</button><button class="btn btn-t xs" onClick=${() => UI.open('settings', { tab: 'data' })}><${I} n="download" s=${13}/>Backup</button></footer>
     <nav class="nav-m" aria-label="Sections">${tabs.map(v => html`<button key=${v[0]} class=${view === v[0] ? 'on' : ''} onClick=${() => go(v[0])}><${I} n=${v[2]}/>${v[1]}</button>`)}</nav>
   </div>
-  ${view !== 'ai' && html`<button class="fab" ref=${fabFx} onClick=${() => go('ai')} aria-label="Ask your coach" title="Ask your coach"><${Mark} s=${26}/></button>`}
+  ${view !== 'ai' && html`<button class="fab" onClick=${() => go('ai')} aria-label="Ask your coach" title="Ask your coach"><${Mark} s=${26}/></button>`}
   ${modals.map((m, i) => { const close = () => setModals(x => x.filter(y => y.id !== m.id)); const p = { ...m.props, onClose: close, key: m.id };
     switch (m.kind) {
       case 'trade': return html`<${TradeForm} ...${p} mode=${p.mode || mode}/>`; case 'quick': return html`<${QuickLog} ...${p} mode=${p.mode || mode}/>`;
