@@ -90,7 +90,7 @@ const DEFAULT_SETTINGS = {
   emotions: ['Calm', 'Confident', 'Patient', 'Focused', 'Anxious', 'FOMO', 'Greedy', 'Frustrated', 'Bored', 'Fearful', 'Euphoric', 'Tilted'],
   maxDailyLoss: 1200, maxTrades: 4, maxConsecLosses: 3, dailyGoal: 500,
   defaultSymbol: 'MNQ', defaultQty: 2, commissions: {}, dedupeCopies: true,
-  theme: 'dark', accent: 'obsidian', bg: 'live', themeV: 2, firmLogos: {}, onboarded: false,
+  theme: 'dark', accent: 'cobalt', themeV: 3, firmLogos: {}, onboarded: false,
 };
 const POS_EMO = new Set(['Calm', 'Confident', 'Patient', 'Focused']);
 const QUOTES = [
@@ -567,12 +567,12 @@ function Login() {
     } catch (x) { setErr(x.message === 'Invalid login credentials' ? 'Wrong email or password.' : x.message) }
     setBusy(false);
   };
-  return html`<div style=${{ minHeight: '100%', display: 'grid', placeItems: 'center', padding: '24px max(16px,env(safe-area-inset-left,0px))', background: 'radial-gradient(60% 40% at 50% 30%,var(--accs),transparent)', position: 'relative', zIndex: 1 }}>
-    <form onSubmit=${go} class="col loginglass" style=${{ width: 'min(420px,100%)', gap: '14px' }}>
-      <div class="col" style=${{ alignItems: 'center', gap: '10px', marginBottom: '10px' }}><${Mark} s=${54}/><div class="wm" style=${{ fontSize: '30px' }}>Compound</div><div class="mut" style=${{ textAlign: 'center' }}>${mode === 'in' ? 'Sign in to your journal. It syncs to every device you sign in on.' : 'Create your private journal account. Use it on every device.'}</div></div>
+  return html`<div style=${{ minHeight: '100%', display: 'grid', placeItems: 'center', padding: '24px max(16px,env(safe-area-inset-left,0px))', background: 'radial-gradient(60% 40% at 50% 30%,var(--accs),transparent),var(--bg)' }}>
+    <form onSubmit=${go} class="col" style=${{ width: 'min(420px,100%)', gap: '14px' }}>
+      <div class="col" style=${{ alignItems: 'center', gap: '10px', marginBottom: '10px' }}><${Mark} s=${54}/><div class="wm" style=${{ fontSize: '26.5px' }}>Compound</div><div class="mut" style=${{ textAlign: 'center' }}>${mode === 'in' ? 'Sign in to your journal. It syncs to every device you sign in on.' : 'Create your private journal account. Use it on every device.'}</div></div>
       <${Field} label="Email"><input id="lg-email" class="in" type="email" autocomplete="email" required value=${email} onInput=${e => setEmail(e.target.value)}/><//>
       <${Field} label="Password"><input id="lg-pw" class="in" type="password" autocomplete=${mode === 'in' ? 'current-password' : 'new-password'} minlength="6" required value=${pw} onInput=${e => setPw(e.target.value)}/><//>
-      ${err && html`<div class="neg" style=${{ fontSize: '13px' }}>${err}</div>`}
+      ${err && html`<div class="neg" style=${{ fontSize: '11.5px' }}>${err}</div>`}
       <button class="btn btn-w" style=${{ height: '46px' }} disabled=${busy}>${busy ? 'One moment…' : mode === 'in' ? 'Sign in' : 'Create account'}</button>
       <button type="button" class="btn btn-t" onClick=${() => { setMode(mode === 'in' ? 'up' : 'in'); setErr('') }}>${mode === 'in' ? 'First time? Create your account' : 'Have an account? Sign in'}</button>
     </form></div>`;
@@ -583,12 +583,12 @@ function Setup() {
   const save = e => { e.preventDefault(); let url = u.trim().replace(/\/+$/, ''); if (/^[a-z0-9]{20}$/.test(url)) url = 'https://' + url + '.supabase.co'; if (!/^https:\/\/.+\.supabase\.co$/.test(url)) return setErr('Paste the Project URL, like https://abcd1234.supabase.co'); const key = k.trim(); if (/^sb_secret_/.test(key)) return setErr('That is the secret key. Use the publishable key (sb_publishable_…) instead.'); if (!/^(sb_publishable_|eyJ)/.test(key)) return setErr('Paste the publishable key (starts with sb_publishable_).'); LS.set('compound.cfg', { supabaseUrl: url, supabaseKey: key }); location.reload() };
   return html`<div style=${{ minHeight: '100%', display: 'grid', placeItems: 'center', padding: '24px max(16px,env(safe-area-inset-left,0px))' }}>
     <form onSubmit=${save} class="col" style=${{ width: 'min(440px,100%)', gap: '14px' }}>
-      <div class="col" style=${{ alignItems: 'center', gap: '10px', marginBottom: '6px' }}><${Mark} s=${50}/><div class="wm" style=${{ fontSize: '28px' }}>Connect Compound</div><div class="mut" style=${{ textAlign: 'center' }}>One-time setup on this device. Supabase → Project Settings → API (or Data API).</div></div>
+      <div class="col" style=${{ alignItems: 'center', gap: '10px', marginBottom: '6px' }}><${Mark} s=${50}/><div class="wm" style=${{ fontSize: '24.5px' }}>Connect Compound</div><div class="mut" style=${{ textAlign: 'center' }}>One-time setup on this device. Supabase → Project Settings → API (or Data API).</div></div>
       <${Field} label="Project URL"><input class="in mono" placeholder="https://xxxx.supabase.co" value=${u} onInput=${e => setU(e.target.value)} autocomplete="off" autocapitalize="off"/><//>
       <${Field} label="Publishable key"><input class="in mono" placeholder="sb_publishable_…" value=${k} onInput=${e => setK(e.target.value)} autocomplete="off" autocapitalize="off"/><//>
-      ${err && html`<div class="neg" style=${{ fontSize: '13px' }}>${err}</div>`}
+      ${err && html`<div class="neg" style=${{ fontSize: '11.5px' }}>${err}</div>`}
       <button class="btn btn-w" style=${{ height: '46px' }}>Connect</button>
-      <div class="dim" style=${{ fontSize: '12.5px', textAlign: 'center' }}>Already set up on another device? Open Settings → Data there and send yourself the setup link.</div>
+      <div class="dim" style=${{ fontSize: '11px', textAlign: 'center' }}>Already set up on another device? Open Settings → Data there and send yourself the setup link.</div>
     </form></div>`;
 }
 
@@ -726,7 +726,7 @@ function Bars({ data, h = 200, fmt = v => moneyK(v), signed = true, color, label
 
 function HBars({ data, fmt = v => money(v, { sign: true }), max }) {
   const m = max || Math.max(1, ...data.map(d => Math.abs(d.v)));
-  return html`<div class="col" style=${{ gap: '9px' }}>${data.map(d => html`<div key=${d.l} style=${{ display: 'grid', gridTemplateColumns: 'minmax(80px,140px) 1fr auto', gap: '10px', alignItems: 'center', fontSize: '13px' }}>
+  return html`<div class="col" style=${{ gap: '9px' }}>${data.map(d => html`<div key=${d.l} style=${{ display: 'grid', gridTemplateColumns: 'minmax(80px,140px) 1fr auto', gap: '10px', alignItems: 'center', fontSize: '11.5px' }}>
     <span style=${{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title=${d.l}>${d.l}</span>
     <div style=${{ height: '8px', borderRadius: '5px', background: 'var(--card2)', position: 'relative', overflow: 'hidden' }}><i style=${{ position: 'absolute', left: 0, top: 0, bottom: 0, width: clamp(Math.abs(d.v) / m * 100) + '%', borderRadius: '5px', background: d.c || (d.v >= 0 ? 'var(--pos)' : 'var(--neg)') }}></i></div>
     <span class=${'tn ' + (d.c ? '' : cls(d.v))} style=${{ minWidth: '70px', textAlign: 'right', fontWeight: 600 }}>${fmt(d.v)}${d.sub && html`<span class="dim" style=${{ fontWeight: 400 }}> · ${d.sub}</span>`}</span></div>`)}</div>`;
@@ -741,7 +741,7 @@ function Radar({ spokes, size = 230 }) {
     ${spokes.map((s, i) => { const [x, y] = pt(i, 100); return html`<line key=${i} x1=${c} y1=${c} x2=${x} y2=${y} stroke="var(--line)"/>` })}
     <polygon class="rad" points=${poly} fill="var(--accs)" stroke="var(--acc)" stroke-width="2" stroke-linejoin="round"/>
     ${spokes.map((s, i) => { const [x, y] = pt(i, s.v); return html`<circle key=${i} cx=${x} cy=${y} r="3.5" fill="var(--acc)"/>` })}
-    ${spokes.map((s, i) => { const [x, y] = pt(i, 122); return html`<text key=${'t' + i} x=${x} y=${y} text-anchor="middle" style=${{ fill: 'var(--mut)', fontSize: '10.5px' }}>${s.k}<tspan x=${x} dy="12" style=${{ fill: 'var(--fg)', fontWeight: 700 }}>${Math.round(s.v)}</tspan></text>` })}
+    ${spokes.map((s, i) => { const [x, y] = pt(i, 122); return html`<text key=${'t' + i} x=${x} y=${y} text-anchor="middle" style=${{ fill: 'var(--mut)', fontSize: '9px' }}>${s.k}<tspan x=${x} dy="12" style=${{ fill: 'var(--fg)', fontWeight: 700 }}>${Math.round(s.v)}</tspan></text>` })}
   </svg>`;
 }
 
@@ -813,104 +813,6 @@ function EquityChart({ series, h = 260, area = true }) {
   document.addEventListener('pointerleave', () => { if (last) { last.style.removeProperty('--rx'); last.style.removeProperty('--ry'); last = null } });
 })();
 
-/* ================= Compound · liquid obsidian backdrop =================
-   A full-screen WebGL fragment shader behind the glass UI: domain-warped flowing bands of polished
-   obsidian, bright specular ridges, and red/blue chromatic splitting where the light bends.
-   Rendered at reduced resolution and stretched (the glass blurs it anyway), ~30fps, paused when
-   hidden. Modes: live (flowing), still (one frame), off (plain black). Falls back to CSS if no WebGL. */
-const liquid = (() => {
-  const FS = `
-precision highp float;
-uniform vec2 R; uniform float T; uniform vec2 M; uniform float L;
-float h(vec2 p){ p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
-float n(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3. - 2. * f);
-  return mix(mix(h(i), h(i + vec2(1, 0)), f.x), mix(h(i + vec2(0, 1)), h(i + vec2(1, 1)), f.x), f.y); }
-float fbm(vec2 p){ float v = 0., a = .55; mat2 m = mat2(1.5, 1.1, -1.1, 1.5); for (int i = 0; i < 3; i++){ v += a * n(p); p = m * p; a *= .45; } return v; }
-/* soft, out-of-focus studio lights behind the glass */
-float blob(vec2 q, vec2 c, float r){ vec2 d = q - c; return exp(-dot(d, d) / r); }
-float env(vec2 q){
-  float t = T * .05;
-  float b = blob(q, vec2(-.9 + .3 * sin(t), .7 + .2 * cos(t * .7)), .35) * 1.1
-          + blob(q, vec2(.8 + .25 * cos(t * .8), -.2 + .3 * sin(t * .6)), .55) * .9
-          + blob(q, vec2(-.2 + .4 * sin(t * .5 + 2.), -1. + .2 * cos(t)), .28) * .8
-          + blob(q, vec2(1.3, .9 + .2 * sin(t * .9)), .22) * .7;
-  float band = smoothstep(.35, .0, abs(q.y * .8 + q.x * .45 - .55 + .15 * sin(t * .6))) * .55;
-  return b + band;
-}
-/* the molten ribbons: one warped field, folded into sweeping sheets */
-float U(vec2 p){ return p.y + .55 * sin(p.x * .85 + T * .06) + .9 * fbm(p * .45 + vec2(T * .018, -T * .01)) + .22 * sin(p.x * 2. - T * .045 + p.y * .6); }
-float S(vec2 p){ return sin(U(p) * 3.1); }
-void main(){
-  vec2 uv = gl_FragCoord.xy / R;
-  vec2 p = (gl_FragCoord.xy - .5 * R) / R.y * 2. + (M - .5) * .1;
-  p = mat2(.8, -.6, .6, .8) * p;
-  float e = .01; float s0 = S(p); vec2 g = vec2(S(p + vec2(e, 0.)) - s0, S(p + vec2(0., e)) - s0) / e;
-  float gl = length(g) + 1e-4; vec2 gn = g / gl;
-  float inside = smoothstep(-.05, .35, s0);                       /* clear glass ribbon vs obsidian gap */
-  vec3 bg = vec3(env(p)) * .09;                                   /* lights seen dimly through dark stone */
-  float k = .11;                                                  /* refraction: the ribbon bends what is behind it */
-  vec3 rf = vec3(env(p - g * k * 1.0), env(p - g * k * 1.13), env(p - g * k * 1.28));
-  rf = pow(rf, vec3(1.55)) * 1.05;
-  vec3 col = mix(bg, rf, inside);
-  /* razor edges where the sheet turns: split warm and cool like a lens */
-  float o = .012 / max(gl * .25, .6);
-  float eW = exp(-abs(s0) * 48.), eR = exp(-abs(S(p + gn * o * 1.6)) * 16.), eB = exp(-abs(S(p - gn * o * 1.6)) * 16.);
-  float lit = .3 + .9 * env(p);
-  col += vec3(1.) * eW * lit * 1.1;
-  col += vec3(1., .5, .2) * eR * lit * .32 + vec3(.25, .55, 1.) * eB * lit * .36;
-  /* inner reflection line near the crest, and a slow specular glint */
-  col += exp(-abs(s0 - .93) * 34.) * .28 * vec3(.95, .97, 1.);
-  float spec = pow(max(0., s0), 18.) * pow(.5 + .5 * sin(U(p) * .7 + p.x * 1.3 - T * .12), 8.) * .8;
-  col += spec;
-  float v = smoothstep(1.45, .35, length((uv - vec2(.52, .5)) * vec2(1.05, 1.)));
-  col *= .42 + .58 * v;
-  col = col / (1. + col * .45);
-  col = pow(col, vec3(1.08));
-  if (L > .5) col = vec3(.955, .957, .962) - col * vec3(.36, .36, .34);
-  gl_FragColor = vec4(col, 1.);
-}`;
-  const VS = 'attribute vec2 a;void main(){gl_Position=vec4(a,0.,1.);}';
-  const S = { cv: null, gl: null, u: {}, mode: 'live', light: false, run: false, t0: performance.now(), last: 0, mx: .5, my: .5, tx: .5, ty: .5, ok: false };
-  const phone = Math.min(innerWidth, innerHeight) < 600;
-  const scale = () => (phone ? .32 : .42) * Math.min(1.5, devicePixelRatio || 1);
-  function size() { if (!S.ok) return; const s = scale(); S.cv.width = Math.max(2, Math.round(innerWidth * s)); S.cv.height = Math.max(2, Math.round(innerHeight * s)); S.gl.viewport(0, 0, S.cv.width, S.cv.height); draw(performance.now()) }
-  function compile(gl) {
-    const sh = (t, src) => { const o = gl.createShader(t); gl.shaderSource(o, src); gl.compileShader(o); if (!gl.getShaderParameter(o, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(o)); return o };
-    const pr = gl.createProgram(); gl.attachShader(pr, sh(gl.VERTEX_SHADER, VS)); gl.attachShader(pr, sh(gl.FRAGMENT_SHADER, FS)); gl.linkProgram(pr); if (!gl.getProgramParameter(pr, gl.LINK_STATUS)) throw new Error('link'); gl.useProgram(pr);
-    const b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
-    const a = gl.getAttribLocation(pr, 'a'); gl.enableVertexAttribArray(a); gl.vertexAttribPointer(a, 2, gl.FLOAT, false, 0, 0);
-    ['R', 'T', 'M', 'L'].forEach(k => S.u[k] = gl.getUniformLocation(pr, k));
-  }
-  function draw(now) {
-    const gl = S.gl; if (!gl) return;
-    S.mx += (S.tx - S.mx) * .04; S.my += (S.ty - S.my) * .04;
-    gl.uniform2f(S.u.R, S.cv.width, S.cv.height); gl.uniform1f(S.u.T, S.mode === 'live' ? (now - S.t0) / 1000 + 40 : 57.3); gl.uniform2f(S.u.M, S.mx, S.my); gl.uniform1f(S.u.L, S.light ? 1 : 0);
-    gl.drawArrays(gl.TRIANGLES, 0, 3);
-  }
-  function loop(now) { if (!S.run) return; if (now - S.last > (phone ? 50 : 33)) { S.last = now; draw(now) } requestAnimationFrame(loop) }
-  function start() { if (S.run || !S.ok || S.mode !== 'live' || document.visibilityState !== 'visible') return; S.run = true; requestAnimationFrame(loop) }
-  function apply() {
-    if (!S.cv) return; const off = S.mode === 'off';
-    document.documentElement.classList.toggle('liquid', !off);
-    document.documentElement.classList.toggle('liquid-css', !off && !S.ok);
-    S.cv.style.display = off || !S.ok ? 'none' : 'block';
-    S.run = false; if (S.ok && !off) { draw(performance.now()); if (S.mode === 'live' && !matchMedia('(prefers-reduced-motion: reduce)').matches) start() }
-  }
-  return {
-    init() {
-      if (S.cv) return; const c = document.createElement('canvas'); c.className = 'liquidbg'; c.setAttribute('aria-hidden', 'true'); document.body.prepend(c); S.cv = c;
-      try { const gl = c.getContext('webgl', { antialias: false, alpha: false, preserveDrawingBuffer: false, powerPreference: 'low-power' }); if (!gl) throw 0; S.gl = gl; compile(gl); S.ok = true } catch (e) { S.ok = false; console.warn('liquid background fallback', e) }
-      addEventListener('resize', () => { clearTimeout(S.rz); S.rz = setTimeout(size, 150) });
-      document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') start(); else S.run = false });
-      addEventListener('pointermove', e => { S.tx = e.clientX / innerWidth; S.ty = 1 - e.clientY / innerHeight }, { passive: true });
-      c.addEventListener('webglcontextlost', e => { e.preventDefault(); S.run = false });
-      c.addEventListener('webglcontextrestored', () => { try { compile(S.gl); size(); apply() } catch (e) { } });
-      size(); apply();
-    },
-    set(mode, light) { S.mode = mode || 'live'; S.light = !!light; apply() },
-  };
-})();
-
 /* ================= Compound · forms ================= */
 function ListEdit({ v, set, placeholder = 'Add item' }) {
   const [x, setX] = useState('');
@@ -926,7 +828,7 @@ function ShotsEdit({ shots, set, label = 'Screenshots' }) {
   return html`<div class="col" style=${{ gap: '8px' }}>
     <div class=${'drop' + (over ? ' over' : '')} onClick=${() => inp.current.click()} onDragOver=${e => { e.preventDefault(); setOver(true) }} onDragLeave=${() => setOver(false)} onDrop=${e => { e.preventDefault(); setOver(false); add(e.dataTransfer.files) }}>
       <div class="row" style=${{ justifyContent: 'center', gap: '8px' }}><${I} n="image"/><b>${busy ? 'Saving…' : label}</b></div>
-      <div style=${{ fontSize: '12.5px', marginTop: '4px' }}>Drop, click, or paste. In TradingView: camera icon → <b>Copy image</b>, then paste here.</div>
+      <div style=${{ fontSize: '11px', marginTop: '4px' }}>Drop, click, or paste. In TradingView: camera icon → <b>Copy image</b>, then paste here.</div>
       <input ref=${inp} type="file" accept="image/*" multiple hidden onChange=${e => add(e.target.files)}/></div>
     ${shots?.length > 0 && html`<div class="shots">${shots.map((s, i) => html`<div class="s" key=${s.id || i}><img src=${s.url} alt="" onClick=${() => setLb(s.url)}/><button class="x" onClick=${() => set(shots.filter((_, j) => j !== i))} aria-label="Remove image"><${I} n="x" s=${13}/></button></div>`)}</div>`}
     ${lb && html`<${Lightbox} src=${lb} onClose=${() => setLb(null)}/>`}</div>`;
@@ -934,7 +836,7 @@ function ShotsEdit({ shots, set, label = 'Screenshots' }) {
 
 function AccountPicker({ v, set, multi, S, allowNone = true }) {
   const accs = Object.values(S.accounts).filter(a => a.status !== 'blown' && a.status !== 'closed').sort((a, b) => (a.created || 0) - (b.created || 0));
-  if (!accs.length) return html`<div class="mut" style=${{ fontSize: '13px' }}>No accounts yet. <button class="lnk" onClick=${() => UI.open('account')}>Add one</button> to track it against prop rules.</div>`;
+  if (!accs.length) return html`<div class="mut" style=${{ fontSize: '11.5px' }}>No accounts yet. <button class="lnk" onClick=${() => UI.open('account')}>Add one</button> to track it against prop rules.</div>`;
   const vv = multi ? (v || []) : v;
   return html`<div class="row" style=${{ gap: '6px' }}>${allowNone && !multi && html`<button type="button" class=${'chip' + (!v ? ' on' : '')} onClick=${() => set('')}>None</button>`}
     ${accs.map(a => { const on = multi ? vv.includes(a.id) : vv === a.id; return html`<button type="button" key=${a.id} class=${'chip' + (on ? ' on' : '')} style=${{ height: '30px', paddingLeft: '4px' }} onClick=${() => set(multi ? (on ? vv.filter(x => x !== a.id) : [...vv, a.id]) : (on && allowNone ? '' : a.id))}><${FirmLogo} id=${a.firm} s=${22}/>${a.label || firmById(a.firm).name}</button>` })}</div>`;
@@ -979,14 +881,14 @@ function CopyPicker({ S, cp, setCp, qty, symbol, base }) {
   const total = base ? sum([cp.main, ...(on ? cp.copies : [])].filter(Boolean), a => pnlFor(a === cp.main ? (+qty || 1) : (+(cp.sizes[a] || qty) || 1), a) || 0) : null;
   return html`<div class="col" style=${{ gap: '10px' }}>
     <div><div class="lbl" style=${{ marginBottom: '7px' }}>Main account</div><div class="row" style=${{ gap: '6px' }}><button type="button" class=${'chip' + (!cp.main ? ' on' : '')} style=${{ height: '32px' }} onClick=${() => setCp({ ...cp, main: '' })}>None</button>${accs.map(a => chip(a, cp.main === a.id, () => setCp({ ...cp, main: a.id, copies: cp.copies.filter(c => c !== a.id) })))}<button type="button" class="chip" style=${{ height: '32px', borderStyle: 'dashed' }} onClick=${() => UI.open('account')}><${I} n="plus" s=${13}/>Add account</button></div></div>
-    <button type="button" class=${'copytog' + (on ? ' on' : '')} onClick=${() => setCp({ ...cp, copyOn: !on, copies: !on ? cp.copies : [] })} aria-pressed=${on}><span class="sw"><i></i></span><${I} n="copy" s=${16}/><span style=${{ flex: 1, textAlign: 'left' }}><b>Copy traded into other accounts</b><span class="mut" style=${{ display: 'block', fontSize: '12px' }}>Log this idea on your main account and every account you copied it into</span></span></button>
-    ${on && !others.length && html`<div class="card tight row" style=${{ background: 'var(--bg)' }}><span class="mut" style=${{ flex: 1, fontSize: '13px' }}>${accs.length ? 'You have only one account. Add the accounts you copy into and they will appear here.' : 'Add your accounts first: the main one and the ones you copy into.'}</span><button type="button" class="btn btn-w sm" onClick=${() => UI.open('account')}><${I} n="plus"/>Add account</button></div>`}
+    <button type="button" class=${'copytog' + (on ? ' on' : '')} onClick=${() => setCp({ ...cp, copyOn: !on, copies: !on ? cp.copies : [] })} aria-pressed=${on}><span class="sw"><i></i></span><${I} n="copy" s=${16}/><span style=${{ flex: 1, textAlign: 'left' }}><b>Copy traded into other accounts</b><span class="mut" style=${{ display: 'block', fontSize: '10.5px' }}>Log this idea on your main account and every account you copied it into</span></span></button>
+    ${on && !others.length && html`<div class="card tight row" style=${{ background: 'var(--bg)' }}><span class="mut" style=${{ flex: 1, fontSize: '11.5px' }}>${accs.length ? 'You have only one account. Add the accounts you copy into and they will appear here.' : 'Add your accounts first: the main one and the ones you copy into.'}</span><button type="button" class="btn btn-w sm" onClick=${() => UI.open('account')}><${I} n="plus"/>Add account</button></div>`}
     ${on && others.length > 0 && html`<div class="card tight" style=${{ background: 'var(--bg)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
       <div class="lbl">Copied into</div>
       <div class="row" style=${{ gap: '6px' }}>${others.map(a => { const sel = cp.copies.includes(a.id); return chip(a, sel, () => setCp({ ...cp, copies: sel ? cp.copies.filter(x => x !== a.id) : [...cp.copies, a.id] })) })}</div>
-      ${cp.copies.length > 0 && html`<div class="col" style=${{ gap: '6px' }}>${cp.copies.map(c => { const a = S.accounts[c]; if (!a) return null; const q = cp.sizes[c] ?? qty; const p = pnlFor(+q || 1, c); return html`<div key=${c} class="row" style=${{ flexWrap: 'nowrap', gap: '10px', fontSize: '13px' }}><${FirmLogo} id=${a.firm} s=${20}/><span style=${{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>${a.label}</span><span class="dim">${isCfdAcct(S, c) ? 'lots' : 'contracts'}</span><input class="in tn" style=${{ width: '64px', padding: '6px 8px' }} inputmode="decimal" value=${q} onInput=${e => setCp({ ...cp, sizes: { ...cp.sizes, [c]: e.target.value } })} aria-label=${'Contracts on ' + a.label}/><span class=${'tn ' + cls(p)} style=${{ minWidth: '74px', textAlign: 'right', fontWeight: 700 }}>${p == null ? '—' : money(p, { sign: true, show: true })}</span></div>` })}</div>`}
+      ${cp.copies.length > 0 && html`<div class="col" style=${{ gap: '6px' }}>${cp.copies.map(c => { const a = S.accounts[c]; if (!a) return null; const q = cp.sizes[c] ?? qty; const p = pnlFor(+q || 1, c); return html`<div key=${c} class="row" style=${{ flexWrap: 'nowrap', gap: '10px', fontSize: '11.5px' }}><${FirmLogo} id=${a.firm} s=${20}/><span style=${{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>${a.label}</span><span class="dim">${isCfdAcct(S, c) ? 'lots' : 'contracts'}</span><input class="in tn" style=${{ width: '64px', padding: '6px 8px' }} inputmode="decimal" value=${q} onInput=${e => setCp({ ...cp, sizes: { ...cp.sizes, [c]: e.target.value } })} aria-label=${'Contracts on ' + a.label}/><span class=${'tn ' + cls(p)} style=${{ minWidth: '74px', textAlign: 'right', fontWeight: 700 }}>${p == null ? '—' : money(p, { sign: true, show: true })}</span></div>` })}</div>`}
     </div>`}
-    ${on && cp.copies.length > 0 && total != null && html`<div class="row" style=${{ fontSize: '13px' }}><span class="mut">1 idea · ${cp.copies.length + (cp.main ? 1 : 0)} accounts</span><span class="sp"></span><span class="mut">Total across accounts</span><b class=${'tn ' + cls(total)}>${money(total, { sign: true, show: true })}</b></div>`}
+    ${on && cp.copies.length > 0 && total != null && html`<div class="row" style=${{ fontSize: '11.5px' }}><span class="mut">1 idea · ${cp.copies.length + (cp.main ? 1 : 0)} accounts</span><span class="sp"></span><span class="mut">Total across accounts</span><b class=${'tn ' + cls(total)}>${money(total, { sign: true, show: true })}</b></div>`}
   </div>`;
 }
 
@@ -1032,22 +934,22 @@ function TradeForm({ id, onClose, preset = {}, mode }) {
           <${Field} label="Target"><input class="in tn" inputmode="decimal" value=${t.target} onInput=${e => up({ target: e.target.value })}/><//>
         </div>
         <div class="card tight" style=${{ display: 'grid', gridTemplateColumns: 'repeat(4,minmax(0,1fr))', gap: '10px', background: 'var(--bg)' }}>
-          <div><div class="lbl">Net P&L</div><div style=${{ fontSize: '22px', fontWeight: 800 }} class=${cls(calc.pnl)}>${calc.pnl == null ? '—' : money(calc.pnl, { sign: true, show: true })}</div></div>
-          <div><div class="lbl">R multiple</div><div style=${{ fontSize: '22px', fontWeight: 800 }} class=${cls(calc.pnl)}>${calc.risk ? rfmt(calc.pnl / calc.risk) : '—'}</div></div>
-          <div><div class="lbl">Risk</div><div style=${{ fontSize: '22px', fontWeight: 800 }}>${calc.risk ? money(calc.risk, { show: true }) : '—'}</div></div>
-          <div><div class="lbl">Planned R:R</div><div style=${{ fontSize: '22px', fontWeight: 800 }}>${calc.rr ? '1:' + calc.rr.toFixed(2) : '—'}</div></div>
+          <div><div class="lbl">Net P&L</div><div style=${{ fontSize: '19.5px', fontWeight: 800 }} class=${cls(calc.pnl)}>${calc.pnl == null ? '—' : money(calc.pnl, { sign: true, show: true })}</div></div>
+          <div><div class="lbl">R multiple</div><div style=${{ fontSize: '19.5px', fontWeight: 800 }} class=${cls(calc.pnl)}>${calc.risk ? rfmt(calc.pnl / calc.risk) : '—'}</div></div>
+          <div><div class="lbl">Risk</div><div style=${{ fontSize: '19.5px', fontWeight: 800 }}>${calc.risk ? money(calc.risk, { show: true }) : '—'}</div></div>
+          <div><div class="lbl">Planned R:R</div><div style=${{ fontSize: '19.5px', fontWeight: 800 }}>${calc.rr ? '1:' + calc.rr.toFixed(2) : '—'}</div></div>
         </div>
         <div class="row" style=${{ gap: '14px' }}>
-          <label class="row" style=${{ gap: '8px', cursor: 'pointer', fontSize: '13px' }}><input type="checkbox" checked=${t.pnlManual} onChange=${e => up({ pnlManual: e.target.checked })}/>Enter P&L by hand</label>
+          <label class="row" style=${{ gap: '8px', cursor: 'pointer', fontSize: '11.5px' }}><input type="checkbox" checked=${t.pnlManual} onChange=${e => up({ pnlManual: e.target.checked })}/>Enter P&L by hand</label>
           ${t.pnlManual && html`<div class="inwrap" style=${{ width: '150px' }}><span class="pre">$</span><input class="in tn" inputmode="decimal" placeholder="-125.50" value=${t.pnl} onInput=${e => up({ pnl: e.target.value })}/></div>`}
-          <span class="sp"></span><span class="dim" style=${{ fontSize: '12px' }}>${instr(t.symbol).name} · $${calc.pv}/pt per ${cfd ? 'lot' : 'contract'}${cfd && calc.pts != null ? ' · ' + (calc.pts / (num(mainA?.pip) ?? 1)).toFixed(1) + ' pips' : ''} · fees ${money(calc.fees, { show: true, dec: 2 })}</span>
+          <span class="sp"></span><span class="dim" style=${{ fontSize: '10.5px' }}>${instr(t.symbol).name} · $${calc.pv}/pt per ${cfd ? 'lot' : 'contract'}${cfd && calc.pts != null ? ' · ' + (calc.pts / (num(mainA?.pip) ?? 1)).toFixed(1) + ' pips' : ''} · fees ${money(calc.fees, { show: true, dec: 2 })}</span>
           <div class="inwrap" style=${{ width: '110px' }}><span class="pre">$</span><input class="in tn" placeholder="fees" value=${t.fees ?? ''} onInput=${e => up({ fees: e.target.value })} aria-label="Fees override"/></div>
         </div>
         <${Field} label="Account" hint=${ex && groupOf(S, ex).length > 1 ? 'Edits apply to the main trade and every copy. Copy contracts and P&L scale from the main.' : 'Copy trading? Pick your main account, then tick the accounts you copied into.'}><${CopyPicker} S=${S} cp=${cp} setCp=${setCp} qty=${t.qty} symbol=${t.symbol} base=${calc.pnl == null ? null : { ...t }}/><//>
         <${Field} label="Screenshots & chart"><${ShotsEdit} shots=${t.shots} set=${v => up({ shots: v })}/><input class="in" style=${{ marginTop: '6px' }} placeholder="TradingView snapshot link (tradingview.com/x/…)" value=${t.tv} onInput=${e => up({ tv: e.target.value })}/><//>
       </div>
       <div class="col" style=${{ gap: '14px' }}>
-        <${Field} label="Grade · plan adherence"><div class="row" style=${{ gap: '6px' }}>${GRADES.map(g => html`<button type="button" key=${g} class=${'grade ' + gradeCls(g)} style=${{ height: '32px', minWidth: '44px', fontSize: '14px', opacity: t.grade && t.grade !== g ? .3 : 1, outline: t.grade === g ? '2px solid var(--fg)' : 'none' }} onClick=${() => up({ grade: t.grade === g ? '' : g })}>${g}</button>`)}</div><//>
+        <${Field} label="Grade · plan adherence"><div class="row" style=${{ gap: '6px' }}>${GRADES.map(g => html`<button type="button" key=${g} class=${'grade ' + gradeCls(g)} style=${{ height: '32px', minWidth: '44px', fontSize: '12.5px', opacity: t.grade && t.grade !== g ? .3 : 1, outline: t.grade === g ? '2px solid var(--fg)' : 'none' }} onClick=${() => up({ grade: t.grade === g ? '' : g })}>${g}</button>`)}</div><//>
         <${Field} label="Strategy"><select class="sel" value=${t.strategy} onChange=${e => up({ strategy: e.target.value })}><option value="">No strategy</option>${strategies.map(s => html`<option value=${s.id}>${s.name}</option>`)}</select><//>
         <${Field} label="Setup"><${Chips} all=${st.setups} v=${t.setups} set=${v => up({ setups: v })}/><//>
         <${Field} label="Rules followed?"><${Seg} v=${t.rules === true ? 'y' : t.rules === false ? 'n' : '-'} set=${v => up({ rules: v === 'y' ? true : v === 'n' ? false : null })} opts=${[['y', 'Yes, all'], ['n', 'Broke one'], ['-', 'Not sure']]}/><//>
@@ -1061,7 +963,7 @@ function TradeForm({ id, onClose, preset = {}, mode }) {
         </div>
         <${Field} label="Notes · why you took it, how you managed it"><textarea class="ta" rows="4" value=${t.notes} onInput=${e => up({ notes: e.target.value })}></textarea><//>
         <${Field} label="Lesson"><input class="in" value=${t.lessons} onInput=${e => up({ lessons: e.target.value })} placeholder="One line you want to remember"/><//>
-        <div class="row"><label class="row" style=${{ gap: '8px', cursor: 'pointer', fontSize: '13px' }}><input type="checkbox" checked=${!!t.pin} onChange=${e => up({ pin: e.target.checked })}/>Pin to Showcase</label><span class="sp"></span><${Seg} sm v=${t.mode} set=${v => up({ mode: v })} opts=${[['live', 'Live money'], ['paper', 'Paper']]}/></div>
+        <div class="row"><label class="row" style=${{ gap: '8px', cursor: 'pointer', fontSize: '11.5px' }}><input type="checkbox" checked=${!!t.pin} onChange=${e => up({ pin: e.target.checked })}/>Pin to Showcase</label><span class="sp"></span><${Seg} sm v=${t.mode} set=${v => up({ mode: v })} opts=${[['live', 'Live money'], ['paper', 'Paper']]}/></div>
       </div>
     </div>
   <//>`;
@@ -1075,7 +977,7 @@ function QuickLog({ onClose, mode }) {
   const save = () => { if (!isNum(t.pnl)) return toast('Enter the P&L'); const n = saveCopyGroup(S, { ...t, symbol: normSym(t.symbol), pnlManual: true, t: localISO(), tx: localISO(), mode: mode || 'live', quick: true }, { ...cp, copies: (cp.copyOn ?? cp.copies.length > 0) ? cp.copies : [] }, null); toast(n > 1 ? `Logged to main + ${n - 1} cop${n - 1 === 1 ? "y" : "ies"}` : 'Logged. Add notes later from the journal.'); onClose() };
   return html`<${Modal} title="Quick log" icon=${html`<${I} n="bolt"/>`} onClose=${onClose} foot=${html`<button class="btn btn-g" onClick=${onClose}>Cancel</button><button class="btn btn-w" onClick=${save}>Log it</button>`}>
     <div class="grid g3 keep2"><${Field} label="Symbol"><input class="in" list="syms" value=${t.symbol} onInput=${e => up({ symbol: e.target.value.toUpperCase() })}/><datalist id="syms">${Object.keys(INSTR).map(k => html`<option value=${k}/>`)}</datalist><//><${Field} label="Side"><${Seg} v=${t.side} set=${v => up({ side: v })} opts=${[['long', 'Long'], ['short', 'Short']]}/><//><${Field} label=${isCfdAcct(S, cp.main) ? 'Lots' : 'Contracts'}><input class="in tn" type="number" step="any" inputmode="decimal" value=${t.qty} onInput=${e => up({ qty: e.target.value })}/><//></div>
-    <${Field} label="Net P&L"><div class="inwrap"><span class="pre">$</span><input ref=${ref} class="in tn" style=${{ fontSize: '22px', fontWeight: 700, height: '52px' }} inputmode="decimal" placeholder="240" value=${t.pnl} onInput=${e => up({ pnl: e.target.value })} onKeyDown=${e => e.key === 'Enter' && save()}/></div><//>
+    <${Field} label="Net P&L"><div class="inwrap"><span class="pre">$</span><input ref=${ref} class="in tn" style=${{ fontSize: '19.5px', fontWeight: 700, height: '52px' }} inputmode="decimal" placeholder="240" value=${t.pnl} onInput=${e => up({ pnl: e.target.value })} onKeyDown=${e => e.key === 'Enter' && save()}/></div><//>
     <${Field} label="Account"><${CopyPicker} S=${S} cp=${cp} setCp=${setCp} qty=${t.qty} symbol=${t.symbol} base=${isNum(t.pnl) ? { ...t, pnlManual: true } : null}/><//>
     <${Field} label="Grade"><${Chips} single all=${GRADES} v=${t.grade} set=${v => up({ grade: v })}/><//>
     <${Field} label="Setup"><${Chips} all=${st.setups} v=${t.setups} set=${v => up({ setups: v })}/><//>
@@ -1093,8 +995,8 @@ function AccountForm({ id, firm, onClose }) {
   const save = () => { if (!+a.size) return toast('Add the starting balance'); const o = store.put('accounts', { ...a, size: +a.size, created: ex?.created || Date.now(), label: a.label || (f.name.split(' ')[0] + ' ' + (+a.size / 1000) + 'K') }); toast(ex ? 'Account saved' : 'Account added'); onClose() };
   return html`<${Modal} title=${ex ? 'Edit account' : step === 1 ? 'Pick your prop firm' : 'Account details'} onClose=${onClose} size="wide" foot=${step === 1 ? html`<button class="btn btn-g" onClick=${onClose}>Cancel</button><button class="btn btn-w" onClick=${() => setStep(2)}>Continue<${I} n="right"/></button>` : html`${ex && html`<button class="btn btn-d" style=${{ marginRight: 'auto' }} onClick=${() => UI.open('delacct', { id: ex.id, after: onClose })}><${I} n="trash"/>Delete</button>`}${!ex && html`<button class="btn btn-g" onClick=${() => setStep(1)}><${I} n="left"/>Firm</button>`}<button class="btn btn-w" onClick=${save}><${I} n="check"/>${ex ? 'Save' : 'Add account'}</button>`}>
     ${step === 1 ? html`<div class="firms">${FIRMS.map(x => html`<button key=${x.id} class=${'firm' + (a.firm === x.id ? ' on' : '')} onClick=${() => pickFirm(x)} onDblClick=${() => { pickFirm(x); setStep(2) }}><${FirmLogo} id=${x.id}/><span class="nm">${x.name}<small>${x.market === 'cfd' ? 'CFD · ' + (x.platform || 'MT5') : x.plans.slice(0, 2).join(' · ')}</small></span></button>`)}</div>
-      <p class="dim" style=${{ margin: 0, fontSize: '12.5px' }}>Rules change often. Presets fill typical numbers; check them against your firm's dashboard and edit anything. You can upload each firm's real logo from the Propfirm page.</p>`
-    : html`<div class="row" style=${{ gap: '12px' }}><${FirmLogo} id=${a.firm} s=${44}/><div><div style=${{ fontWeight: 800, fontSize: '17px' }}>${f.name}</div><div class="mut" style=${{ fontSize: '13px' }}>${f.url ? html`<a href=${f.url} target="_blank" rel="noopener">${f.url.replace('https://', '')}</a>` : 'Your own capital'}</div></div></div>
+      <p class="dim" style=${{ margin: 0, fontSize: '11px' }}>Rules change often. Presets fill typical numbers; check them against your firm's dashboard and edit anything. You can upload each firm's real logo from the Propfirm page.</p>`
+    : html`<div class="row" style=${{ gap: '12px' }}><${FirmLogo} id=${a.firm} s=${44}/><div><div style=${{ fontWeight: 800, fontSize: '15px' }}>${f.name}</div><div class="mut" style=${{ fontSize: '11.5px' }}>${f.url ? html`<a href=${f.url} target="_blank" rel="noopener">${f.url.replace('https://', '')}</a>` : 'Your own capital'}</div></div></div>
       <div class="grid g3">
         <${Field} label="Plan"><input class="in" list="plans" value=${a.plan} onInput=${e => up({ plan: e.target.value })}/><datalist id="plans">${f.plans.map(p => html`<option value=${p}/>`)}</datalist><//>
         <${Field} label="Account size"><select class="sel" value=${presets[a.size] ? a.size : 'c'} onChange=${e => e.target.value !== 'c' && applySize(+e.target.value)}>${Object.keys(presets).map(k => html`<option value=${k}>$${(+k).toLocaleString()}</option>`)}<option value="c">Custom</option></select><//>
@@ -1113,7 +1015,7 @@ function AccountForm({ id, firm, onClose }) {
           <${Field} label="Default symbol"><input class="in" list="syms" value=${a.defSym} onInput=${e => up({ defSym: e.target.value.toUpperCase() })}/><datalist id="syms">${Object.keys(INSTR).filter(k => INSTR[k].cfd).map(k => html`<option value=${k}>${INSTR[k].name}</option>`)}</datalist><//>
           <${Field} label="Default lots"><input class="in tn" inputmode="decimal" value=${a.defLots} onInput=${e => up({ defLots: e.target.value })}/><//>
         </div>
-        <div class="row mut" style=${{ fontSize: '13px', gap: '14px' }}><${I} n="bolt" s=${14}/><span>1.00 lot × 10 points = <b class="pos">${money((num(a.ppl) ?? 1) * 10, { show: true, dec: 2 })}</b></span><span>0.10 lot × 50 points = <b class="pos">${money((num(a.ppl) ?? 1) * 5, { show: true, dec: 2 })}</b></span><span>1 pip on 1.00 lot = <b>${money((num(a.ppl) ?? 1) * (num(a.pip) ?? 1), { show: true, dec: 2 })}</b></span></div>
+        <div class="row mut" style=${{ fontSize: '11.5px', gap: '14px' }}><${I} n="bolt" s=${14}/><span>1.00 lot × 10 points = <b class="pos">${money((num(a.ppl) ?? 1) * 10, { show: true, dec: 2 })}</b></span><span>0.10 lot × 50 points = <b class="pos">${money((num(a.ppl) ?? 1) * 5, { show: true, dec: 2 })}</b></span><span>1 pip on 1.00 lot = <b>${money((num(a.ppl) ?? 1) * (num(a.pip) ?? 1), { show: true, dec: 2 })}</b></span></div>
       </div>`}
       <div class="lbl">Rules</div>
       <div class="grid g3">
@@ -1129,7 +1031,7 @@ function AccountForm({ id, firm, onClose }) {
       </div>
       <div class="row" style=${{ gap: '16px' }}>
         <${Field} label="Started"><input class="in" type="date" value=${a.start} onInput=${e => up({ start: e.target.value })}/><//>
-        <label class="row" style=${{ gap: '8px', cursor: 'pointer', fontSize: '13px' }}><input type="checkbox" checked=${!!a.def} onChange=${e => up({ def: e.target.checked })}/>Pre-select when logging trades</label>
+        <label class="row" style=${{ gap: '8px', cursor: 'pointer', fontSize: '11.5px' }}><input type="checkbox" checked=${!!a.def} onChange=${e => up({ def: e.target.checked })}/>Pre-select when logging trades</label>
         <${Seg} sm v=${a.mode} set=${v => up({ mode: v })} opts=${[['live', 'Live money'], ['paper', 'Paper']]}/>
       </div>`}
   <//>`;
@@ -1141,7 +1043,7 @@ function BalanceSync({ id, onClose }) {
   const [v, setV] = useState(Math.round(st.bal * 100) / 100);
   return html`<${Modal} title="Update balance" onClose=${onClose} foot=${html`<button class="btn btn-g" onClick=${onClose}>Cancel</button><button class="btn btn-w" onClick=${() => { const d = +v - st.bal; if (Math.abs(d) > .004) { store.put('adjust', { id: uid(), account: id, v: Math.round(d * 100) / 100, d: new Date().toISOString(), note: 'Balance sync' }); toast(`Balance synced (${money(d, { sign: true, show: true })})`) } onClose() }}>Update</button>`}>
     <p class="mut" style=${{ margin: 0 }}>Enter the balance your firm shows. Compound records the difference from logged trades as a sync adjustment (fees, unlogged trades).</p>
-    <${Field} label=${'Current computed: ' + money(st.bal, { show: true })}><div class="inwrap"><span class="pre">$</span><input class="in tn" style=${{ fontSize: '20px', fontWeight: 700 }} value=${v} onInput=${e => setV(e.target.value)}/></div><//>
+    <${Field} label=${'Current computed: ' + money(st.bal, { show: true })}><div class="inwrap"><span class="pre">$</span><input class="in tn" style=${{ fontSize: '17.5px', fontWeight: 700 }} value=${v} onInput=${e => setV(e.target.value)}/></div><//>
   <//>`;
 }
 
@@ -1151,8 +1053,8 @@ function PayoutForm({ id, account, onClose }) {
   const up = x => setP(o => ({ ...o, ...x }));
   return html`<${Modal} title=${ex ? 'Edit payout' : 'Record payout'} icon=${html`<${I} n="wallet"/>`} onClose=${onClose} foot=${html`${ex && html`<button class="btn btn-d" style=${{ marginRight: 'auto' }} onClick=${() => { store.del('payouts', ex.id); const adj = Object.values(S.adjust).find(x => x.payout === ex.id); adj && store.del('adjust', adj.id); onClose() }}>Delete</button>`}<button class="btn btn-g" onClick=${onClose}>Cancel</button><button class="btn btn-w" onClick=${() => { if (!isNum(p.amount)) return toast('Enter an amount'); const o = store.put('payouts', { ...p, amount: +p.amount }); if (!ex && p.deduct && p.account) store.put('adjust', { id: uid(), account: p.account, v: -Math.abs(+p.amount), d: p.d + 'T23:59', payout: o.id, note: 'Payout withdrawn' }); toast('Payout recorded'); onClose() }}>Save</button>`}>
     <${Field} label="Account"><${AccountPicker} S=${S} v=${p.account} set=${v => up({ account: v })}/><//>
-    <div class="grid g2"><${Field} label="Amount received"><div class="inwrap"><span class="pre">$</span><input class="in tn" style=${{ fontSize: '20px', fontWeight: 700 }} value=${p.amount} onInput=${e => up({ amount: e.target.value })}/></div><//><${Field} label="Date"><input class="in" type="date" value=${p.d} onInput=${e => up({ d: e.target.value })}/><//></div>
-    <div class="row"><${Seg} v=${p.status} set=${v => up({ status: v })} opts=${[['requested', 'Requested'], ['paid', 'Paid']]}/>${!ex && html`<label class="row" style=${{ gap: '8px', fontSize: '13px', cursor: 'pointer' }}><input type="checkbox" checked=${p.deduct} onChange=${e => up({ deduct: e.target.checked })}/>Deduct from account balance</label>`}</div>
+    <div class="grid g2"><${Field} label="Amount received"><div class="inwrap"><span class="pre">$</span><input class="in tn" style=${{ fontSize: '17.5px', fontWeight: 700 }} value=${p.amount} onInput=${e => up({ amount: e.target.value })}/></div><//><${Field} label="Date"><input class="in" type="date" value=${p.d} onInput=${e => up({ d: e.target.value })}/><//></div>
+    <div class="row"><${Seg} v=${p.status} set=${v => up({ status: v })} opts=${[['requested', 'Requested'], ['paid', 'Paid']]}/>${!ex && html`<label class="row" style=${{ gap: '8px', fontSize: '11.5px', cursor: 'pointer' }}><input type="checkbox" checked=${p.deduct} onChange=${e => up({ deduct: e.target.checked })}/>Deduct from account balance</label>`}</div>
     <${Field} label="Note"><input class="in" value=${p.note} onInput=${e => up({ note: e.target.value })}/><//>
   <//>`;
 }
@@ -1165,7 +1067,7 @@ function StrategyForm({ id, onClose }) {
   return html`<${Modal} title=${ex ? 'Edit strategy' : 'New strategy'} size="wide" onClose=${onClose} foot=${html`${ex && html`<button class="btn btn-d" style=${{ marginRight: 'auto' }} onClick=${() => UI.confirm({ title: 'Delete strategy?', body: 'Trades tagged to it keep their data but lose the tag.', onYes: () => { store.del('strategies', ex.id); onClose() } })}>Delete</button>`}<button class="btn btn-g" onClick=${onClose}>Cancel</button><button class="btn btn-w" onClick=${() => { if (!s.name.trim()) return toast('Name your strategy'); store.put('strategies', { ...s, created: ex?.created || Date.now() }); onClose() }}>Save strategy</button>`}>
     <div class="grid g2" style=${{ gap: '18px' }}>
       <div class="col" style=${{ gap: '14px' }}>
-        <${Field} label="Name"><input class="in" style=${{ fontSize: '17px', fontWeight: 700 }} placeholder="NY Open FVG continuation" value=${s.name} onInput=${e => up({ name: e.target.value })}/><//>
+        <${Field} label="Name"><input class="in" style=${{ fontSize: '15px', fontWeight: 700 }} placeholder="NY Open FVG continuation" value=${s.name} onInput=${e => up({ name: e.target.value })}/><//>
         <div class="row" style=${{ gap: '6px' }}>${STRAT_COLORS.map(c => html`<button key=${c} onClick=${() => up({ color: c })} style=${{ width: '24px', height: '24px', borderRadius: '7px', background: c, outline: s.color === c ? '2px solid var(--fg)' : 'none', outlineOffset: '2px' }} aria-label=${'Colour ' + c}></button>`)}</div>
         <${Field} label="Thesis · what edge are you exploiting?"><textarea class="ta" rows="3" value=${s.desc} onInput=${e => up({ desc: e.target.value })}></textarea><//>
         <div class="grid g3 keep2"><${Field} label="Timeframes"><input class="in" value=${s.tf} onInput=${e => up({ tf: e.target.value })}/><//><${Field} label="Markets"><input class="in" value=${s.markets} onInput=${e => up({ markets: e.target.value })}/><//><${Field} label="Minimum R:R"><input class="in tn" value=${s.minRR} onInput=${e => up({ minRR: e.target.value })}/><//></div>
@@ -1307,14 +1209,14 @@ function ImportTrades({ onClose, mode }) {
   };
   const activeAccs = Object.values(S.accounts).filter(a => a.status === 'active');
   return html`<${Modal} title="Import trades" icon=${html`<${I} n="upload"/>`} size="wide" onClose=${onClose} foot=${html`<button class="btn btn-g" onClick=${onClose}>Cancel</button><button class="btn btn-w" disabled=${!fresh.length} onClick=${doImport}>Import ${fresh.length || ''} trades</button>`}>
-    ${!rows ? html`<label class="drop"><${I} n="upload" s=${22}/><div style=${{ marginTop: '6px' }}><b>Choose a CSV export</b></div><div style=${{ fontSize: '12.5px' }}>Tradesea (Orders / Trade history → export CSV), Rithmic R|Trader, Tradovate, NinjaTrader, or any CSV. Order-by-order fills are paired into full trades automatically.</div><input type="file" accept=".csv,text/csv,text/plain" hidden onChange=${e => e.target.files[0] && load(e.target.files[0])}/></label>`
+    ${!rows ? html`<label class="drop"><${I} n="upload" s=${22}/><div style=${{ marginTop: '6px' }}><b>Choose a CSV export</b></div><div style=${{ fontSize: '11px' }}>Tradesea (Orders / Trade history → export CSV), Rithmic R|Trader, Tradovate, NinjaTrader, or any CSV. Order-by-order fills are paired into full trades automatically.</div><input type="file" accept=".csv,text/csv,text/plain" hidden onChange=${e => e.target.files[0] && load(e.target.files[0])}/></label>`
     : html`<div class="row"><span class="chip on">${fmt}</span><span class="mut">${rows.length - 1} rows → ${preview.length} trades · ${fresh.length} new · ${preview.length - fresh.length} already in journal</span><span class="sp"></span><button class="btn btn-t xs" onClick=${() => setFills(!fills)}>${fills ? 'File has one row per trade' : 'File has one row per fill'}</button></div>
-      <details><summary class="mut" style=${{ cursor: 'pointer', fontSize: '13px' }}>Column matching (auto-detected)</summary><div class="grid g4 keep2" style=${{ marginTop: '10px' }}>${FIELDS.map(([k, l]) => html`<${Field} label=${l} key=${k}><select class="sel" value=${map[k] ?? ''} onChange=${e => setMap({ ...map, [k]: e.target.value === '' ? '' : +e.target.value })}><option value="">—</option>${rows[0].map((h, i) => html`<option value=${i}>${h}</option>`)}</select><//>`)}</div></details>
+      <details><summary class="mut" style=${{ cursor: 'pointer', fontSize: '11.5px' }}>Column matching (auto-detected)</summary><div class="grid g4 keep2" style=${{ marginTop: '10px' }}>${FIELDS.map(([k, l]) => html`<${Field} label=${l} key=${k}><select class="sel" value=${map[k] ?? ''} onChange=${e => setMap({ ...map, [k]: e.target.value === '' ? '' : +e.target.value })}><option value="">—</option>${rows[0].map((h, i) => html`<option value=${i}>${h}</option>`)}</select><//>`)}</div></details>
       ${extAccs.length ? html`<div class="card tight col" style=${{ gap: '8px', background: 'var(--bg)' }}><div class="lbl">Match each account in the file to Compound</div>
           ${extAccs.map(n => html`<div class="row" key=${n} style=${{ flexWrap: 'nowrap' }}><span class="mono" style=${{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>${n}</span><select class="sel" style=${{ maxWidth: '260px' }} value=${amap[n] || ''} onChange=${e => setAmap({ ...amap, [n]: e.target.value })}><option value="">No account</option>${activeAccs.map(a => html`<option value=${a.id}>${a.label} · ${firmById(a.firm).name}</option>`)}</select></div>`)}
           <button class="btn btn-t xs" style=${{ alignSelf: 'flex-start' }} onClick=${() => UI.open('account')}><${I} n="plus" s=${12}/>Add an account</button></div>`
         : html`<${Field} label="Assign to account"><${AccountPicker} S=${S} v=${acct} set=${setAcct}/><//>`}
-      ${multi && html`<div class="card tight col" style=${{ gap: '8px', background: 'var(--bg)' }}><label class="row" style=${{ gap: '8px', fontSize: '13.5px', cursor: 'pointer' }}><input type="checkbox" checked=${grp} onChange=${e => setGrp(e.target.checked)}/><${I} n="copy" s=${15}/><b>Group copy trades</b><span class="mut">Same symbol and side within 15 seconds across accounts</span></label>
+      ${multi && html`<div class="card tight col" style=${{ gap: '8px', background: 'var(--bg)' }}><label class="row" style=${{ gap: '8px', fontSize: '12px', cursor: 'pointer' }}><input type="checkbox" checked=${grp} onChange=${e => setGrp(e.target.checked)}/><${I} n="copy" s=${15}/><b>Group copy trades</b><span class="mut">Same symbol and side within 15 seconds across accounts</span></label>
         ${grp && html`<${Field} label="Main account"><select class="sel" value=${main} onChange=${e => setMain(e.target.value)}><option value="">First account in each group</option>${activeAccs.map(a => html`<option value=${a.id}>${a.label}</option>`)}</select><//>`}</div>`}
       <div class="scroll-x"><table class="tbl"><thead><tr><th>Time</th><th>Symbol</th><th>Side</th><th class="r">Qty</th><th class="r">Entry</th><th class="r">Exit</th><th>Account</th><th class="r">P&L</th></tr></thead><tbody>${preview.slice(0, 10).map((t, i) => { const c = tradeCalc(t, S.settings); return html`<tr key=${i}><td>${t.t.replace('T', ' ')}</td><td>${t.symbol}</td><td><${Side} s=${t.side}/></td><td class="r">${t.qty}</td><td class="r">${t.entry}</td><td class="r">${t.exit}</td><td class="mut">${S.accounts[t.account]?.label || '—'}</td><td class="r"><${Money} v=${c.pnl}/></td></tr>` })}</tbody></table></div>`}
   <//>`;
@@ -1332,10 +1234,9 @@ function Settings({ onClose, tab: tab0 }) {
     ${tab === 'general' && html`<div class="grid g2" style=${{ gap: '18px' }}>
       <${Field} label="Your name"><input class="in" value=${st.name} onInput=${e => set({ name: e.target.value })}/><//>
       <${Field} label="Appearance"><${Seg} v=${st.theme} set=${v => set({ theme: v })} opts=${[['dark', 'Dark', 'moon'], ['light', 'Light', 'sun']]}/><//>
-      <${Field} label="Background" hint="Liquid obsidian behind the glass"><${Seg} v=${st.bg || 'live'} set=${v => set({ bg: v })} opts=${[['live', 'Flowing'], ['still', 'Still'], ['off', 'Plain black']]}/><//>
-      <${Field} label="Accent"><div class="row" style=${{ gap: '8px' }}>${[['obsidian', 'linear-gradient(135deg,#fff,#7d8693 50%,#e6e9ee)'], ['cobalt', '#5B8CFF'], ['violet', '#9D7BFF'], ['ember', '#FF8A4C'], ['ice', '#6FD3FF'], ['gold', '#F3B43F'], ['mono', '#E9EAEE']].map(([k, c]) => html`<button key=${k} onClick=${() => set({ accent: k })} title=${k} style=${{ width: '30px', height: '30px', borderRadius: '9px', background: c, outline: st.accent === k ? '2px solid var(--fg)' : 'none', outlineOffset: '2px' }}></button>`)}</div><//>
+      <${Field} label="Accent"><div class="row" style=${{ gap: '8px' }}>${[['cobalt', '#5B8CFF'], ['violet', '#9D7BFF'], ['ember', '#FF8A4C'], ['ice', '#6FD3FF'], ['gold', '#F3B43F'], ['mono', '#E9EAEE']].map(([k, c]) => html`<button key=${k} onClick=${() => set({ accent: k })} title=${k} style=${{ width: '30px', height: '30px', borderRadius: '9px', background: c, outline: st.accent === k ? '2px solid var(--fg)' : 'none', outlineOffset: '2px' }}></button>`)}</div><//>
       <${Field} label="Default symbol & size"><div class="row" style=${{ flexWrap: 'nowrap' }}><input class="in" list="syms" value=${st.defaultSymbol} onInput=${e => set({ defaultSymbol: e.target.value.toUpperCase() })}/><input class="in tn" style=${{ width: '90px' }} value=${st.defaultQty} onInput=${e => set({ defaultQty: +e.target.value || 1 })}/></div><//>
-      <label class="row" style=${{ gap: '8px', fontSize: '13.5px', cursor: 'pointer' }}><input type="checkbox" checked=${st.dedupeCopies} onChange=${e => set({ dedupeCopies: e.target.checked })}/>Count copy-traded ideas once in analytics (when viewing all accounts)</label></div>`}
+      <label class="row" style=${{ gap: '8px', fontSize: '12px', cursor: 'pointer' }}><input type="checkbox" checked=${st.dedupeCopies} onChange=${e => set({ dedupeCopies: e.target.checked })}/>Count copy-traded ideas once in analytics (when viewing all accounts)</label></div>`}
     ${tab === 'journal' && html`<div class="grid g2" style=${{ gap: '18px' }}>
       <${Field} label="Daily checklist"><${ListEdit} v=${st.checklist} set=${v => set({ checklist: v })}/><//>
       <${Field} label="Setup tags"><${ListEdit} v=${st.setups} set=${v => set({ setups: v })}/><//>
@@ -1349,13 +1250,13 @@ function Settings({ onClose, tab: tab0 }) {
     ${tab === 'instr' && html`<div class="scroll-x"><table class="tbl"><thead><tr><th>Symbol</th><th>Name</th><th class="r">$ / point</th><th class="r">Fees / contract (round trip)</th></tr></thead><tbody>${Object.entries(INSTR).map(([k, v]) => html`<tr key=${k}><td><b>${k}</b></td><td class="mut">${v.name}</td><td class="r">${v.pv}</td><td class="r"><input class="in tn" style=${{ width: '90px', textAlign: 'right' }} value=${st.commissions?.[k] ?? v.com} onInput=${e => set({ commissions: { ...st.commissions, [k]: isNum(e.target.value) ? +e.target.value : v.com } })}/></td></tr>`)}</tbody></table></div>`}
     ${tab === 'ai' && html`<${AISettings}/>`}
     ${tab === 'data' && html`<div class="col" style=${{ gap: '14px' }}>
-      ${store.backend === 'supabase' && html`<div class="card tight row"><${I} n="user"/><div style=${{ flex: 1 }}><b>${store.email || 'Signed in'}</b><div class="mut" style=${{ fontSize: '12.5px' }}>Sign in with this account on any device to see the same journal.</div></div><button class="btn btn-g sm" onClick=${() => store.signOut()}>Sign out</button></div>`}
-      ${store.backend === 'supabase' && html`<div class="card tight row"><${I} n="link"/><div style=${{ flex: 1 }}><b>Set up another device</b><div class="mut" style=${{ fontSize: '12.5px' }}>Copy this link and open it on your phone or laptop. It connects that device to your database, then you sign in.</div></div><button class="btn btn-g sm" onClick=${async () => { const l = setupLink(); try { await navigator.clipboard.writeText(l); toast('Setup link copied') } catch (e) { prompt && toast('Copy failed') } }}>Copy link</button></div>`}
-      <div class="card tight row"><span class=${'dot ' + (store.mode === 'cloud' ? 'ok' : 'loc')}></span><div><b>${store.mode === 'cloud' ? 'Synced across your devices' : 'Saved in this browser only'}</b><div class="mut" style=${{ fontSize: '12.5px' }}>${store.mode === 'cloud' ? 'Private to you. Every change shows up on your other devices within seconds.' : 'Use your Compound app to sync across devices.'}</div></div></div>
+      ${store.backend === 'supabase' && html`<div class="card tight row"><${I} n="user"/><div style=${{ flex: 1 }}><b>${store.email || 'Signed in'}</b><div class="mut" style=${{ fontSize: '11px' }}>Sign in with this account on any device to see the same journal.</div></div><button class="btn btn-g sm" onClick=${() => store.signOut()}>Sign out</button></div>`}
+      ${store.backend === 'supabase' && html`<div class="card tight row"><${I} n="link"/><div style=${{ flex: 1 }}><b>Set up another device</b><div class="mut" style=${{ fontSize: '11px' }}>Copy this link and open it on your phone or laptop. It connects that device to your database, then you sign in.</div></div><button class="btn btn-g sm" onClick=${async () => { const l = setupLink(); try { await navigator.clipboard.writeText(l); toast('Setup link copied') } catch (e) { prompt && toast('Copy failed') } }}>Copy link</button></div>`}
+      <div class="card tight row"><span class=${'dot ' + (store.mode === 'cloud' ? 'ok' : 'loc')}></span><div><b>${store.mode === 'cloud' ? 'Synced across your devices' : 'Saved in this browser only'}</b><div class="mut" style=${{ fontSize: '11px' }}>${store.mode === 'cloud' ? 'Private to you. Every change shows up on your other devices within seconds.' : 'Use your Compound app to sync across devices.'}</div></div></div>
       <div class="row"><button class="btn btn-g" onClick=${exportJSON}><${I} n="download"/>Back up everything</button><label class="btn btn-g"><${I} n="upload"/>Restore backup<input type="file" accept=".json" hidden onChange=${e => e.target.files[0] && importJSON(e.target.files[0])}/></label><button class="btn btn-g" onClick=${exportCSV}><${I} n="download"/>Export trades CSV</button></div>
       <div class="divider"></div>
       <div class="row"><button class="btn btn-g" onClick=${() => { loadSample(); toast('Sample data added. Everything is marked as sample.') }}>Load sample data</button>${sampleN > 0 && html`<button class="btn btn-d" onClick=${() => { clearSample(); toast('Sample data removed') }}>Remove ${sampleN} sample items</button>`}</div>
-      <p class="dim" style=${{ margin: 0, fontSize: '12.5px' }}>Sample data lets you see every chart filled in. It is tagged so one click removes it without touching your own trades.</p></div>`}
+      <p class="dim" style=${{ margin: 0, fontSize: '11px' }}>Sample data lets you see every chart filled in. It is tagged so one click removes it without touching your own trades.</p></div>`}
   <//>`;
 }
 
@@ -1395,10 +1296,10 @@ function AISettings() {
   const [k, setK] = useState(aiKey()); const [m, setM] = useState(LS.get('compound.aimodel', '')); const [show, setShow] = useState(false); const [st, setSt] = useState('');
   const test = async () => { LS.set('compound.aikey', k.trim()); setSt('Testing…'); try { const r = await store.caps.sample('Reply with exactly: ready', { modelTier: 'quick' }); setSt('Working. The coach is ready.'); } catch (e) { setSt(e.message || 'That key did not work.') } };
   return html`<div class="col" style=${{ gap: '14px' }}>
-    <p class="mut" style=${{ margin: 0, fontSize: '13.5px' }}>Outside Claude, the coach calls Claude through your own Anthropic API key. Create one at console.anthropic.com → API keys. It is stored only on this device and sent only to Anthropic. Usage is billed to your API account.</p>
+    <p class="mut" style=${{ margin: 0, fontSize: '12px' }}>Outside Claude, the coach calls Claude through your own Anthropic API key. Create one at console.anthropic.com → API keys. It is stored only on this device and sent only to Anthropic. Usage is billed to your API account.</p>
     <${Field} label="Anthropic API key"><div class="row" style=${{ flexWrap: 'nowrap' }}><input id="ai-key" class="in mono" type=${show ? 'text' : 'password'} placeholder="sk-ant-…" value=${k} onInput=${e => setK(e.target.value)} autocomplete="off"/><button class="btn btn-g sm" onClick=${() => setShow(!show)}>${show ? 'Hide' : 'Show'}</button></div><//>
     <${Field} label="Model" hint="Deep think in the coach always uses Opus."><select class="sel" value=${m} onChange=${e => { setM(e.target.value); LS.set('compound.aimodel', e.target.value) }}><option value="">Automatic (Sonnet, Opus for deep work)</option><option value="claude-sonnet-5-5">Claude Sonnet 5.5</option><option value="claude-opus-5-5">Claude Opus 5.5</option><option value="claude-haiku-5-5">Claude Haiku 5.5 (fastest, cheapest)</option></select><//>
-    <div class="row"><button class="btn btn-w" onClick=${test}>Save & test</button>${k && html`<button class="btn btn-t" onClick=${() => { LS.del('compound.aikey'); setK(''); setSt('Key removed from this device.') }}>Remove key</button>`}<span class="mut" style=${{ fontSize: '13px' }}>${st}</span></div></div>`;
+    <div class="row"><button class="btn btn-w" onClick=${test}>Save & test</button>${k && html`<button class="btn btn-t" onClick=${() => { LS.del('compound.aikey'); setK(''); setSt('Key removed from this device.') }}>Remove key</button>`}<span class="mut" style=${{ fontSize: '11.5px' }}>${st}</span></div></div>`;
 }
 
 /* delete a prop account: optionally with its trades; keeps copy-trade groups consistent */
@@ -1423,13 +1324,13 @@ function DeleteAccount({ id, after, onClose }) {
   const n = Object.values(S.trades).filter(t => t.account === id).length; const np = Object.values(S.payouts).filter(p => p.account === id).length;
   const ok = mode === 'keep' || txt.trim().toUpperCase() === 'DELETE';
   return html`<${Modal} title="Delete account" icon=${html`<${I} n="trash"/>`} onClose=${onClose} foot=${html`<button class="btn btn-g" onClick=${onClose}>Cancel</button><button class="btn btn-d" disabled=${!ok} onClick=${() => { deleteAccount(store.s, id, mode === 'all'); toast(mode === 'all' ? `Deleted ${a.label} and ${n} trades` : `Deleted ${a.label}. Its trades are kept.`); onClose(); after && after() }}><${I} n="trash"/>Delete account</button>`}>
-    <div class="row" style=${{ gap: '12px', flexWrap: 'nowrap' }}><${FirmLogo} id=${a.firm} s=${42}/><div><b style=${{ fontSize: '16px' }}>${a.label}</b><div class="mut" style=${{ fontSize: '13px' }}>${firmById(a.firm).name} · $${(+a.size || 0).toLocaleString()} · ${n} trades${np ? ' · ' + np + ' payouts' : ''}</div></div></div>
+    <div class="row" style=${{ gap: '12px', flexWrap: 'nowrap' }}><${FirmLogo} id=${a.firm} s=${42}/><div><b style=${{ fontSize: '14px' }}>${a.label}</b><div class="mut" style=${{ fontSize: '11.5px' }}>${firmById(a.firm).name} · $${(+a.size || 0).toLocaleString()} · ${n} trades${np ? ' · ' + np + ' payouts' : ''}</div></div></div>
     <div class="col" style=${{ gap: '8px' }}>
-      <button class=${'copytog' + (mode === 'keep' ? ' on' : '')} onClick=${() => setMode('keep')}><span class="sw"><i></i></span><span style=${{ flex: 1, textAlign: 'left' }}><b>Delete the account, keep its trades</b><span class="mut" style=${{ display: 'block', fontSize: '12px' }}>Trades stay in your journal and stats with no account. Payouts are kept.</span></span></button>
-      <button class=${'copytog' + (mode === 'all' ? ' on' : '')} style=${mode === 'all' ? { borderColor: 'var(--neg)', background: 'var(--negs)', boxShadow: '0 0 0 3px var(--negs)' } : null} onClick=${() => setMode('all')}><span class="sw" style=${mode === 'all' ? { background: 'var(--neg)' } : null}><i></i></span><span style=${{ flex: 1, textAlign: 'left' }}><b>Delete the account and everything in it</b><span class="mut" style=${{ display: 'block', fontSize: '12px' }}>Removes its ${n} trades${np ? ' and ' + np + ' payouts' : ''} from every stat. Copy trades on other accounts are kept.</span></span></button>
+      <button class=${'copytog' + (mode === 'keep' ? ' on' : '')} onClick=${() => setMode('keep')}><span class="sw"><i></i></span><span style=${{ flex: 1, textAlign: 'left' }}><b>Delete the account, keep its trades</b><span class="mut" style=${{ display: 'block', fontSize: '10.5px' }}>Trades stay in your journal and stats with no account. Payouts are kept.</span></span></button>
+      <button class=${'copytog' + (mode === 'all' ? ' on' : '')} style=${mode === 'all' ? { borderColor: 'var(--neg)', background: 'var(--negs)', boxShadow: '0 0 0 3px var(--negs)' } : null} onClick=${() => setMode('all')}><span class="sw" style=${mode === 'all' ? { background: 'var(--neg)' } : null}><i></i></span><span style=${{ flex: 1, textAlign: 'left' }}><b>Delete the account and everything in it</b><span class="mut" style=${{ display: 'block', fontSize: '10.5px' }}>Removes its ${n} trades${np ? ' and ' + np + ' payouts' : ''} from every stat. Copy trades on other accounts are kept.</span></span></button>
     </div>
     ${mode === 'all' && html`<${Field} label="Type DELETE to confirm"><input id="del-confirm" class="in mono" value=${txt} onInput=${e => setTxt(e.target.value)} placeholder="DELETE" autocomplete="off"/><//>`}
-    <p class="dim" style=${{ margin: 0, fontSize: '12.5px' }}>Not finished with it? Use Mark blown or Closed instead to move it to the archive and keep its history.</p>
+    <p class="dim" style=${{ margin: 0, fontSize: '11px' }}>Not finished with it? Use Mark blown or Closed instead to move it to the archive and keep its history.</p>
   <//>`;
 }
 
@@ -1456,14 +1357,14 @@ function Dashboard({ C }) {
   return html`<div class="page">
     <${PageHead} title="Dashboard" sub=${fmtLong(new Date()) + ' · ' + scopeLabel(S, C.F)}><button class="btn btn-t sm" onClick=${() => UI.open('settings')}><${I} n="gear"/>Settings</button><//>
     ${noTrades && html`<div class="card" style=${{ padding: '22px 24px', background: 'radial-gradient(120% 160% at 0% 0%,var(--accs),transparent 55%),var(--card)' }}>
-      <h3 style=${{ fontSize: '19px' }}>Log your first trade</h3><div class="mut" style=${{ marginTop: '4px' }}>Your numbers, calendar, score and coach fill in from your trades. Start with one.</div>
+      <h3 style=${{ fontSize: '16.5px' }}>Log your first trade</h3><div class="mut" style=${{ marginTop: '4px' }}>Your numbers, calendar, score and coach fill in from your trades. Start with one.</div>
       <div class="row" style=${{ marginTop: '16px' }}><button class="btn btn-w" onClick=${() => UI.open('trade')}>Log a trade</button><button class="btn btn-g" onClick=${() => UI.open('import')}>Import trades</button><button class="btn btn-g" onClick=${() => UI.open('account')}>Add prop account</button><button class="btn btn-t" onClick=${() => { loadSample(); toast('Sample data loaded. Remove it any time in Settings → Data.') }}>Preview with sample data</button></div></div>`}
     <div class="hero"><div class="glow"></div>
       <div class="dd lbl" style=${{ justifyContent: 'center', display: 'flex' }} onClick=${() => setRm(!rm)}>Total P&L · ${RANGES.find(r => r[0] === range)[1]}<${I} n="down" s=${12}/>
         <${Menu} open=${rm} onClose=${() => setRm(false)} style=${{ top: '22px', left: '50%', transform: 'translateX(-50%)' }}>${RANGES.map(([k, l]) => html`<button key=${k} class=${range === k ? 'on' : ''} onClick=${e => { e.stopPropagation(); setR(k) }}>${l}</button>`)}<//></div>
       <div class=${'big ' + (s.net < 0 ? 'neg' : '')} style=${{ marginTop: '14px' }}><${CountUp} v=${s.net} fmt=${v => money(v, { dec: 0 })}/></div>
       <div class="meta"><span class="mut tn" style=${{ fontWeight: 600 }}>${s.w}W / ${s.l}L${s.be ? ' / ' + s.be + 'BE' : ''}</span>
-        ${today?.plan ? html`<button class="chip on" onClick=${() => UI.open('plan', { day: todayKey() })}><${I} n="check" s=${12}/>Plan set${today.plan.bias ? ' · ' + ({ bull: 'Bullish', bear: 'Bearish', neutral: 'Neutral', wait: 'Waiting' })[today.plan.bias] : ''}</button>` : html`<button class="lnk" style=${{ fontSize: '14px' }} onClick=${() => UI.open('plan', { day: todayKey() })}>Start pre-market plan →</button>`}</div></div>
+        ${today?.plan ? html`<button class="chip on" onClick=${() => UI.open('plan', { day: todayKey() })}><${I} n="check" s=${12}/>Plan set${today.plan.bias ? ' · ' + ({ bull: 'Bullish', bear: 'Bearish', neutral: 'Neutral', wait: 'Waiting' })[today.plan.bias] : ''}</button>` : html`<button class="lnk" style=${{ fontSize: '12.5px' }} onClick=${() => UI.open('plan', { day: todayKey() })}>Start pre-market plan →</button>`}</div></div>
 
     <div class="row"><span class="lbl">Performance</span><span class="sp"></span><button class="lnk" onClick=${() => C.go('analytics')}>Full analytics →</button><button class="btn btn-t xs" onClick=${C.toggleHide}><${I} n=${UIS.hide ? 'eye' : 'eyeoff'} s=${14}/>${UIS.hide ? 'Show' : 'Hide'} P&L</button></div>
     <div class="grid g4 keep2">
@@ -1474,14 +1375,14 @@ function Dashboard({ C }) {
     </div>
 
     <div class="grid dashrow">
-      <div class="card"><div class="ch"><span class="lbl">Cumulative P&L</span><span class="dim" style=${{ fontSize: '12px' }}>All time</span><span class="sp"></span><b class=${'tn ' + cls(all.net)}>${money(all.net, { sign: true, dec: 0 })}</b></div>
+      <div class="card"><div class="ch"><span class="lbl">Cumulative P&L</span><span class="dim" style=${{ fontSize: '10.5px' }}>All time</span><span class="sp"></span><b class=${'tn ' + cls(all.net)}>${money(all.net, { sign: true, dec: 0 })}</b></div>
         ${series.length ? html`<${EquityChart} series=${series} h=${230}/>` : html`<div class="dim" style=${{ height: '230px', display: 'grid', placeItems: 'center' }}>Your equity curve draws itself here.</div>`}</div>
-      <div class="card"><div class="ch"><span class="lbl">This week</span><span class="sp"></span><span class="dim" style=${{ fontSize: '12px' }}>${fmtDate(weekStart(new Date()))} to today</span></div>
-        <div style=${{ fontSize: '28px', fontWeight: 800, letterSpacing: '-.03em' }} class=${'tn ' + cls(wkS.net)}>${wkS.n ? money(wkS.net, { sign: true, dec: 0 }) : '—'}</div>
+      <div class="card"><div class="ch"><span class="lbl">This week</span><span class="sp"></span><span class="dim" style=${{ fontSize: '10.5px' }}>${fmtDate(weekStart(new Date()))} to today</span></div>
+        <div style=${{ fontSize: '24.5px', fontWeight: 800, letterSpacing: '-.03em' }} class=${'tn ' + cls(wkS.net)}>${wkS.n ? money(wkS.net, { sign: true, dec: 0 }) : '—'}</div>
         <div class="kv" style=${{ marginTop: '10px' }}><span>Trades</span><b>${wkS.n || '—'}</b></div><div class="kv" style=${{ marginTop: '6px' }}><span>Win rate</span><b>${wkS.n ? pct(wkS.wr, 0) : '—'}</b></div>
         <div style=${{ marginTop: '14px' }}><${Bars} data=${wk} h=${140} onPick=${d => C.go('journal', { day: d.k })}/></div></div>
-      <div class="card" style=${{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}><div class="ch" style=${{ width: '100%' }}><span class="lbl">Compound score</span><span class="sp"></span><span style=${{ fontSize: '26px', fontWeight: 900, letterSpacing: '-.04em' }}>${sc.total}<span class="dim" style=${{ fontSize: '13px', fontWeight: 500 }}>/100</span></span></div>
-        <div style=${{ display: 'grid', placeItems: 'center' }}><${Radar} spokes=${sc.spokes} size=${232}/></div><div class="dim" style=${{ fontSize: '12px', textAlign: 'center', marginTop: '4px' }}>${D.ts.length < 10 ? 'Gets reliable after ~20 trades' : 'Win rate · profit factor · expectancy · journaling · discipline'}</div></div>
+      <div class="card" style=${{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}><div class="ch" style=${{ width: '100%' }}><span class="lbl">Compound score</span><span class="sp"></span><span style=${{ fontSize: '23px', fontWeight: 900, letterSpacing: '-.04em' }}>${sc.total}<span class="dim" style=${{ fontSize: '11.5px', fontWeight: 500 }}>/100</span></span></div>
+        <div style=${{ display: 'grid', placeItems: 'center' }}><${Radar} spokes=${sc.spokes} size=${232}/></div><div class="dim" style=${{ fontSize: '10.5px', textAlign: 'center', marginTop: '4px' }}>${D.ts.length < 10 ? 'Gets reliable after ~20 trades' : 'Win rate · profit factor · expectancy · journaling · discipline'}</div></div>
     </div>
 
     <div class="grid g2">
@@ -1520,13 +1421,13 @@ function TradeTable({ ts, S, showAcct = true }) {
 function PsychCard({ C }) {
   const r = store.s.report; const can = !!store.caps.sample;
   return html`<div class="glowcard" style=${{ padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-    <div class="row"><${I} n="brain" c="ai"/><h3 style=${{ margin: 0, fontSize: '15px' }}>Score & psychology</h3><span class="chip ai">AI</span><span class="sp"></span>${r && html`<span class="dim" style=${{ fontSize: '12px' }}>${fmtDate(r.at)}</span>`}</div>
-    ${r ? html`<div style=${{ fontSize: '17px', fontWeight: 700, lineHeight: 1.35 }}>${r.headline}</div>
-      <div class="col" style=${{ gap: '8px' }}>${(r.psych || []).slice(0, 5).map(p => html`<div key=${p.k} style=${{ display: 'grid', gridTemplateColumns: '110px 1fr 34px', gap: '10px', alignItems: 'center', fontSize: '13px' }}><span class="mut">${p.k}</span><div class="prog"><i style=${{ width: clamp(p.v) + '%', background: 'var(--ai)' }}></i></div><b class="tn" style=${{ textAlign: 'right' }}>${p.v}</b></div>`)}</div>
-      <div class="col" style=${{ gap: '6px' }}>${(r.takeaways || []).slice(0, 3).map((x, i) => html`<div key=${i} class="row" style=${{ gap: '8px', flexWrap: 'nowrap', alignItems: 'flex-start', fontSize: '13.5px' }}><span class="ai" style=${{ fontWeight: 800 }}>→</span><span>${x}</span></div>`)}</div>
+    <div class="row"><${I} n="brain" c="ai"/><h3 style=${{ margin: 0, fontSize: '13px' }}>Score & psychology</h3><span class="chip ai">AI</span><span class="sp"></span>${r && html`<span class="dim" style=${{ fontSize: '10.5px' }}>${fmtDate(r.at)}</span>`}</div>
+    ${r ? html`<div style=${{ fontSize: '15px', fontWeight: 700, lineHeight: 1.35 }}>${r.headline}</div>
+      <div class="col" style=${{ gap: '8px' }}>${(r.psych || []).slice(0, 5).map(p => html`<div key=${p.k} style=${{ display: 'grid', gridTemplateColumns: '110px 1fr 34px', gap: '10px', alignItems: 'center', fontSize: '11.5px' }}><span class="mut">${p.k}</span><div class="prog"><i style=${{ width: clamp(p.v) + '%', background: 'var(--ai)' }}></i></div><b class="tn" style=${{ textAlign: 'right' }}>${p.v}</b></div>`)}</div>
+      <div class="col" style=${{ gap: '6px' }}>${(r.takeaways || []).slice(0, 3).map((x, i) => html`<div key=${i} class="row" style=${{ gap: '8px', flexWrap: 'nowrap', alignItems: 'flex-start', fontSize: '12px' }}><span class="ai" style=${{ fontWeight: 800 }}>→</span><span>${x}</span></div>`)}</div>
       <div class="row"><button class="btn btn-g sm" onClick=${() => C.go('ai', { tab: 'report' })}>Open full report</button></div>`
-    : html`<div class="mut" style=${{ fontSize: '13.5px' }}>The AI reads your whole journal and turns it into a score, a picture of your head as charts, and the three things to fix next.</div>
-      <div class="row"><button class="btn btn-ai sm" disabled=${!can} onClick=${() => C.go('ai', { tab: 'report', run: true })}><${I} n="spark"/>Run my report</button>${!can && html`<span class="dim" style=${{ fontSize: '12px' }}>Available when opened in Claude</span>`}</div>`}
+    : html`<div class="mut" style=${{ fontSize: '12px' }}>The AI reads your whole journal and turns it into a score, a picture of your head as charts, and the three things to fix next.</div>
+      <div class="row"><button class="btn btn-ai sm" disabled=${!can} onClick=${() => C.go('ai', { tab: 'report', run: true })}><${I} n="spark"/>Run my report</button>${!can && html`<span class="dim" style=${{ fontSize: '10.5px' }}>Available when opened in Claude</span>`}</div>`}
   </div>`;
 }
 
@@ -1552,7 +1453,7 @@ function FilterBar({ f, setF, S, count, total, view, setView }) {
       </div><div class="row" style=${{ marginTop: '12px', justifyContent: 'flex-end' }}><button class="btn btn-w sm" onClick=${() => setOpen(false)}>Done</button></div></div>`}
     <span class="sp"></span>
     <div class="search" style=${{ width: 'min(280px,100%)' }}><${I} n="search"/><input id="tsearch" placeholder="Search symbol, setup, notes…" value=${f.q} onInput=${e => setF({ ...f, q: e.target.value })}/></div>
-    <span class="dim tn" style=${{ fontSize: '12.5px' }}>${count} / ${total}</span>
+    <span class="dim tn" style=${{ fontSize: '11px' }}>${count} / ${total}</span>
     ${setView && html`<${Seg} sm v=${view} set=${setView} opts=${[['grid', '', 'grid'], ['list', '', 'list']]}/>`}
   </div>`;
 }
@@ -1561,7 +1462,7 @@ function TradeCard({ t, S, onClick }) {
   return html`<button class="tc" onClick=${onClick}>
     <div class="shot">${shot ? html`<img src=${shot.url} alt="" loading="lazy"/>` : html`<div class="ph2"><${MiniLadder} t=${t}/></div>`}
       ${t.pin && html`<span class="pin chip gold"><${I} n="pin" s=${11}/>Pinned</span>`}</div>
-    <div class="bd"><div class="row" style=${{ gap: '8px' }}><b>${t.symbol}</b><${Side} s=${t.side}/><${Grade} g=${t.grade}/><span class="sp"></span><span class="dim tn" style=${{ fontSize: '12px' }}>${fmtDate(t.t)} · ${fmtTime(t.t)}</span></div>
+    <div class="bd"><div class="row" style=${{ gap: '8px' }}><b>${t.symbol}</b><${Side} s=${t.side}/><${Grade} g=${t.grade}/><span class="sp"></span><span class="dim tn" style=${{ fontSize: '10.5px' }}>${fmtDate(t.t)} · ${fmtTime(t.t)}</span></div>
       <div class="row" style=${{ alignItems: 'baseline' }}><span class=${'pnl tn ' + cls(t.pnl)}>${money(t.pnl, { sign: true })}</span><span class=${'tn ' + cls(tR(t))} style=${{ fontWeight: 600 }}>${tR(t) != null ? rfmt(tR(t)) : ''}</span><span class="sp"></span>${t.group && html`<span class="chip on" title="Copy traded"><${I} n="copy" s=${11}/>×${groupOf(S, t).length}</span>`}${st && html`<span class="chip"><i style=${{ width: '7px', height: '7px', borderRadius: '50%', background: st.color }}></i>${st.name}</span>`}</div>
       ${(t.setups?.length || t.mistakes?.length) ? html`<div class="row" style=${{ gap: '5px' }}>${(t.setups || []).slice(0, 3).map(x => html`<span class="chip" key=${x}>${x}</span>`)}${(t.mistakes || []).slice(0, 2).map(x => html`<span class="chip neg" key=${x}>${x}</span>`)}</div>` : null}
     </div></button>`;
@@ -1571,7 +1472,7 @@ function MiniLadder({ t, h = 120 }) {
   const [ref, W] = useWidth(300);
   const e = num(t.entry), x = num(t.exit), s = num(t.stop), g = num(t.target);
   const lv = [['Target', g, 'var(--pos)'], ['Exit', x, t.pnl >= 0 ? 'var(--pos)' : 'var(--neg)'], ['Entry', e, 'var(--fg)'], ['Stop', s, 'var(--neg)']].filter(l => l[1] != null);
-  if (lv.length < 2) return html`<div ref=${ref} class="dim" style=${{ fontFamily: 'var(--mono)', fontSize: '11px', letterSpacing: '.12em' }}>${t.symbol} · ${money(t.pnl, { sign: true })}</div>`;
+  if (lv.length < 2) return html`<div ref=${ref} class="dim" style=${{ fontFamily: 'var(--mono)', fontSize: '9.5px', letterSpacing: '.12em' }}>${t.symbol} · ${money(t.pnl, { sign: true })}</div>`;
   const vs = lv.map(l => l[1]); const mn = Math.min(...vs), mx = Math.max(...vs), sp = mx - mn || 1;
   const Y = v => 16 + (mx - v) / sp * (h - 32); const x1 = 14, x2 = Math.max(60, W - 118);
   const labs = lv.map(l => ({ n: l[0], v: l[1], c: l[2], y: Y(l[1]) })).sort((a, b) => a.y - b.y);
@@ -1618,17 +1519,17 @@ function DailyView({ C, focus }) {
   return html`<div class="col" style=${{ gap: '10px' }}>${keys.slice(0, 120).map(k => { const x = days[k]; const d = S.days[k] || {}; const isOpen = open === k; const ds = x ? stats(x.trades) : null;
     return html`<div class="card" id=${'day-' + k} key=${k} style=${{ padding: 0, overflow: 'hidden' }}>
       <button style=${{ width: '100%', display: 'flex', alignItems: 'center', gap: '14px', padding: '14px 18px', textAlign: 'left', flexWrap: 'wrap' }} onClick=${() => setOpen(isOpen ? null : k)}>
-        <div style=${{ minWidth: '130px' }}><b>${fmtDate(parseDay(k), { wd: true })}</b><div class="dim" style=${{ fontSize: '12px' }}>${parseDay(k).getFullYear()}</div></div>
-        <span class=${'tn ' + cls(x?.pnl)} style=${{ fontSize: '20px', fontWeight: 800, minWidth: '110px' }}>${x ? money(x.pnl, { sign: true, dec: 0 }) : '—'}</span>
-        <span class="mut tn" style=${{ fontSize: '13px' }}>${x ? `${x.n} trades · ${x.w}W ${x.l}L` : 'No trades'}</span>
+        <div style=${{ minWidth: '130px' }}><b>${fmtDate(parseDay(k), { wd: true })}</b><div class="dim" style=${{ fontSize: '10.5px' }}>${parseDay(k).getFullYear()}</div></div>
+        <span class=${'tn ' + cls(x?.pnl)} style=${{ fontSize: '17.5px', fontWeight: 800, minWidth: '110px' }}>${x ? money(x.pnl, { sign: true, dec: 0 }) : '—'}</span>
+        <span class="mut tn" style=${{ fontSize: '11.5px' }}>${x ? `${x.n} trades · ${x.w}W ${x.l}L` : 'No trades'}</span>
         <span class="sp"></span>${d.plan && html`<span class="chip on">Plan</span>`}${d.review && html`<span class="chip pos">Reviewed</span>`}${d.review?.plan === false && html`<span class="chip neg">Off plan</span>`}
         ${x && html`<${Spark} vals=${[0, ...equitySeries(x.trades).map(p => p.v)]} w=${90} h=${28}/>`}<${I} n="down" c=${isOpen ? '' : ''} s=${14}/></button>
       ${isOpen && html`<div class="dayin">
         <div class="col" style=${{ gap: '12px' }}>
           <div class="row"><span class="lbl">Plan</span><span class="sp"></span><button class="lnk" onClick=${() => UI.open('plan', { day: k })}>${d.plan ? 'Edit' : 'Write'}</button></div>
-          ${d.plan ? html`<div class="mdtx" style=${{ fontSize: '13.5px' }}>${d.plan.bias && html`<b>${({ bull: 'Bullish', bear: 'Bearish', neutral: 'Neutral', wait: 'Wait' })[d.plan.bias]}</b> · `}${d.plan.focus}${d.plan.levels && '\n' + d.plan.levels}${d.plan.a && '\nA: ' + d.plan.a}${d.plan.b && '\nB: ' + d.plan.b}</div>` : html`<div class="dim">No plan written.</div>`}
+          ${d.plan ? html`<div class="mdtx" style=${{ fontSize: '12px' }}>${d.plan.bias && html`<b>${({ bull: 'Bullish', bear: 'Bearish', neutral: 'Neutral', wait: 'Wait' })[d.plan.bias]}</b> · `}${d.plan.focus}${d.plan.levels && '\n' + d.plan.levels}${d.plan.a && '\nA: ' + d.plan.a}${d.plan.b && '\nB: ' + d.plan.b}</div>` : html`<div class="dim">No plan written.</div>`}
           <div class="row"><span class="lbl">Review</span><span class="sp"></span><button class="lnk" onClick=${() => UI.open('review', { day: k })}>${d.review ? 'Edit' : 'Write'}</button><${AskBtn} label="AI recap" q=${`Recap my trading day ${k}. What did I do well, what went wrong, and one concrete rule for tomorrow?`} C=${C}/></div>
-          ${d.review ? html`<div class="mdtx" style=${{ fontSize: '13.5px' }}>${d.review.text}${d.review.lessons && '\n\nLesson: ' + d.review.lessons}</div><div class="row" style=${{ gap: '6px' }}><span class="chip">Mood ${d.review.mood}/5</span><span class="chip">Execution ${d.review.rating}/5</span></div>` : html`<div class="dim">How did it go? Write it while it is fresh.</div>`}
+          ${d.review ? html`<div class="mdtx" style=${{ fontSize: '12px' }}>${d.review.text}${d.review.lessons && '\n\nLesson: ' + d.review.lessons}</div><div class="row" style=${{ gap: '6px' }}><span class="chip">Mood ${d.review.mood}/5</span><span class="chip">Execution ${d.review.rating}/5</span></div>` : html`<div class="dim">How did it go? Write it while it is fresh.</div>`}
         </div>
         <div class="col" style=${{ gap: '10px' }}>
           ${ds && html`<div class="grid g3 keep2"><div><div class="lbl">Win rate</div><b>${pct(ds.wr, 0)}</b></div><div><div class="lbl">Best</div><b class="pos">${money(ds.best?.pnl, { sign: true, dec: 0 })}</b></div><div><div class="lbl">Worst</div><b class="neg">${money(ds.worst?.pnl, { sign: true, dec: 0 })}</b></div></div>`}
@@ -1640,7 +1541,7 @@ function WeeklyView({ C }) {
   const { S, D } = C;
   const wks = useMemo(() => { const m = {}; for (const t of D.ts) { const k = dayKey(weekStart(t.t)); (m[k] ||= []).push(t) } m[dayKey(weekStart(new Date()))] ||= []; return Object.entries(m).sort((a, b) => b[0] < a[0] ? -1 : 1) }, [D]);
   return html`<div class="col" style=${{ gap: '12px' }}>${wks.slice(0, 40).map(([k, ts]) => { const s = stats(ts); const ws = parseDay(k); const bars = [0, 1, 2, 3, 4].map(i => { const dk = dayKey(addDays(ws, i)); const dt = ts.filter(t => dayKey(t.t) === dk); return { l: DOW[i], v: sum(dt, t => t.pnl), k: dk } }); const rv = S.days['w-' + k];
-    return html`<div class="card" key=${k}><div class="ch"><h3>Week of ${fmtDate(ws)}</h3><span class="sub">${fmtDate(ws)} – ${fmtDate(addDays(ws, 4))}</span><span class="sp"></span><span class=${'tn ' + cls(s.net)} style=${{ fontSize: '22px', fontWeight: 800 }}>${s.n ? money(s.net, { sign: true, dec: 0 }) : '—'}</span></div>
+    return html`<div class="card" key=${k}><div class="ch"><h3>Week of ${fmtDate(ws)}</h3><span class="sub">${fmtDate(ws)} – ${fmtDate(addDays(ws, 4))}</span><span class="sp"></span><span class=${'tn ' + cls(s.net)} style=${{ fontSize: '19.5px', fontWeight: 800 }}>${s.n ? money(s.net, { sign: true, dec: 0 }) : '—'}</span></div>
       <div class="grid wk">
         <${Bars} data=${bars} h=${150} onPick=${d => C.go('journal', { day: d.k })}/>
         <div class="col" style=${{ gap: '8px' }}>
@@ -1671,19 +1572,19 @@ function TradeDetail({ id, list, onClose }) {
     setAi(false);
   };
   return html`<${Drawer} onClose=${onClose} head=${html`<div class="row" style=${{ gap: '10px' }}><button class="ib" disabled=${i <= 0} onClick=${() => nav(-1)} aria-label="Previous trade"><${I} n="left"/></button><button class="ib" disabled=${i < 0 || i >= list.length - 1} onClick=${() => nav(1)} aria-label="Next trade"><${I} n="right"/></button>
-      <b style=${{ fontSize: '18px' }}>${t.symbol}</b><${Side} s=${t.side}/><${Grade} g=${t.grade}/><span class="mut hide-m" style=${{ fontSize: '13px' }}>${fmtLong(t.t)} · ${fmtTime(t.t)}</span></div>`}>
+      <b style=${{ fontSize: '16px' }}>${t.symbol}</b><${Side} s=${t.side}/><${Grade} g=${t.grade}/><span class="mut hide-m" style=${{ fontSize: '11.5px' }}>${fmtLong(t.t)} · ${fmtTime(t.t)}</span></div>`}>
     <div class="mb" style=${{ gap: '18px' }}>
       <div class="row" style=${{ alignItems: 'flex-end', gap: '18px' }}>
-        <div><div class="lbl">Net P&L</div><div class=${'tn ' + cls(t.pnl)} style=${{ fontSize: '40px', fontWeight: 900, letterSpacing: '-.04em', lineHeight: 1.05 }}>${money(t.pnl, { sign: true })}</div></div>
-        <div><div class="lbl">R</div><div class=${'tn ' + cls(r)} style=${{ fontSize: '26px', fontWeight: 800 }}>${r != null ? rfmt(r) : '—'}</div></div>
+        <div><div class="lbl">Net P&L</div><div class=${'tn ' + cls(t.pnl)} style=${{ fontSize: '35px', fontWeight: 900, letterSpacing: '-.04em', lineHeight: 1.05 }}>${money(t.pnl, { sign: true })}</div></div>
+        <div><div class="lbl">R</div><div class=${'tn ' + cls(r)} style=${{ fontSize: '23px', fontWeight: 800 }}>${r != null ? rfmt(r) : '—'}</div></div>
         <span class="sp"></span>
         <button class=${'btn sm ' + (t.pin ? 'btn-a' : 'btn-g')} onClick=${() => store.patch('trades', t.id, { pin: !t.pin })}><${I} n="pin"/>${t.pin ? 'Pinned' : 'Pin'}</button>
         <button class="btn btn-g sm" onClick=${() => UI.open('trade', { id: t.id })}><${I} n="edit"/>Edit</button>
         <button class="btn btn-ai sm" onClick=${review} disabled=${ai}><${I} n="spark"/>${ai ? 'Reviewing…' : 'AI review'}</button>
       </div>
       <div class="card" style=${{ padding: '14px' }}><div class="ch"><span class="lbl">Price action</span>${LIVE_OK && html`<${Seg} sm v=${pa} set=${v => { setPa(v); LS.set('compound.pa', v) }} opts=${[['replay', 'Replay'], ['live', 'Live']]}/>`}<span class="sp"></span><a class="btn btn-t xs" href=${tvURL(t.symbol)} target="_blank" rel="noopener"><${I} n="ext" s=${13}/>Open ${t.symbol} in TradingView</a>${t.tv && html`<a class="btn btn-t xs" href=${t.tv} target="_blank" rel="noopener"><${I} n="link" s=${13}/>Snapshot</a>`}</div>
-        ${pa === 'live' && LIVE_OK ? html`<div class="row" style=${{ marginBottom: '8px' }}><${TVSymPicker} sym=${tsym} setSym=${setTsym} fam=${instr(t.symbol).fam}/></div><${TVLive} symbol=${tsym} interval="1" h=${420}/><div class="dim" style=${{ fontSize: '12px', marginTop: '6px' }}>Live chart. Scroll back to ${fmtDate(t.t)} ${fmtTime(t.t)} to see this entry. The Replay tab marks it on the candles automatically.</div>`
-        : bars ? html`<${PriceChart} bars=${bars.bars} trades=${[t]} focus=${t} h=${340}/>` : html`<div style=${{ height: '170px' }}><${MiniLadder} t=${t} h=${170}/></div><div class="dim" style=${{ fontSize: '12.5px', marginTop: '8px' }}>Import ${instr(t.symbol).fam} bars on the Chart page (TradingView → Export chart data) and this trade plots on real candles.</div>`}
+        ${pa === 'live' && LIVE_OK ? html`<div class="row" style=${{ marginBottom: '8px' }}><${TVSymPicker} sym=${tsym} setSym=${setTsym} fam=${instr(t.symbol).fam}/></div><${TVLive} symbol=${tsym} interval="1" h=${420}/><div class="dim" style=${{ fontSize: '10.5px', marginTop: '6px' }}>Live chart. Scroll back to ${fmtDate(t.t)} ${fmtTime(t.t)} to see this entry. The Replay tab marks it on the candles automatically.</div>`
+        : bars ? html`<${PriceChart} bars=${bars.bars} trades=${[t]} focus=${t} h=${340}/>` : html`<div style=${{ height: '170px' }}><${MiniLadder} t=${t} h=${170}/></div><div class="dim" style=${{ fontSize: '11px', marginTop: '8px' }}>Import ${instr(t.symbol).fam} bars on the Chart page (TradingView → Export chart data) and this trade plots on real candles.</div>`}
       </div>
       ${(t.shots || []).length > 0 && html`<div class="shots" style=${{ gridTemplateColumns: 'repeat(auto-fill,minmax(240px,1fr))' }}>${t.shots.map(s => html`<div class="s" key=${s.id}><img src=${s.url} alt="Trade screenshot" onClick=${() => setLb(s.url)}/></div>`)}</div>`}
       <div class="grid g6 keep2" style=${{ gap: '8px' }}>${[['Entry', t.entry || '—'], ['Exit', t.exit || '—'], ['Stop', t.stop || '—'], ['Target', t.target || '—'], [t.unit === 'lot' ? 'Lots' : 'Contracts', t.qty], [t.unit === 'lot' ? 'Points · pips' : 'Points', t.pts != null ? (t.pts > 0 ? '+' : '') + t.pts.toFixed(2) + (t.unit === 'lot' ? ' · ' + (t.pts / (num(t.pip) || 1)).toFixed(1) : '') : '—'], ['Risk', t.risk ? money(t.risk) : '—'], ['Planned R:R', t.rr ? '1:' + t.rr.toFixed(2) : '—'], ['Hold', fmtDur(holdMin(t))], ['Session', sessionOf(t)], ['Fees', money(t.fees, { dec: 2 })], ['MAE / MFE', (t.mae || '—') + ' / ' + (t.mfe || '—')]].map(([k, v]) => html`<div class="card tight" key=${k}><div class="lbl">${k}</div><div class="tn" style=${{ fontWeight: 700, marginTop: '4px' }}>${v}</div></div>`)}</div>
@@ -1693,13 +1594,13 @@ function TradeDetail({ id, list, onClose }) {
           ${t.lessons && html`<div class="card tight" style=${{ borderColor: 'var(--accg)' }}><div class="lbl">Lesson</div><div style=${{ marginTop: '4px', fontWeight: 600 }}>${t.lessons}</div></div>`}
           <div class="row" style=${{ gap: '6px' }}>${(t.setups || []).map(x => html`<span class="chip" key=${x}>${x}</span>`)}${(t.mistakes || []).map(x => html`<span class="chip neg" key=${x}>${x}</span>`)}${t.rules === true && html`<span class="chip pos">Rules kept</span>`}${t.rules === false && html`<span class="chip neg">Rule broken</span>`}</div>
           <div class="row" style=${{ gap: '6px' }}>${(t.emoBefore || []).map(x => html`<span class="chip" key=${'b' + x}>Before: ${x}</span>`)}${(t.emoAfter || []).map(x => html`<span class="chip" key=${'a' + x}>After: ${x}</span>`)}</div>
-          ${t.group ? html`<${CopyGroupCard} S=${S} t=${t}/>` : html`<div class="mut" style=${{ fontSize: '13px' }}>${acc ? html`<span class="row" style=${{ gap: '8px' }}><${FirmLogo} id=${acc.firm} s=${22}/>${acc.label}</span>` : 'No account'}</div>`}
+          ${t.group ? html`<${CopyGroupCard} S=${S} t=${t}/>` : html`<div class="mut" style=${{ fontSize: '11.5px' }}>${acc ? html`<span class="row" style=${{ gap: '8px' }}><${FirmLogo} id=${acc.firm} s=${22}/>${acc.label}</span>` : 'No account'}</div>`}
         </div>
         <div class="col" style=${{ gap: '12px' }}>
-          ${st && html`<div class="card tight"><div class="row"><i style=${{ width: '9px', height: '9px', borderRadius: '50%', background: st.color }}></i><b>${st.name}</b><span class="sp"></span><span class="dim" style=${{ fontSize: '12px' }}>min ${st.minRR}R</span></div>
+          ${st && html`<div class="card tight"><div class="row"><i style=${{ width: '9px', height: '9px', borderRadius: '50%', background: st.color }}></i><b>${st.name}</b><span class="sp"></span><span class="dim" style=${{ fontSize: '10.5px' }}>min ${st.minRR}R</span></div>
             ${(st.entry || []).length > 0 && html`<div class="col" style=${{ gap: '2px', marginTop: '8px' }}>${st.entry.map((e, j) => { const ok = (t.ruleChecks || {})[j]; return html`<button key=${j} class=${'chk' + (ok ? ' on' : '')} onClick=${() => store.patch('trades', t.id, { ruleChecks: { ...(t.ruleChecks || {}), [j]: !ok } })}><span class="bx">${ok && html`<${I} n="check" w=${3}/>`}</span><span>${e}</span></button>` })}</div>`}
             ${t.rr && st.minRR && t.rr < +st.minRR && html`<div class="chip neg" style=${{ marginTop: '8px' }}>Planned R:R ${t.rr.toFixed(2)} is under this strategy's ${st.minRR}</div>`}</div>`}
-          ${t.ai && html`<div class="glowcard" style=${{ padding: '14px 16px' }}><div class="row"><${I} n="spark" c="ai"/><b>Coach review</b><span class="sp"></span><span class="dim" style=${{ fontSize: '12px' }}>${fmtDate(t.ai.at)}</span></div><div class="msg a" style=${{ marginTop: '8px' }}><div class="tx" dangerouslySetInnerHTML=${{ __html: mdLite(t.ai.text) }}></div></div></div>`}
+          ${t.ai && html`<div class="glowcard" style=${{ padding: '14px 16px' }}><div class="row"><${I} n="spark" c="ai"/><b>Coach review</b><span class="sp"></span><span class="dim" style=${{ fontSize: '10.5px' }}>${fmtDate(t.ai.at)}</span></div><div class="msg a" style=${{ marginTop: '8px' }}><div class="tx" dangerouslySetInnerHTML=${{ __html: mdLite(t.ai.text) }}></div></div></div>`}
         </div>
       </div>
     </div>${lb && html`<${Lightbox} src=${lb} onClose=${() => setLb(null)}/>`}<//>`;
@@ -1728,18 +1629,18 @@ function Strategy({ C }) {
     <${PageHead} title="Strategy" sub=${list.length + ' strategies defined'}><button class="btn btn-w" onClick=${() => UI.open('strategy')}><${I} n="plus"/>New strategy</button><//>
     <div class="card" style=${{ background: 'linear-gradient(90deg,var(--ais),transparent 60%),var(--card)', borderColor: 'rgba(157,123,255,.25)', display: 'flex', gap: '14px', alignItems: 'flex-start' }}>
       <span class="logo" style=${{ width: '36px', height: '36px', background: 'linear-gradient(135deg,#5B35E8,#9D7BFF)' }}><${I} n="spark" s=${18}/></span>
-      <div><b>Your AI coach reads these</b><div class="mut" style=${{ fontSize: '13.5px', marginTop: '3px' }}>Every strategy here goes to the coach alongside your journal. Tag a trade to one and the coach holds that trade to these rules (your entry conditions, your invalidation, your minimum R:R) rather than to a generic idea of a good trade. The more you write down, the more it can hold you to.</div></div></div>
+      <div><b>Your AI coach reads these</b><div class="mut" style=${{ fontSize: '12px', marginTop: '3px' }}>Every strategy here goes to the coach alongside your journal. Tag a trade to one and the coach holds that trade to these rules (your entry conditions, your invalidation, your minimum R:R) rather than to a generic idea of a good trade. The more you write down, the more it can hold you to.</div></div></div>
     ${!list.length ? html`<${Empty} icon="target" title="No strategies yet" body="Create your first strategy to start tracking which setups actually pay you."><button class="btn btn-w" onClick=${() => UI.open('strategy')}><${I} n="plus"/>New strategy</button><//>`
     : html`<div class="grid g2">${list.map(s => { const ts = D.ts.filter(t => t.strategy === s.id); const st = stats(ts); const eq = equitySeries(ts).map(p => p.v); const grade = !st.n ? '—' : st.pf >= 2 && st.n >= 10 ? 'A' : st.pf >= 1.4 ? 'B' : st.pf >= 1 ? 'C' : 'D';
       return html`<div class="card" key=${s.id} style=${{ borderTop: `2px solid ${s.color}` }}>
-        <div class="ch"><h3 style=${{ fontSize: '17px' }}>${s.name}</h3><${Grade} g=${grade === '—' ? '' : grade}/><span class="sp"></span><button class="ib" onClick=${() => UI.open('strategy', { id: s.id })} aria-label="Edit strategy"><${I} n="edit"/></button></div>
-        ${s.desc && html`<div class="mut" style=${{ fontSize: '13.5px', marginBottom: '12px' }}>${s.desc}</div>`}
+        <div class="ch"><h3 style=${{ fontSize: '15px' }}>${s.name}</h3><${Grade} g=${grade === '—' ? '' : grade}/><span class="sp"></span><button class="ib" onClick=${() => UI.open('strategy', { id: s.id })} aria-label="Edit strategy"><${I} n="edit"/></button></div>
+        ${s.desc && html`<div class="mut" style=${{ fontSize: '12px', marginBottom: '12px' }}>${s.desc}</div>`}
         <div class="row" style=${{ gap: '18px', alignItems: 'flex-end' }}>
-          <div><div class="lbl">Net</div><div class=${'tn ' + cls(st.net)} style=${{ fontSize: '24px', fontWeight: 800 }}>${money(st.net, { sign: true, dec: 0 })}</div></div>
+          <div><div class="lbl">Net</div><div class=${'tn ' + cls(st.net)} style=${{ fontSize: '21px', fontWeight: 800 }}>${money(st.net, { sign: true, dec: 0 })}</div></div>
           <div><div class="lbl">Trades</div><b class="tn">${st.n}</b></div><div><div class="lbl">Win</div><b class="tn">${pct(st.wr, 0)}</b></div><div><div class="lbl">PF</div><b class="tn">${st.pf === Infinity ? '∞' : st.pf.toFixed(2)}</b></div><div><div class="lbl">Exp</div><b class="tn">${st.expR != null ? rfmt(st.expR) : '—'}</b></div>
           <span class="sp"></span><${Spark} vals=${[0, ...eq]} w=${130} h=${40} color=${s.color}/></div>
         <div class="divider" style=${{ margin: '14px 0' }}></div>
-        <div class="grid g2" style=${{ gap: '14px', fontSize: '13px' }}>
+        <div class="grid g2" style=${{ gap: '14px', fontSize: '11.5px' }}>
           <div><div class="lbl" style=${{ marginBottom: '6px' }}>Entry conditions</div>${(s.entry || []).length ? s.entry.map((e, i) => html`<div key=${i} class="row" style=${{ gap: '8px', flexWrap: 'nowrap', alignItems: 'flex-start', margin: '3px 0' }}><span class="dim tn">${i + 1}</span><span>${e}</span></div>`) : html`<span class="dim">Not written yet</span>`}</div>
           <div class="col" style=${{ gap: '8px' }}><div><div class="lbl">Invalidation</div><div>${s.invalid || html`<span class="dim">—</span>`}</div></div><div><div class="lbl">Timeframes · markets</div><div>${s.tf} · ${s.markets}</div></div><div><div class="lbl">Minimum R:R</div><div>${s.minRR}</div></div></div>
         </div>
@@ -1772,8 +1673,8 @@ function CopyGroupCard({ S, t }) {
   const g = groupOf(S, t).map(x => ({ ...x, ...tradeCalc(x, S.settings) })).sort((a, b) => (b.lead ? 1 : 0) - (a.lead ? 1 : 0));
   const tot = sum(g, x => x.pnl);
   return html`<div class="card tight" style=${{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-    <div class="row"><${I} n="copy" s=${15}/><b>Copy trade</b><span class="mut" style=${{ fontSize: '12.5px' }}>${g.length} accounts</span><span class="sp"></span><span class="mut" style=${{ fontSize: '12.5px' }}>Total</span><b class=${'tn ' + cls(tot)}>${money(tot, { sign: true })}</b></div>
-    ${g.map(x => { const a = S.accounts[x.account]; return html`<button key=${x.id} class="row" style=${{ flexWrap: 'nowrap', gap: '9px', fontSize: '13px', padding: '6px 8px', borderRadius: '9px', background: x.id === t.id ? 'var(--card2)' : 'transparent', width: '100%' }} onClick=${() => UI.open('detail', { id: x.id, list: g.map(y => y.id) })}>${a ? html`<${FirmLogo} id=${a.firm} s=${20}/>` : null}<span style=${{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>${a?.label || 'No account'}</span><span class=${'chip ' + (x.lead ? 'on' : '')} style=${{ height: '20px', fontSize: '11px' }}>${x.lead ? 'Main' : 'Copy'}</span><span class="sp"></span><span class="dim tn">${qtyFmt(x)}</span><span class=${'tn ' + cls(x.pnl)} style=${{ minWidth: '70px', textAlign: 'right', fontWeight: 700 }}>${money(x.pnl, { sign: true })}</span></button>` })}
+    <div class="row"><${I} n="copy" s=${15}/><b>Copy trade</b><span class="mut" style=${{ fontSize: '11px' }}>${g.length} accounts</span><span class="sp"></span><span class="mut" style=${{ fontSize: '11px' }}>Total</span><b class=${'tn ' + cls(tot)}>${money(tot, { sign: true })}</b></div>
+    ${g.map(x => { const a = S.accounts[x.account]; return html`<button key=${x.id} class="row" style=${{ flexWrap: 'nowrap', gap: '9px', fontSize: '11.5px', padding: '6px 8px', borderRadius: '9px', background: x.id === t.id ? 'var(--card2)' : 'transparent', width: '100%' }} onClick=${() => UI.open('detail', { id: x.id, list: g.map(y => y.id) })}>${a ? html`<${FirmLogo} id=${a.firm} s=${20}/>` : null}<span style=${{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>${a?.label || 'No account'}</span><span class=${'chip ' + (x.lead ? 'on' : '')} style=${{ height: '20px', fontSize: '9.5px' }}>${x.lead ? 'Main' : 'Copy'}</span><span class="sp"></span><span class="dim tn">${qtyFmt(x)}</span><span class=${'tn ' + cls(x.pnl)} style=${{ minWidth: '70px', textAlign: 'right', fontWeight: 700 }}>${money(x.pnl, { sign: true })}</span></button>` })}
   </div>`;
 }
 
@@ -1838,11 +1739,11 @@ function ChartImport({ onClose }) {
   const save = async () => { setBusy(true); const id = uid(); const chunks = await store.putBars(id, rows); store.put('charts', { id, symbol: meta.symbol, fam: instr(meta.symbol).fam, tf: +meta.tf, from: rows[0].time, to: rows[rows.length - 1].time, n: rows.length, chunks, name: meta.name, created: Date.now() }); setBusy(false); toast(`${rows.length.toLocaleString()} bars saved`); onClose(id) };
   return html`<${Modal} title="Import price data" icon=${html`<${I} n="candle"/>`} onClose=${() => onClose()} foot=${rows && html`<button class="btn btn-g" onClick=${() => onClose()}>Cancel</button><button class="btn btn-w" disabled=${busy} onClick=${save}>${busy ? 'Saving…' : 'Save chart'}</button>`}>
     ${!rows ? html`<div class="col" style=${{ gap: '12px' }}>
-      <ol class="mut" style=${{ margin: 0, paddingLeft: '18px', lineHeight: 1.8, fontSize: '13.5px' }}><li>Open your chart in TradingView (e.g. <b>MNQ1!</b>, 1 minute) and scroll back to cover the days you want.</li><li>Top-left menu (arrow next to the chart layout) → <b>Export chart data…</b> → time format ISO or UNIX → <b>Export</b>.</li><li>Drop that CSV here. Your trades on those days plot on the candles automatically.</li></ol>
+      <ol class="mut" style=${{ margin: 0, paddingLeft: '18px', lineHeight: 1.8, fontSize: '12px' }}><li>Open your chart in TradingView (e.g. <b>MNQ1!</b>, 1 minute) and scroll back to cover the days you want.</li><li>Top-left menu (arrow next to the chart layout) → <b>Export chart data…</b> → time format ISO or UNIX → <b>Export</b>.</li><li>Drop that CSV here. Your trades on those days plot on the candles automatically.</li></ol>
       <label class="drop"><${I} n="upload" s=${22}/><div style=${{ marginTop: '6px' }}><b>Choose TradingView CSV</b></div><input type="file" accept=".csv,text/csv" hidden onChange=${e => e.target.files[0] && load(e.target.files[0])}/></label></div>`
     : html`<div class="row"><span class="chip on">${rows.length.toLocaleString()} bars</span><span class="mut">${fmtDate(rows[0].time * 1000, { year: true })} → ${fmtDate(rows[rows.length - 1].time * 1000, { year: true })}</span></div>
       <div class="grid g3"><${Field} label="Symbol"><input class="in" list="syms" value=${meta.symbol} onInput=${e => setMeta({ ...meta, symbol: e.target.value.toUpperCase() })}/><datalist id="syms">${Object.keys(INSTR).map(k => html`<option value=${k}/>`)}</datalist><//><${Field} label="Bar size (minutes)"><input class="in tn" value=${meta.tf} onInput=${e => setMeta({ ...meta, tf: e.target.value })}/><//><${Field} label="Name"><input class="in" value=${meta.name} onInput=${e => setMeta({ ...meta, name: e.target.value })}/><//></div>
-      <div class="dim" style=${{ fontSize: '12.5px' }}>MNQ and NQ share prices, so either symbol's bars show trades on both.</div>`}
+      <div class="dim" style=${{ fontSize: '11px' }}>MNQ and NQ share prices, so either symbol's bars show trades on both.</div>`}
   <//>`;
 }
 
@@ -1887,17 +1788,17 @@ function ChartPage({ C }) {
       ${mode === 'replay' && html`<button class="btn btn-w" onClick=${() => setImp(true)}><${I} n="upload"/>Import bars</button>`}<//>
     ${mode === 'live' ? html`<div class="bar"><${TVSymPicker} sym=${lsym} setSym=${setLsym} fam=${instr(S.settings.defaultSymbol || 'MNQ').fam}/><span class="sp"></span><${Seg} sm v=${liv} set=${v => { setLiv(v); LS.set('compound.tvint', v) }} opts=${[['1', '1m'], ['5', '5m'], ['15', '15m'], ['60', '1h'], ['240', '4h'], ['D', '1D']]}/></div>
       <div class="card" style=${{ padding: '8px' }}><${TVLive} symbol=${lsym} interval=${liv} h=${Math.max(460, Math.round(innerHeight * .68))}/></div>
-      <div class="dim" style=${{ fontSize: '12.5px' }}>Live chart from TradingView. Use its toolbar to draw, add indicators and change symbol. If a futures symbol says it is only available on TradingView, pick NAS100, which tracks the same index. To see your own entries and exits on the candles, switch to "My trades on candles".</div>`
+      <div class="dim" style=${{ fontSize: '11px' }}>Live chart from TradingView. Use its toolbar to draw, add indicators and change symbol. If a futures symbol says it is only available on TradingView, pick NAS100, which tracks the same index. To see your own entries and exits on the candles, switch to "My trades on candles".</div>`
     : !charts.length ? html`<div class="grid g2">
-      <div class="card" style=${{ padding: '26px' }}><h3 style=${{ fontSize: '18px' }}>See every entry on real candles</h3><p class="mut" style=${{ fontSize: '14px', lineHeight: 1.6 }}>Compound draws with TradingView's own charting library. Live TradingView widgets can't run inside this page, so bring the bars in once: export chart data from TradingView and drop the CSV here. Each trade then shows its entry arrow, exit, stop and target on the exact candles, and every trade's detail page gets its own zoomed chart.</p>
+      <div class="card" style=${{ padding: '26px' }}><h3 style=${{ fontSize: '16px' }}>See every entry on real candles</h3><p class="mut" style=${{ fontSize: '12.5px', lineHeight: 1.6 }}>Compound draws with TradingView's own charting library. Live TradingView widgets can't run inside this page, so bring the bars in once: export chart data from TradingView and drop the CSV here. Each trade then shows its entry arrow, exit, stop and target on the exact candles, and every trade's detail page gets its own zoomed chart.</p>
         <div class="row"><button class="btn btn-w" onClick=${() => setImp(true)}><${I} n="upload"/>Import TradingView CSV</button><a class="btn btn-g" href=${tvURL(S.settings.defaultSymbol || 'MNQ')} target="_blank" rel="noopener"><${I} n="ext"/>Open ${S.settings.defaultSymbol || 'MNQ'} chart</a></div></div>
-      <div class="card" style=${{ padding: '26px' }}><div class="lbl" style=${{ marginBottom: '12px' }}>Also works</div><div class="col" style=${{ gap: '12px', fontSize: '14px' }}>
+      <div class="card" style=${{ padding: '26px' }}><div class="lbl" style=${{ marginBottom: '12px' }}>Also works</div><div class="col" style=${{ gap: '12px', fontSize: '12.5px' }}>
         <div class="row" style=${{ flexWrap: 'nowrap', alignItems: 'flex-start', gap: '10px' }}><${I} n="image"/><span><b>Paste chart screenshots</b> straight into any trade. In TradingView, the camera icon → Copy image, then paste.</span></div>
         <div class="row" style=${{ flexWrap: 'nowrap', alignItems: 'flex-start', gap: '10px' }}><${I} n="link"/><span><b>Snapshot links</b> (tradingview.com/x/…) saved on the trade open in one tap.</span></div>
         <div class="row" style=${{ flexWrap: 'nowrap', alignItems: 'flex-start', gap: '10px' }}><${I} n="spark"/><span><b>AI review</b> reads your screenshots and grades the entry against your strategy.</span></div></div></div></div>`
     : html`<div class="bar"><select class="sel" style=${{ width: 'auto', minWidth: '220px' }} value=${ch?.id} onChange=${e => { setSel(e.target.value); setTf(0) }}>${charts.map(c => html`<option value=${c.id}>${c.symbol} · ${c.tf}m · ${fmtDate(c.from * 1000)}–${fmtDate(c.to * 1000)}</option>`)}</select>
         <${Seg} sm v=${tf || ch.tf} set=${setTf} opts=${tfs.map(x => [x, x >= 1440 ? '1D' : x >= 60 ? x / 60 + 'h' : x + 'm'])}/>
-        <label class="row" style=${{ gap: '6px', fontSize: '13px', cursor: 'pointer' }}><input type="checkbox" checked=${showT} onChange=${e => setShowT(e.target.checked)}/>My trades (${inRangeTs.length})</label>
+        <label class="row" style=${{ gap: '6px', fontSize: '11.5px', cursor: 'pointer' }}><input type="checkbox" checked=${showT} onChange=${e => setShowT(e.target.checked)}/>My trades (${inRangeTs.length})</label>
         <span class="sp"></span><button class="btn btn-t xs" onClick=${() => UI.confirm({ title: 'Delete this chart data?', body: `${ch.n.toLocaleString()} bars of ${ch.symbol}. Your trades are not affected.`, onYes: () => { store.delBars(ch.id, ch.chunks); store.del('charts', ch.id); setSel(null) } })}><${I} n="trash" s=${14}/>Delete</button></div>
       <div class="card" style=${{ padding: '10px' }}>${view ? html`<${PriceChart} bars=${view} trades=${showT ? inRangeTs : []} h=${520} onPick=${id => UI.open('detail', { id, list: inRangeTs.map(t => t.id) })}/>` : html`<div class="dim" style=${{ height: '520px', display: 'grid', placeItems: 'center' }}>Loading bars…</div>`}</div>
       ${inRangeTs.length > 0 && html`<div class="card" style=${{ padding: 0 }}><div class="ch" style=${{ padding: '14px 20px 0' }}><span class="lbl">Trades on this chart</span></div><${TradeTable} ts=${inRangeTs} S=${S}/></div>`}`}
@@ -1929,16 +1830,16 @@ function Study({ C }) {
     ${tab === 'home' && html`
       <div class="card" style=${{ padding: 'clamp(22px,4vw,48px)', display: 'grid', gridTemplateColumns: 'minmax(0,1fr) auto', gap: '24px', alignItems: 'center', background: 'radial-gradient(90% 120% at 100% 0%,var(--accs),transparent 60%),var(--card)' }}>
         <div><div style=${{ fontWeight: 700, marginBottom: '18px' }}>Time.</div><div class="quote">${Q.q}</div><div class="lbl" style=${{ marginTop: '26px', letterSpacing: '.12em' }}>${Q.a}</div></div><div class="hide-m"><${ColumnArt}/></div></div>
-      <div class="row"><${Seg} v=${src} set=${setSrc} opts=${[['yt', 'YouTube video', 'yt'], ['tr', 'My trade', 'chartl']]}/><span class="mut" style=${{ fontSize: '13.5px' }}>Study from a video, your own trade, or both.</span></div>
+      <div class="row"><${Seg} v=${src} set=${setSrc} opts=${[['yt', 'YouTube video', 'yt'], ['tr', 'My trade', 'chartl']]}/><span class="mut" style=${{ fontSize: '12px' }}>Study from a video, your own trade, or both.</span></div>
       ${src === 'yt' ? html`<div class="search" style=${{ height: '48px' }}><${I} n="link"/><input placeholder="What video are these notes from? Paste a YouTube link" value=${link} onInput=${e => setLink(e.target.value)} onKeyDown=${e => { if (e.key === 'Enter' && link.trim()) { newNote({ yt: link.trim(), title: 'Video notes' }); setLink('') } }}/><button class="btn btn-w xs" disabled=${!link.trim()} onClick=${() => { newNote({ yt: link.trim(), title: 'Video notes' }); setLink('') }}>Start notes</button></div>`
         : html`<div class="row" style=${{ flexWrap: 'nowrap' }}><select class="sel" value=${tr} onChange=${e => setTr(e.target.value)}><option value="">Pick a trade to study</option>${D.ts.slice(0, 150).map(t => html`<option value=${t.id}>${fmtDate(t.t)} · ${t.symbol} ${t.side} · ${money(t.pnl, { sign: true })}</option>`)}</select><button class="btn btn-w sm" disabled=${!tr} onClick=${() => { const t = S.trades[tr]; newNote({ trade: tr, title: `Study: ${t.symbol} ${fmtDate(t.t)}` }) }}>Start notes</button></div>`}
       <div class="grid g2">
-        <div class="card row" style=${{ gap: '18px', flexWrap: 'nowrap' }}><${Ring} v=${Math.min(100, wkMin / 300 * 100)} size=${72}>${Math.round(wkMin / 300 * 100)}%</${Ring}><div style=${{ flex: 1 }}><div class="lbl">This week</div><div style=${{ fontSize: '26px', fontWeight: 800 }}>${wkMin} min</div><div class="mut" style=${{ fontSize: '13px' }}>Today ${todayMin} min · goal 300 min/week</div></div><div style=${{ width: '180px' }}><${Bars} data=${wk} h=${90} fmt=${v => v + 'm'} color="var(--acc)"/></div></div>
-        <div class="card"><div class="ch"><span class="lbl">Recent</span><span class="sp"></span><button class="lnk" onClick=${() => setTab('notes')}>All notes →</button></div>${notes.length ? notes.slice(0, 5).map(n => html`<button key=${n.id} class="row" style=${{ width: '100%', padding: '8px 0', borderBottom: '1px solid var(--line)', flexWrap: 'nowrap' }} onClick=${() => { setOpen(n.id); setTab('notes') }}><${I} n=${n.yt ? 'yt' : n.trade ? 'chartl' : 'note'}/><b style=${{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>${n.title || 'Untitled'}</b><span class="sp"></span><span class="dim" style=${{ fontSize: '12px' }}>${fmtDate(n.u)}</span></button>`) : html`<div class="empty" style=${{ padding: '20px' }}><b>No notes yet.</b><button class="lnk" onClick=${() => newNote()}>Start a blank note</button></div>`}</div>
+        <div class="card row" style=${{ gap: '18px', flexWrap: 'nowrap' }}><${Ring} v=${Math.min(100, wkMin / 300 * 100)} size=${72}>${Math.round(wkMin / 300 * 100)}%</${Ring}><div style=${{ flex: 1 }}><div class="lbl">This week</div><div style=${{ fontSize: '23px', fontWeight: 800 }}>${wkMin} min</div><div class="mut" style=${{ fontSize: '11.5px' }}>Today ${todayMin} min · goal 300 min/week</div></div><div style=${{ width: '180px' }}><${Bars} data=${wk} h=${90} fmt=${v => v + 'm'} color="var(--acc)"/></div></div>
+        <div class="card"><div class="ch"><span class="lbl">Recent</span><span class="sp"></span><button class="lnk" onClick=${() => setTab('notes')}>All notes →</button></div>${notes.length ? notes.slice(0, 5).map(n => html`<button key=${n.id} class="row" style=${{ width: '100%', padding: '8px 0', borderBottom: '1px solid var(--line)', flexWrap: 'nowrap' }} onClick=${() => { setOpen(n.id); setTab('notes') }}><${I} n=${n.yt ? 'yt' : n.trade ? 'chartl' : 'note'}/><b style=${{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>${n.title || 'Untitled'}</b><span class="sp"></span><span class="dim" style=${{ fontSize: '10.5px' }}>${fmtDate(n.u)}</span></button>`) : html`<div class="empty" style=${{ padding: '20px' }}><b>No notes yet.</b><button class="lnk" onClick=${() => newNote()}>Start a blank note</button></div>`}</div>
       </div>`}
     ${tab === 'notes' && html`<div class="grid notesg">
       <div class="col" style=${{ gap: '8px' }}><div class="search"><${I} n="search"/><input placeholder="Search notes" value=${q} onInput=${e => setQ(e.target.value)}/></div>
-        ${shown.map(n => html`<button key=${n.id} class=${'acct' + (open === n.id ? ' on' : '')} onClick=${() => setOpen(n.id)}><div class="row" style=${{ flexWrap: 'nowrap' }}><${I} n=${n.yt ? 'yt' : n.trade ? 'chartl' : 'note'} s=${14}/><b style=${{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>${n.title || 'Untitled'}</b></div><div class="dim" style=${{ fontSize: '12px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>${(n.body || '').slice(0, 80) || 'Empty'}</div></button>`)}
+        ${shown.map(n => html`<button key=${n.id} class=${'acct' + (open === n.id ? ' on' : '')} onClick=${() => setOpen(n.id)}><div class="row" style=${{ flexWrap: 'nowrap' }}><${I} n=${n.yt ? 'yt' : n.trade ? 'chartl' : 'note'} s=${14}/><b style=${{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>${n.title || 'Untitled'}</b></div><div class="dim" style=${{ fontSize: '10.5px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>${(n.body || '').slice(0, 80) || 'Empty'}</div></button>`)}
         ${!shown.length && html`<div class="dim" style=${{ padding: '10px' }}>No notes.</div>`}</div>
       ${S.notes[open] ? html`<${NoteEditor} key=${open} n=${S.notes[open]} S=${S} onDel=${() => setOpen(null)}/>` : html`<${Empty} icon="note" title="Pick a note" body="Or start one from a video or a trade."><button class="btn btn-w" onClick=${() => newNote()}>New note</button><//>`}</div>`}
     ${tab === 'boards' && html`<${Boards} S=${S}/>`}
@@ -1949,14 +1850,14 @@ function NoteEditor({ n, S, onDel }) {
   const up = p => store.put('notes', { ...S.notes[n.id], ...p }, 700); const t = n.trade && S.trades[n.trade];
   const ytId = (n.yt || '').match(/(?:v=|youtu\.be\/|shorts\/|embed\/)([\w-]{6,})/)?.[1];
   return html`<div class="card col" style=${{ gap: '12px' }}>
-    <div class="row" style=${{ flexWrap: 'nowrap' }}><input class="in" style=${{ fontSize: '20px', fontWeight: 700, border: 0, background: 'transparent', padding: '4px 0' }} placeholder="Untitled" value=${n.title} onInput=${e => up({ title: e.target.value })}/><button class="ib" onClick=${() => UI.confirm({ title: 'Delete note?', body: 'This cannot be undone.', onYes: () => { store.del('notes', n.id); onDel() } })} aria-label="Delete note"><${I} n="trash"/></button></div>
+    <div class="row" style=${{ flexWrap: 'nowrap' }}><input class="in" style=${{ fontSize: '17.5px', fontWeight: 700, border: 0, background: 'transparent', padding: '4px 0' }} placeholder="Untitled" value=${n.title} onInput=${e => up({ title: e.target.value })}/><button class="ib" onClick=${() => UI.confirm({ title: 'Delete note?', body: 'This cannot be undone.', onYes: () => { store.del('notes', n.id); onDel() } })} aria-label="Delete note"><${I} n="trash"/></button></div>
     <div class="row" style=${{ gap: '8px' }}>
       <input class="in" style=${{ maxWidth: '160px' }} placeholder="Folder" value=${n.folder || ''} onInput=${e => up({ folder: e.target.value })}/>
       <div class="search" style=${{ flex: 1, minWidth: '220px' }}><${I} n="yt"/><input placeholder="YouTube link" value=${n.yt || ''} onInput=${e => up({ yt: e.target.value })}/>${ytId && html`<a class="btn btn-t xs" href=${'https://www.youtube.com/watch?v=' + ytId} target="_blank" rel="noopener">Watch<${I} n="ext" s=${12}/></a>`}</div>
     </div>
     ${t && html`<button class="row card tight" style=${{ flexWrap: 'nowrap', gap: '10px' }} onClick=${() => UI.open('detail', { id: t.id })}><${I} n="chartl"/><b>${t.symbol}</b><${Side} s=${t.side}/><span class="dim">${fmtDate(t.t)}</span><span class="sp"></span><${Money} v=${tradeCalc(t, S.settings).pnl}/></button>`}
-    <textarea class="ta" style=${{ minHeight: '46vh', fontSize: '15px', lineHeight: 1.7, background: 'transparent', border: 0, padding: 0, boxShadow: 'none' }} placeholder=${'Write as you watch.\n\n• Key idea\n• How it applies to my MNQ trading\n• Rule I will test this week'} value=${n.body} onInput=${e => up({ body: e.target.value })}></textarea>
-    <div class="row dim" style=${{ fontSize: '12px' }}><span>Saved automatically</span><span class="sp"></span><${AskBtn} label="Turn into rules" q=${`Here are my study notes titled "${n.title}":\n\n${n.body}\n\nTurn these into 3-5 testable trading rules for my strategy and journal checklist.`} C=${{ go: UI.go }}/></div>
+    <textarea class="ta" style=${{ minHeight: '46vh', fontSize: '13px', lineHeight: 1.7, background: 'transparent', border: 0, padding: 0, boxShadow: 'none' }} placeholder=${'Write as you watch.\n\n• Key idea\n• How it applies to my MNQ trading\n• Rule I will test this week'} value=${n.body} onInput=${e => up({ body: e.target.value })}></textarea>
+    <div class="row dim" style=${{ fontSize: '10.5px' }}><span>Saved automatically</span><span class="sp"></span><${AskBtn} label="Turn into rules" q=${`Here are my study notes titled "${n.title}":\n\n${n.body}\n\nTurn these into 3-5 testable trading rules for my strategy and journal checklist.`} C=${{ go: UI.go }}/></div>
   </div>`;
 }
 function Boards({ S }) {
@@ -1966,7 +1867,7 @@ function Boards({ S }) {
     <div class="row">${boards.map(x => html`<button key=${x.id} class=${'chip' + (b?.id === x.id ? ' on' : '')} style=${{ height: '30px' }} onClick=${() => setSel(x.id)}>${x.name} · ${(x.items || []).length}</button>`)}<button class="btn btn-g sm" onClick=${add}><${I} n="plus"/>New board</button></div>
     ${!b ? html`<${Empty} icon="board" title="No boards yet" body="Boards are visual swipe files: A+ examples, your worst mistakes, model setups. Paste screenshots straight in."><button class="btn btn-w" onClick=${add}>Create a board</button><//>`
     : html`<div class="card col" style=${{ gap: '12px' }}>
-      <div class="row"><input class="in" style=${{ fontSize: '18px', fontWeight: 700, border: 0, background: 'transparent', maxWidth: '420px', padding: 0 }} value=${b.name} onInput=${e => store.put('boards', { ...b, name: e.target.value }, 700)}/><span class="sp"></span><button class="btn btn-t xs" onClick=${() => UI.confirm({ title: 'Delete board?', body: 'Its images are removed.', onYes: () => store.del('boards', b.id) })}><${I} n="trash" s=${13}/>Delete board</button></div>
+      <div class="row"><input class="in" style=${{ fontSize: '16px', fontWeight: 700, border: 0, background: 'transparent', maxWidth: '420px', padding: 0 }} value=${b.name} onInput=${e => store.put('boards', { ...b, name: e.target.value }, 700)}/><span class="sp"></span><button class="btn btn-t xs" onClick=${() => UI.confirm({ title: 'Delete board?', body: 'Its images are removed.', onYes: () => store.del('boards', b.id) })}><${I} n="trash" s=${13}/>Delete board</button></div>
       <${ShotsEdit} shots=${[]} set=${v => store.put('boards', { ...b, items: [...(b.items || []), ...v.map(x => ({ ...x, cap: '' }))] })} label="Add images to this board"/>
       <div style=${{ columns: '3 260px', columnGap: '12px' }}>${(b.items || []).map((it, i) => html`<div key=${it.id || i} style=${{ breakInside: 'avoid', marginBottom: '12px', borderRadius: '12px', overflow: 'hidden', border: '1px solid var(--line)', background: 'var(--card2)' }}>
         <img src=${it.url} alt="" style=${{ display: 'block', width: '100%', cursor: 'zoom-in' }} onClick=${() => setLb(it.url)}/>
@@ -2016,11 +1917,11 @@ function Propfirm({ C }) {
     ${tab === 'certs' && html`<div class="grid g3">${[...accs.filter(a => a.status === 'passed' || (a.type === 'funded')).map(a => ({ k: 'pass', a, d: a.passedAt || a.start })), ...payouts.map(p => ({ k: 'pay', p, a: S.accounts[p.account], d: p.d }))].sort((x, y) => x.d < y.d ? 1 : -1).map((c, i) => html`<div class="cert" key=${i}>
         <div class="row"><${Mark} s=${22}/><span class="lbl">${c.k === 'pay' ? 'Payout certificate' : 'Evaluation passed'}</span></div>
         <div><div class="amt tn">${c.k === 'pay' ? money(c.p.amount, { dec: 0 }) : money(+c.a.size, { dec: 0 })}</div><div class="mut">${c.a ? firmById(c.a.firm).name + ' · ' + (c.a.label || '') : ''}</div></div>
-        <div class="row"><span class="mono dim" style=${{ fontSize: '11px' }}>${S.settings.name.toUpperCase()} · ${c.d ? fmtDate(parseDay(String(c.d).slice(0, 10)), { year: true }).toUpperCase() : ''}</span></div>
+        <div class="row"><span class="mono dim" style=${{ fontSize: '9.5px' }}>${S.settings.name.toUpperCase()} · ${c.d ? fmtDate(parseDay(String(c.d).slice(0, 10)), { year: true }).toUpperCase() : ''}</span></div>
         <div class="seal">${c.a && html`<${FirmLogo} id=${c.a.firm} s=${40}/>`}</div></div>`)}
       ${!accs.some(a => a.status === 'passed' || a.type === 'funded') && !payouts.length && html`<div style=${{ gridColumn: '1/-1' }}><${Empty} icon="cert" title="Your wall is empty, for now" body="Passed evals and paid payouts turn into certificates here automatically."/></div>`}</div>`}
     ${tab === 'firms' && html`<div class="grid" style=${{ gridTemplateColumns: 'repeat(auto-fill,minmax(250px,1fr))' }}>${FIRMS.map(f => { const fa = accs.filter(a => a.firm === f.id); const fs = sum(fa, a => (+a.cost || 0) + (+a.activation || 0)); const fp = sum(payouts.filter(p => S.accounts[p.account]?.firm === f.id), p => p.amount);
-      return html`<div class="card" key=${f.id}><div class="row" style=${{ flexWrap: 'nowrap' }}><${FirmLogo} id=${f.id} s=${42}/><div style=${{ minWidth: 0 }}><b>${f.name}</b><div class="dim" style=${{ fontSize: '12px' }}>${f.plans.join(' · ')}</div></div></div>
+      return html`<div class="card" key=${f.id}><div class="row" style=${{ flexWrap: 'nowrap' }}><${FirmLogo} id=${f.id} s=${42}/><div style=${{ minWidth: 0 }}><b>${f.name}</b><div class="dim" style=${{ fontSize: '10.5px' }}>${f.plans.join(' · ')}</div></div></div>
         <div class="grid g3" style=${{ marginTop: '14px', gap: '6px' }}><div><div class="lbl">Accts</div><b>${fa.length}</b></div><div><div class="lbl">Spent</div><b>${moneyK(fs)}</b></div><div><div class="lbl">Paid</div><b class="pos">${moneyK(fp)}</b></div></div>
         <div class="row" style=${{ marginTop: '12px', gap: '6px' }}><label class="btn btn-g xs"><${I} n="upload" s=${12}/>Logo<input type="file" accept="image/*" hidden onChange=${async e => { const f0 = e.target.files[0]; if (!f0) return; const b = await shrinkImage(f0, 160, .9); const d = await blobToData(b); store.setSettings({ firmLogos: { ...S.settings.firmLogos, [f.id]: d } }) }}/></label>${S.settings.firmLogos?.[f.id] && html`<button class="btn btn-t xs" onClick=${() => { const fl = { ...S.settings.firmLogos }; delete fl[f.id]; store.setSettings({ firmLogos: fl }) }}>Reset</button>`}${f.url && html`<a class="btn btn-t xs" href=${f.url} target="_blank" rel="noopener">Site<${I} n="ext" s=${12}/></a>`}<span class="sp"></span><button class="btn btn-g xs" onClick=${() => UI.open('account', { firm: f.id })}><${I} n="plus" s=${12}/>Add</button></div></div>` })}</div>`}
   </div>`;
@@ -2044,10 +1945,10 @@ function PropCard({ a, st, S }) {
           ${a.status !== 'active' && html`<button onClick=${() => { setMenu(false); store.put('accounts', { ...a, status: 'active' }) }}><${I} n="rotate"/>Reactivate</button>`}
           <hr/><button style=${{ color: 'var(--neg)' }} onClick=${() => { setMenu(false); UI.open('delacct', { id: a.id }) }}><${I} n="trash"/>Delete account</button>
         <//></div></div>
-    <div class="row" style=${{ alignItems: 'flex-end' }}><div><div class="lbl">Balance</div><div class="bal">${money(st.bal, { dec: 0 })}</div></div><span class="sp"></span><div style=${{ textAlign: 'right' }}><div class=${'tn ' + cls(st.profit)} style=${{ fontSize: '19px', fontWeight: 800 }}>${money(st.profit, { sign: true, dec: 0 })}</div><${Spark} vals=${sparkVals} w=${110} h=${30}/></div></div>
+    <div class="row" style=${{ alignItems: 'flex-end' }}><div><div class="lbl">Balance</div><div class="bal">${money(st.bal, { dec: 0 })}</div></div><span class="sp"></span><div style=${{ textAlign: 'right' }}><div class=${'tn ' + cls(st.profit)} style=${{ fontSize: '16.5px', fontWeight: 800 }}>${money(st.profit, { sign: true, dec: 0 })}</div><${Spark} vals=${sparkVals} w=${110} h=${30}/></div></div>
     <div><div class="row" style=${{ justifyContent: 'space-between', marginBottom: '8px' }}><span class="lbl" style=${{ color: danger ? 'var(--neg)' : undefined }}>${money(st.left, { dec: 0 })} left</span>${st.toGo != null && html`<span class="lbl" style=${{ color: 'var(--fg)' }}>${st.toGo > 0 ? money(st.toGo, { dec: 0 }) + ' to go' : 'Target hit'}</span>`}</div>
       <div class="gauge"><span class="z" style=${{ left: z + '%' }}></span><span class="mk" style=${{ left: `calc(${pos}% - 1.5px)` }}></span></div>
-      <div class="row dim mono" style=${{ justifyContent: 'space-between', fontSize: '10.5px', marginTop: '6px' }}><span>Floor ${money(st.floor, { dec: 0 })}</span><span>${st.target ? 'Target ' + money(st.start + st.target, { dec: 0 }) : 'Peak ' + money(st.peak, { dec: 0 })}</span></div></div>
+      <div class="row dim mono" style=${{ justifyContent: 'space-between', fontSize: '9px', marginTop: '6px' }}><span>Floor ${money(st.floor, { dec: 0 })}</span><span>${st.target ? 'Target ' + money(st.start + st.target, { dec: 0 }) : 'Peak ' + money(st.peak, { dec: 0 })}</span></div></div>
     <div class="col" style=${{ gap: '6px' }}>
       ${st.dll ? html`<div class="kv"><span>Daily left</span><b class=${st.dllLeft < st.dll * .3 ? 'neg' : ''}>${money(st.dllLeft, { dec: 0 })}</b></div>` : null}
       <div class="kv"><span>Peak ${a.dd === 'eod' ? '(EOD)' : ''}</span><b>${money(a.dd === 'eod' ? st.eodPeak : st.peak, { dec: 0 })}</b></div>
@@ -2056,7 +1957,7 @@ function PropCard({ a, st, S }) {
     </div>
     ${a.status === 'active' && html`<div style=${{ background: 'var(--bg)', borderRadius: '12px', padding: '10px 12px', border: '1px solid var(--line)' }}><div class="lbl" style=${{ marginBottom: '8px' }}>Update balance</div>
       <div class="row" style=${{ flexWrap: 'nowrap' }}><div class="inwrap" style=${{ flex: 1 }}><span class="pre">$</span><input class="in tn" style=${{ fontWeight: 700 }} placeholder=${Math.round(st.bal)} value=${bal} onInput=${e => setBal(e.target.value)}/></div><button class="btn btn-w sm" onClick=${() => { if (!isNum(bal)) return; const d = +bal - st.bal; if (Math.abs(d) > .004) store.put('adjust', { id: uid(), account: a.id, v: Math.round(d * 100) / 100, d: new Date().toISOString(), note: 'Balance sync' }); setBal(''); toast('Balance updated') }}>Update</button></div></div>`}
-    <div class="row"><span class="dim" style=${{ fontSize: '12.5px' }}>Trades (${st.trades.length})</span><span class="sp"></span><button class="btn btn-t xs" onClick=${() => UI.open('assign', { account: a.id })}><${I} n="plus" s=${12}/>Assign</button>${st.trades.length > 0 && html`<button class="btn btn-t xs" onClick=${() => UI.open('detail', { id: st.trades[st.trades.length - 1].id, list: st.trades.map(t => t.id).reverse() })}>View</button>`}</div>
+    <div class="row"><span class="dim" style=${{ fontSize: '11px' }}>Trades (${st.trades.length})</span><span class="sp"></span><button class="btn btn-t xs" onClick=${() => UI.open('assign', { account: a.id })}><${I} n="plus" s=${12}/>Assign</button>${st.trades.length > 0 && html`<button class="btn btn-t xs" onClick=${() => UI.open('detail', { id: st.trades[st.trades.length - 1].id, list: st.trades.map(t => t.id).reverse() })}>View</button>`}</div>
     ${mc && html`<${MonteModal} a=${a} st=${st} S=${S} onClose=${() => setMc(false)}/>`}
   </div>`;
 }
@@ -2102,14 +2003,14 @@ function Progress({ C }) {
   return html`<div class="page">
     <${PageHead} title="Progress" sub="Process over outcome. These only go up when you do the work."/>
     <div class="grid g3">
-      <div class="card row" style=${{ gap: '18px', flexWrap: 'nowrap' }}><${Ring} v=${(xp - cur) / (nxt - cur) * 100} size=${86} w=${8}>L${lvl}</${Ring}><div><div class="lbl">Level</div><div style=${{ fontSize: '28px', fontWeight: 900 }}>${xp.toLocaleString()} XP</div><div class="mut" style=${{ fontSize: '13px' }}>${(nxt - xp).toLocaleString()} XP to level ${lvl + 1}</div></div></div>
-      <div class="card row" style=${{ gap: '16px', flexWrap: 'nowrap' }}><span class="logo" style=${{ width: '56px', height: '56px', background: 'linear-gradient(140deg,#FF8A4C,#F3B43F)' }}><${I} n="flame" s=${26}/></span><div><div class="lbl">Journal streak</div><div style=${{ fontSize: '28px', fontWeight: 900 }}>${streak} day${streak === 1 ? '' : 's'}</div><div class="mut" style=${{ fontSize: '13px' }}>Weekdays with a trade, plan or review</div></div></div>
-      <div class="card"><div class="lbl">How XP is earned</div><div class="mut" style=${{ fontSize: '13px', lineHeight: 1.7, marginTop: '6px' }}>Trade logged 5 · with notes +4 · screenshot +4 · graded +2<br/>Plan 10 · review 15 · study 1/min · payout 150</div></div>
+      <div class="card row" style=${{ gap: '18px', flexWrap: 'nowrap' }}><${Ring} v=${(xp - cur) / (nxt - cur) * 100} size=${86} w=${8}>L${lvl}</${Ring}><div><div class="lbl">Level</div><div style=${{ fontSize: '24.5px', fontWeight: 900 }}>${xp.toLocaleString()} XP</div><div class="mut" style=${{ fontSize: '11.5px' }}>${(nxt - xp).toLocaleString()} XP to level ${lvl + 1}</div></div></div>
+      <div class="card row" style=${{ gap: '16px', flexWrap: 'nowrap' }}><span class="logo" style=${{ width: '56px', height: '56px', background: 'linear-gradient(140deg,#FF8A4C,#F3B43F)' }}><${I} n="flame" s=${26}/></span><div><div class="lbl">Journal streak</div><div style=${{ fontSize: '24.5px', fontWeight: 900 }}>${streak} day${streak === 1 ? '' : 's'}</div><div class="mut" style=${{ fontSize: '11.5px' }}>Weekdays with a trade, plan or review</div></div></div>
+      <div class="card"><div class="lbl">How XP is earned</div><div class="mut" style=${{ fontSize: '11.5px', lineHeight: 1.7, marginTop: '6px' }}>Trade logged 5 · with notes +4 · screenshot +4 · graded +2<br/>Plan 10 · review 15 · study 1/min · payout 150</div></div>
     </div>
     <div class="card"><div class="ch"><span class="lbl">Last 26 weeks</span><span class="sp"></span><span class="legend"><span><i style=${{ background: 'var(--card2)' }}></i>none</span><span><i style=${{ background: 'var(--acc)', opacity: .4 }}></i>some</span><span><i style=${{ background: 'var(--acc)' }}></i>full day</span></span></div>
       <div class="scroll-x"><div class="hm">${cells.map(c => html`<i key=${c.k} title=${c.k + ' · ' + c.n} style=${{ background: c.fut ? 'transparent' : c.n ? 'var(--acc)' : undefined, opacity: c.n ? Math.min(1, .25 + c.n / 6) : 1 }}></i>`)}</div></div></div>
     <div><div class="lbl" style=${{ marginBottom: '12px' }}>Milestones · ${badges.filter(b => b[1]).length}/${badges.length}</div>
-      <div class="grid" style=${{ gridTemplateColumns: 'repeat(auto-fill,minmax(140px,1fr))' }}>${badges.map(([n, got, ic]) => html`<div key=${n} class="card tight" style=${{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', textAlign: 'center', opacity: got ? 1 : .5 }}><div class=${'badge' + (got ? ' got' : '')}><${I} n=${ic} c=${got ? 'gold' : 'dim'}/></div><b style=${{ fontSize: '13px' }}>${n}</b></div>`)}</div></div>
+      <div class="grid" style=${{ gridTemplateColumns: 'repeat(auto-fill,minmax(140px,1fr))' }}>${badges.map(([n, got, ic]) => html`<div key=${n} class="card tight" style=${{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', textAlign: 'center', opacity: got ? 1 : .5 }}><div class=${'badge' + (got ? ' got' : '')}><${I} n=${ic} c=${got ? 'gold' : 'dim'}/></div><b style=${{ fontSize: '11.5px' }}>${n}</b></div>`)}</div></div>
   </div>`;
 }
 
@@ -2166,7 +2067,7 @@ function Analytics({ C }) {
   const tabs = [['overview', 'Overview'], ['performance', 'Performance'], ['compare', 'Compare'], ['time', 'Time'], ['psychology', 'Psychology'], ['insights', 'Insights'], ['risk', 'Risk']];
   return html`<div class="page">
     <${PageHead} title="Analytics" sub=${T.length + ' trades analyzed · ' + scopeLabel(S, C.F)}><button class="btn btn-t xs" onClick=${C.toggleHide}><${I} n=${UIS.hide ? 'eye' : 'eyeoff'} s=${14}/>${UIS.hide ? 'Show' : 'Hide'} P&L</button><//>
-    <div class="scroll-x" style=${{ borderBottom: '1px solid var(--line)' }}><div class="row" style=${{ flexWrap: 'nowrap', gap: '4px' }}>${tabs.map(([k, l]) => html`<button key=${k} onClick=${() => set(k)} style=${{ padding: '10px 14px', fontWeight: 600, fontSize: '14.5px', color: tab === k ? 'var(--fg)' : 'var(--mut)', borderBottom: tab === k ? '2px solid var(--fg)' : '2px solid transparent', marginBottom: '-1px', whiteSpace: 'nowrap' }}>${l}</button>`)}</div></div>
+    <div class="scroll-x" style=${{ borderBottom: '1px solid var(--line)' }}><div class="row" style=${{ flexWrap: 'nowrap', gap: '4px' }}>${tabs.map(([k, l]) => html`<button key=${k} onClick=${() => set(k)} style=${{ padding: '10px 14px', fontWeight: 600, fontSize: '13px', color: tab === k ? 'var(--fg)' : 'var(--mut)', borderBottom: tab === k ? '2px solid var(--fg)' : '2px solid transparent', marginBottom: '-1px', whiteSpace: 'nowrap' }}>${l}</button>`)}</div></div>
     ${!T.length ? html`<${Empty} icon="bars" title="Nothing to analyze yet" body="Every chart here fills from your journal. Log a few trades, or preview everything with sample data."><button class="btn btn-w" onClick=${() => UI.open('trade')}>Log a trade</button><button class="btn btn-g" onClick=${() => { loadSample(); toast('Sample data loaded') }}>Load sample data</button><//>`
     : html`${tab === 'overview' && html`<${AOverview} C=${C} s=${s}/>`}${tab === 'performance' && html`<${APerformance} C=${C} s=${s}/>`}${tab === 'compare' && html`<${ACompare} C=${C} DM=${DM}/>`}${tab === 'time' && html`<${ATime} C=${C}/>`}${tab === 'psychology' && html`<${APsych} C=${C}/>`}${tab === 'insights' && html`<${AInsights} C=${C}/>`}${tab === 'risk' && html`<${ARisk} C=${C} s=${s}/>`}`}
   </div>`;
@@ -2230,7 +2131,7 @@ function APsych({ C }) {
   const conf = [1, 2, 3, 4, 5].map(c => { const a = D.ts.filter(t => (t.conf || 0) === c); return { l: 'Conf ' + c, v: a.length ? stats(a).exp : 0, sub: a.length + ' trades', dim: !a.length } });
   const days = byDay(D.ts); const moodRows = [1, 2, 3, 4, 5].map(m => { const ks = Object.keys(days).filter(k => S.days[k]?.review?.mood === m); return { l: 'Mood ' + m, v: ks.length ? sum(ks, k => days[k].pnl) / ks.length : 0, sub: ks.length + ' days', dim: !ks.length } });
   const r = store.s.report;
-  return html`${r?.psych && html`<div class="glowcard" style=${{ padding: '18px 20px', display: 'grid', gridTemplateColumns: 'auto minmax(0,1fr)', gap: '24px', alignItems: 'center' }}><${Radar} spokes=${r.psych.map(p => ({ k: p.k, v: p.v }))} size=${220}/><div><div class="row"><span class="chip ai">AI read</span><span class="dim" style=${{ fontSize: '12px' }}>${fmtDate(r.at)}</span></div><div style=${{ fontSize: '17px', fontWeight: 700, marginTop: '8px' }}>${r.headline}</div><div class="mut" style=${{ marginTop: '6px', fontSize: '13.5px' }}>${r.summary}</div><button class="btn btn-g sm" style=${{ marginTop: '12px' }} onClick=${() => C.go('ai', { tab: 'report' })}>Full report</button></div></div>`}
+  return html`${r?.psych && html`<div class="glowcard" style=${{ padding: '18px 20px', display: 'grid', gridTemplateColumns: 'auto minmax(0,1fr)', gap: '24px', alignItems: 'center' }}><${Radar} spokes=${r.psych.map(p => ({ k: p.k, v: p.v }))} size=${220}/><div><div class="row"><span class="chip ai">AI read</span><span class="dim" style=${{ fontSize: '10.5px' }}>${fmtDate(r.at)}</span></div><div style=${{ fontSize: '15px', fontWeight: 700, marginTop: '8px' }}>${r.headline}</div><div class="mut" style=${{ marginTop: '6px', fontSize: '12px' }}>${r.summary}</div><button class="btn btn-g sm" style=${{ marginTop: '12px' }} onClick=${() => C.go('ai', { tab: 'report' })}>Full report</button></div></div>`}
     <div class="grid g2"><div class="card"><div class="ch"><h3>Feeling before entry</h3><span class="sub">Expectancy per trade</span></div>${emo.length ? html`<${HBars} data=${emo}/>` : html`<div class="dim">Tag how you feel before entries to see this.</div>`}</div>
       <div class="card"><div class="ch"><h3>What your mistakes cost</h3><span class="sub">Total P&L of trades with each mistake</span></div>${mist.length ? html`<${HBars} data=${mist}/>` : html`<div class="dim">No mistakes tagged. Honest tagging is where the money is.</div>`}</div></div>
     <div class="grid g2"><div class="card"><div class="ch"><h3>Rules kept vs broken</h3></div><${GroupTable} groups=${groupBy(D.ts, DM.rules[1])}/></div><div class="card"><div class="ch"><h3>P&L by grade</h3><span class="sub">Does your grading predict results?</span></div><${Bars} data=${grades} h=${200}/></div></div>
@@ -2238,8 +2139,8 @@ function APsych({ C }) {
 }
 function AInsights({ C }) {
   const { S, D } = C; const ins = useMemo(() => insightsOf(D.ts, S), [D]);
-  return html`${D.ts.length < 8 ? html`<div class="card mut">Insights unlock at 8 trades. You have ${D.ts.length}.</div>` : html`<div class="grid g2">${ins.map((x, i) => html`<div class="card" key=${i} style=${{ borderLeft: `3px solid ${x.tone === 'pos' ? 'var(--pos)' : x.tone === 'neg' ? 'var(--neg)' : 'var(--acc)'}`, display: 'flex', gap: '12px' }}><span class=${x.tone} style=${{ marginTop: '2px' }}><${I} n=${x.ic}/></span><div><b>${x.title}</b><div class="mut" style=${{ fontSize: '13.5px', marginTop: '4px' }}>${x.body}</div></div></div>`)}</div>`}
-    <div class="glowcard row" style=${{ padding: '16px 18px' }}><${I} n="spark" c="ai"/><div style=${{ flex: 1, minWidth: '200px' }}><b>Go deeper with the coach</b><div class="mut" style=${{ fontSize: '13px' }}>It reads every trade, note and strategy, and answers with your own numbers.</div></div><button class="btn btn-ai sm" onClick=${() => C.go('ai', { ask: 'Look across my whole journal. What are the three changes that would add the most money over the next 50 trades? Quantify each with my own numbers.' })}>Find my 3 biggest levers</button></div>`;
+  return html`${D.ts.length < 8 ? html`<div class="card mut">Insights unlock at 8 trades. You have ${D.ts.length}.</div>` : html`<div class="grid g2">${ins.map((x, i) => html`<div class="card" key=${i} style=${{ borderLeft: `3px solid ${x.tone === 'pos' ? 'var(--pos)' : x.tone === 'neg' ? 'var(--neg)' : 'var(--acc)'}`, display: 'flex', gap: '12px' }}><span class=${x.tone} style=${{ marginTop: '2px' }}><${I} n=${x.ic}/></span><div><b>${x.title}</b><div class="mut" style=${{ fontSize: '12px', marginTop: '4px' }}>${x.body}</div></div></div>`)}</div>`}
+    <div class="glowcard row" style=${{ padding: '16px 18px' }}><${I} n="spark" c="ai"/><div style=${{ flex: 1, minWidth: '200px' }}><b>Go deeper with the coach</b><div class="mut" style=${{ fontSize: '11.5px' }}>It reads every trade, note and strategy, and answers with your own numbers.</div></div><button class="btn btn-ai sm" onClick=${() => C.go('ai', { ask: 'Look across my whole journal. What are the three changes that would add the most money over the next 50 trades? Quantify each with my own numbers.' })}>Find my 3 biggest levers</button></div>`;
 }
 function ARisk({ C, s }) {
   const { S, D } = C; const withRisk = D.ts.filter(t => t.risk).slice(0, 80).reverse();
@@ -2253,7 +2154,7 @@ function ARisk({ C, s }) {
   return html`<div class="grid g4 keep2"><${Kpi} small k="Avg risk per trade" v=${avgRisk ? money(avgRisk, { dec: 0 }) : '—'} s=${cv != null ? 'Varies ±' + pct(cv, 0) + (cv > .35 ? ' · inconsistent' : ' · steady') : 'Add stops to trades'}/><${Kpi} small k="Kelly fraction" v=${kelly != null ? pct(Math.max(0, kelly), 0) : '—'} s="Of risk capital per trade. Use a quarter of it."/><${Kpi} small k="Max drawdown" v=${html`<span class="neg">${money(-s.mdd, { dec: 0 })}</span>`}/><${Kpi} small k="Longest losing run" v=${s.mcl} s="Plan your size to survive double this"/></div>
     <div class="card"><div class="ch"><h3>Risk per trade</h3><span class="sub">Dollar risk from entry to stop, last ${withRisk.length}</span></div><${Bars} data=${withRisk.map((t, i) => ({ l: String(i + 1), v: t.risk, sub: t.symbol + ' ' + fmtDate(t.t) }))} h=${180} color="var(--acc)" labelEvery=${Math.ceil(withRisk.length / 12) || 1}/></div>
     <div class="card"><div class="ch"><h3>Monte Carlo · your future, resampled</h3><span class="sub">3,000 paths built from your real trades</span><span class="sp"></span>${accs.length > 0 && html`<select class="sel" style=${{ width: 'auto' }} value=${acc} onChange=${e => setAcc(e.target.value)}>${accs.map(x => html`<option value=${x.id}>${x.label}</option>`)}</select>`}</div>
-      ${res ? html`<div class="grid g4 keep2" style=${{ marginBottom: '12px' }}><div><div class="lbl">${toGo ? 'Reach target' : 'Survive'}</div><b class="pos" style=${{ fontSize: '22px' }}>${pct(toGo ? res.pass : res.pass + res.open, 0)}</b></div><div><div class="lbl">Hit max loss</div><b class="neg" style=${{ fontSize: '22px' }}>${pct(res.blow, 0)}</b></div><div><div class="lbl">Median trades to target</div><b style=${{ fontSize: '22px' }}>${res.med || '—'}</b></div><div><div class="lbl">Room used</div><b style=${{ fontSize: '22px' }}>${money(room, { dec: 0 })}</b></div></div><${MCChart} res=${res} top=${toGo} bot=${-room}/>` : html`<div class="dim">Needs 5+ trades.</div>`}</div>`;
+      ${res ? html`<div class="grid g4 keep2" style=${{ marginBottom: '12px' }}><div><div class="lbl">${toGo ? 'Reach target' : 'Survive'}</div><b class="pos" style=${{ fontSize: '19.5px' }}>${pct(toGo ? res.pass : res.pass + res.open, 0)}</b></div><div><div class="lbl">Hit max loss</div><b class="neg" style=${{ fontSize: '19.5px' }}>${pct(res.blow, 0)}</b></div><div><div class="lbl">Median trades to target</div><b style=${{ fontSize: '19.5px' }}>${res.med || '—'}</b></div><div><div class="lbl">Room used</div><b style=${{ fontSize: '19.5px' }}>${money(room, { dec: 0 })}</b></div></div><${MCChart} res=${res} top=${toGo} bot=${-room}/>` : html`<div class="dim">Needs 5+ trades.</div>`}</div>`;
 }
 
 /* ---------------- AI ---------------- */
@@ -2335,22 +2236,22 @@ function AIPage({ C, params }) {
   const sugg = mode === 'coach' ? ["What's my biggest leak right now?", 'Which setup should I stop trading?', 'How close am I to passing my eval, and what is the safest way to finish it?', 'Review my last 10 trades like a prop desk head', 'Build me a pre-market routine from my own data', 'When do I trade best, by time of day?'] : ['Log MNQ long 2 contracts on Lucid, copied to my Tradeify accounts, entry 21450 exit 21478 stop 21438, A grade, FVG', 'Add a Tradeify 50K Select eval, fee $159', 'Record a $1,250 payout from my Lucid account', 'Write today\'s plan: bearish below 21,500, focus on patience', 'Save a note: rules from today\'s session'];
   return html`<div style=${{ height: '100%', display: 'flex', flexDirection: 'column' }}>
     <div class="row" style=${{ padding: '14px 22px', borderBottom: '1px solid var(--line)', gap: '10px' }}>
-      <span class="logo" style=${{ width: '30px', height: '30px', background: 'linear-gradient(135deg,#5B35E8,#9D7BFF)' }}><${I} n="spark" s=${16}/></span><b style=${{ fontSize: '17px' }}>${tab === 'report' ? 'Score & psychology' : mode === 'coach' ? 'Coach' : 'CoWork'}</b>
+      <span class="logo" style=${{ width: '30px', height: '30px', background: 'linear-gradient(135deg,#5B35E8,#9D7BFF)' }}><${I} n="spark" s=${16}/></span><b style=${{ fontSize: '15px' }}>${tab === 'report' ? 'Score & psychology' : mode === 'coach' ? 'Coach' : 'CoWork'}</b>
       ${tab !== 'report' && html`<select class="sel" style=${{ width: 'auto', maxWidth: '260px', height: '32px', padding: '4px 28px 4px 10px' }} value=${chatId || ''} onChange=${e => setChatId(e.target.value || null)}><option value="">New conversation</option>${chats.map(c => html`<option value=${c.id}>${c.title}</option>`)}</select>${chat && html`<button class="ib" onClick=${() => UI.confirm({ title: 'Delete conversation?', body: 'This chat is removed.', onYes: () => { store.del('chats', chat.id); setChatId(null) } })} aria-label="Delete conversation"><${I} n="trash"/></button>`}`}
-      <span class="sp"></span>${tab !== 'report' && html`<label class="row hide-m" style=${{ gap: '6px', fontSize: '12.5px', cursor: 'pointer' }} title="Slower, more thorough reasoning"><input type="checkbox" checked=${deep} onChange=${e => setDeep(e.target.checked)}/>Deep think</label>`}
+      <span class="sp"></span>${tab !== 'report' && html`<label class="row hide-m" style=${{ gap: '6px', fontSize: '11px', cursor: 'pointer' }} title="Slower, more thorough reasoning"><input type="checkbox" checked=${deep} onChange=${e => setDeep(e.target.checked)}/>Deep think</label>`}
       <${Seg} v=${tab} set=${v => { setTab(v); setChatId(null) }} opts=${[['coach', 'Coach'], ['cowork', 'CoWork'], ['report', 'Report']]}/></div>
-    ${!smp && html`<div class="card tight row" style=${{ margin: '14px 22px 0' }}><${I} n="lock"/><span class="mut" style=${{ fontSize: '13px' }}>AI runs on your Claude account when Compound is opened inside Claude. Everything else works without it.</span></div>`}
-    ${store.backend === 'supabase' && !aiKey() && html`<div class="card tight row" style=${{ margin: '14px 22px 0', borderColor: 'rgba(157,123,255,.4)' }}><${I} n="spark" c="ai"/><span style=${{ flex: 1, fontSize: '13.5px' }}>Add your Anthropic API key once on this device to turn on the coach, CoWork and reports.</span><button class="btn btn-ai sm" onClick=${() => UI.open('settings', { tab: 'ai' })}>Add key</button></div>`}
+    ${!smp && html`<div class="card tight row" style=${{ margin: '14px 22px 0' }}><${I} n="lock"/><span class="mut" style=${{ fontSize: '11.5px' }}>AI runs on your Claude account when Compound is opened inside Claude. Everything else works without it.</span></div>`}
+    ${store.backend === 'supabase' && !aiKey() && html`<div class="card tight row" style=${{ margin: '14px 22px 0', borderColor: 'rgba(157,123,255,.4)' }}><${I} n="spark" c="ai"/><span style=${{ flex: 1, fontSize: '12px' }}>Add your Anthropic API key once on this device to turn on the coach, CoWork and reports.</span><button class="btn btn-ai sm" onClick=${() => UI.open('settings', { tab: 'ai' })}>Add key</button></div>`}
     ${tab === 'report' ? html`<div style=${{ flex: 1, overflow: 'auto' }}><${Report} C=${C} auto=${params?.run}/></div>` : html`<div class="chat" style=${{ flex: 1, minHeight: 0 }}>
       <div class="msgs" ref=${box}>
         ${!msgs.length && live == null ? html`<div class="msg" style=${{ flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '10px', marginTop: '6vh' }}>
-            <${Mark} s=${46}/><h2 style=${{ margin: 0, fontSize: '24px', letterSpacing: '-.02em' }}>${mode === 'coach' ? `Ask about your trading, ${S.settings.name}.` : 'Tell me what to log.'}</h2>
+            <${Mark} s=${46}/><h2 style=${{ margin: 0, fontSize: '21px', letterSpacing: '-.02em' }}>${mode === 'coach' ? `Ask about your trading, ${S.settings.name}.` : 'Tell me what to log.'}</h2>
             <div class="mut" style=${{ maxWidth: '52ch' }}>${mode === 'coach' ? `The coach reads your ${D.ts.length} trades, your strategies, plans, reviews and prop accounts, and answers with your own numbers.` : 'CoWork logs trades, adds accounts, records payouts, updates balances and writes your plan. Every action can be undone.'}</div>
             <div class="row" style=${{ justifyContent: 'center', gap: '8px', marginTop: '8px', maxWidth: '680px' }}>${sugg.map(s => html`<button key=${s} class="chip" style=${{ height: 'auto', padding: '8px 12px', whiteSpace: 'normal', textAlign: 'left' }} onClick=${() => mode === 'cowork' ? setTxt(s) : send(s)}>${s}</button>`)}</div></div>`
           : msgs.map((m, i) => html`<div key=${i} class=${'msg ' + (m.r === 'u' ? 'u' : 'a')}><div class="av">${m.r === 'u' ? (S.settings.name || 'V')[0] : html`<${I} n="spark" s=${15}/>`}</div><div class="tx">${m.r === 'u' ? html`<div class="mdtx" style=${{ color: 'var(--fg)' }}>${m.t}</div>` : html`<div dangerouslySetInnerHTML=${{ __html: mdLite(m.t) }}></div>`}
               ${m.acts && html`<div class="col" style=${{ gap: '6px', marginTop: '8px' }}>${m.acts.filter(a => a.label).map((a, j) => html`<span key=${j} class="act-log"><${I} n="check" s=${13}/>${a.label}</span>`)}${m.acts.some(a => a.c) && html`<button class="btn btn-t xs" style=${{ alignSelf: 'flex-start' }} onClick=${() => undo(m.acts)}><${I} n="rotate" s=${12}/>Undo these</button>`}</div>`}</div></div>`)}
         ${live != null && html`<div class="msg a"><div class="av"><${I} n="spark" s=${15}/></div><div class="tx">${live ? html`<div dangerouslySetInnerHTML=${{ __html: mdLite(live) }}></div>` : html`<${Thinking}/>`}</div></div>`}
-        ${err && html`<div class="msg"><div class="av"></div><div class="tx neg" style=${{ fontSize: '13.5px' }}>${err}</div></div>`}
+        ${err && html`<div class="msg"><div class="av"></div><div class="tx neg" style=${{ fontSize: '12px' }}>${err}</div></div>`}
       </div>
       <div class="compose"><div class="box"><textarea rows="1" placeholder=${mode === 'coach' ? 'Ask your coach…' : 'e.g. log my 2 MNQ trades from this morning…'} value=${txt} onInput=${e => { setTxt(e.target.value); e.target.style.height = 'auto'; e.target.style.height = Math.min(180, e.target.scrollHeight) + 'px' }} onKeyDown=${e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }} disabled=${!smp}></textarea>
         ${busy ? html`<button class="btn btn-g sm" onClick=${() => ctl.current?.abort()}><${I} n="stop" s=${14}/>Stop</button>` : html`<button class="btn btn-ai sm" disabled=${!txt.trim() || !smp} onClick=${() => send()} aria-label="Send"><${I} n="send" s=${15}/></button>`}</div></div>
@@ -2370,18 +2271,18 @@ function Report({ C, auto }) {
   };
   useEffect(() => { if (auto && !ran.current && !r) { ran.current = true; run() } }, [auto]);
   return html`<div class="page" style=${{ maxWidth: '1100px' }}>
-    <div class="row"><div><h2 style=${{ margin: 0, fontSize: '22px' }}>Score & psychology</h2><div class="mut" style=${{ fontSize: '13.5px' }}>The AI reads your whole journal and renders your score and your head as charts, with the takeaways to apply.</div></div><span class="sp"></span><button class="btn btn-ai" disabled=${busy} onClick=${run}><${I} n=${busy ? 'refresh' : 'spark'}/>${busy ? 'Reading every trade…' : r ? 'Refresh report' : 'Run my report'}</button></div>
+    <div class="row"><div><h2 style=${{ margin: 0, fontSize: '19.5px' }}>Score & psychology</h2><div class="mut" style=${{ fontSize: '12px' }}>The AI reads your whole journal and renders your score and your head as charts, with the takeaways to apply.</div></div><span class="sp"></span><button class="btn btn-ai" disabled=${busy} onClick=${run}><${I} n=${busy ? 'refresh' : 'spark'}/>${busy ? 'Reading every trade…' : r ? 'Refresh report' : 'Run my report'}</button></div>
     ${err && html`<div class="card tight neg">${err}</div>`}
     ${busy && !r && html`<div class="card" style=${{ textAlign: 'center', padding: '40px' }}><span class="typing"><i></i><i></i><i></i></span><div class="mut" style=${{ marginTop: '10px' }}>Deep analysis takes up to a minute.</div></div>`}
     ${r ? html`
       <div class="grid" style=${{ gridTemplateColumns: 'auto minmax(0,1fr)', gap: '18px' }}>
-        <div class="glowcard" style=${{ padding: '22px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}><${Ring} v=${r.score} size=${150} w=${12} color="var(--ai)"><span style=${{ fontSize: '44px', letterSpacing: '-.04em' }}>${r.score}</span></${Ring}><span class="lbl">Trader score</span><span class="dim" style=${{ fontSize: '12px' }}>${fmtDate(r.at)} · ${r.n} trades</span></div>
-        <div class="card"><div style=${{ fontSize: '22px', fontWeight: 800, letterSpacing: '-.02em', lineHeight: 1.25 }}>${r.headline}</div><p class="mut" style=${{ lineHeight: 1.6 }}>${r.summary}</p>${r.rule && html`<div class="card tight row" style=${{ borderColor: 'var(--accg)', flexWrap: 'nowrap' }}><${I} n="shield" c="acc"/><div style=${{ flex: 1 }}><div class="lbl">New rule</div><b>${r.rule}</b></div><button class="btn btn-g xs" onClick=${() => { if (!S.settings.checklist.includes(r.rule)) store.setSettings({ checklist: [...S.settings.checklist, r.rule] }); toast('Added to your checklist') }}>Add to checklist</button></div>`}</div></div>
+        <div class="glowcard" style=${{ padding: '22px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}><${Ring} v=${r.score} size=${150} w=${12} color="var(--ai)"><span style=${{ fontSize: '38.5px', letterSpacing: '-.04em' }}>${r.score}</span></${Ring}><span class="lbl">Trader score</span><span class="dim" style=${{ fontSize: '10.5px' }}>${fmtDate(r.at)} · ${r.n} trades</span></div>
+        <div class="card"><div style=${{ fontSize: '19.5px', fontWeight: 800, letterSpacing: '-.02em', lineHeight: 1.25 }}>${r.headline}</div><p class="mut" style=${{ lineHeight: 1.6 }}>${r.summary}</p>${r.rule && html`<div class="card tight row" style=${{ borderColor: 'var(--accg)', flexWrap: 'nowrap' }}><${I} n="shield" c="acc"/><div style=${{ flex: 1 }}><div class="lbl">New rule</div><b>${r.rule}</b></div><button class="btn btn-g xs" onClick=${() => { if (!S.settings.checklist.includes(r.rule)) store.setSettings({ checklist: [...S.settings.checklist, r.rule] }); toast('Added to your checklist') }}>Add to checklist</button></div>`}</div></div>
       <div class="grid g2"><div class="card" style=${{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}><div class="ch" style=${{ width: '100%' }}><h3>Your head, charted</h3></div><${Radar} spokes=${(r.psych || []).map(p => ({ k: p.k, v: p.v }))} size=${280}/></div>
-        <div class="card"><div class="ch"><h3>Leaks</h3><span class="sub">Where the money goes</span></div><div class="col" style=${{ gap: '10px' }}>${(r.leaks || []).map((l, i) => html`<div key=${i} class="card tight" style=${{ background: 'var(--bg)' }}><div class="row"><b>${l.title}</b><span class="sp"></span>${isNum(l.cost) && html`<span class="chip neg">${money(-Math.abs(l.cost), { dec: 0 })}</span>`}</div><div class="mut" style=${{ fontSize: '13px', marginTop: '4px' }}>${l.detail}</div></div>`)}</div></div></div>
-      <div class="grid g3"><div class="card"><div class="ch"><h3>Strengths</h3></div>${(r.strengths || []).map((x, i) => html`<div key=${i} class="row" style=${{ flexWrap: 'nowrap', alignItems: 'flex-start', gap: '8px', margin: '6px 0', fontSize: '13.5px' }}><span class="pos"><${I} n="check" s=${15}/></span><span>${x}</span></div>`)}</div>
-        <div class="card"><div class="ch"><h3>Patterns</h3></div>${(r.patterns || []).map((x, i) => html`<div key=${i} class="row" style=${{ flexWrap: 'nowrap', alignItems: 'flex-start', gap: '8px', margin: '6px 0', fontSize: '13.5px' }}><span class="ai"><${I} n="brain" s=${15}/></span><span>${x}</span></div>`)}</div>
-        <div class="card" style=${{ borderColor: 'var(--accg)' }}><div class="ch"><h3>Next two weeks</h3></div>${(r.takeaways || []).map((x, i) => html`<div key=${i} class="row" style=${{ flexWrap: 'nowrap', alignItems: 'flex-start', gap: '10px', margin: '8px 0', fontSize: '13.5px' }}><span class="grade g-B">${i + 1}</span><span>${x}</span></div>`)}</div></div>`
+        <div class="card"><div class="ch"><h3>Leaks</h3><span class="sub">Where the money goes</span></div><div class="col" style=${{ gap: '10px' }}>${(r.leaks || []).map((l, i) => html`<div key=${i} class="card tight" style=${{ background: 'var(--bg)' }}><div class="row"><b>${l.title}</b><span class="sp"></span>${isNum(l.cost) && html`<span class="chip neg">${money(-Math.abs(l.cost), { dec: 0 })}</span>`}</div><div class="mut" style=${{ fontSize: '11.5px', marginTop: '4px' }}>${l.detail}</div></div>`)}</div></div></div>
+      <div class="grid g3"><div class="card"><div class="ch"><h3>Strengths</h3></div>${(r.strengths || []).map((x, i) => html`<div key=${i} class="row" style=${{ flexWrap: 'nowrap', alignItems: 'flex-start', gap: '8px', margin: '6px 0', fontSize: '12px' }}><span class="pos"><${I} n="check" s=${15}/></span><span>${x}</span></div>`)}</div>
+        <div class="card"><div class="ch"><h3>Patterns</h3></div>${(r.patterns || []).map((x, i) => html`<div key=${i} class="row" style=${{ flexWrap: 'nowrap', alignItems: 'flex-start', gap: '8px', margin: '6px 0', fontSize: '12px' }}><span class="ai"><${I} n="brain" s=${15}/></span><span>${x}</span></div>`)}</div>
+        <div class="card" style=${{ borderColor: 'var(--accg)' }}><div class="ch"><h3>Next two weeks</h3></div>${(r.takeaways || []).map((x, i) => html`<div key=${i} class="row" style=${{ flexWrap: 'nowrap', alignItems: 'flex-start', gap: '10px', margin: '8px 0', fontSize: '12px' }}><span class="grade g-B">${i + 1}</span><span>${x}</span></div>`)}</div></div>`
     : !busy && html`<${Empty} icon="brain" title="No report yet" body="Run it once you have a week or two of trades. Re-run it every Sunday to see the trend."/>`}
   </div>`;
 }
@@ -2499,20 +2400,20 @@ function Flex({ C }) {
   return html`<div class="page">
     <div class="row"><${Seg} v=${range} set=${v => { setRange(v); LS.set('compound.flex.range', v) }} opts=${[['month', 'Month'], ['year', 'Year'], ['all', 'All']]}/>
       ${range !== 'all' && html`<div class="row" style=${{ gap: '4px' }}><button class="ib" onClick=${() => shift(-1)} aria-label="Previous"><${I} n="left"/></button><b style=${{ minWidth: '110px', textAlign: 'center' }}>${range === 'month' ? MON[ro.m] + ' ' + ro.y : ro.y}</b><button class="ib" onClick=${() => shift(1)} aria-label="Next"><${I} n="right"/></button></div>`}
-      <span class="sp"></span><span class="mut hide-m" style=${{ fontSize: '13px' }}>${scopeLabel(C.S, C.F)}</span>
+      <span class="sp"></span><span class="mut hide-m" style=${{ fontSize: '11.5px' }}>${scopeLabel(C.S, C.F)}</span>
       <button class="btn btn-g sm" onClick=${copy}><${I} n="copy"/>Copy</button><button class="btn btn-g sm" onClick=${() => download()}><${I} n="download"/>Save image</button><button class="btn btn-w" disabled=${busy} onClick=${share}><${I} n="send"/>Share</button></div>
     <div class="flexwrap"><canvas ref=${cv} class=${'flexcv ' + o.format} aria-label=${`${d.label} P&L card`}></canvas></div>
     <div class="card"><div class="grid g4 keep2" style=${{ gap: '16px', alignItems: 'start' }}>
       <${Field} label="Format"><${Seg} sm v=${o.format} set=${v => setOpt({ format: v })} opts=${[['landscape', 'Post'], ['story', 'Story']]}/><//>
       <${Field} label="Style"><div class="row" style=${{ gap: '8px' }}>${Object.entries({ midnight: '#1a1a1a', aurora: 'linear-gradient(135deg,#5B35E8,#13D6B4)', gold: 'linear-gradient(135deg,#F3B43F,#E2622A)', ice: 'linear-gradient(135deg,#6FD3FF,#5B8CFF)' }).map(([k, bg]) => html`<button key=${k} title=${k} onClick=${() => setOpt({ theme: k })} style=${{ width: '30px', height: '30px', borderRadius: '9px', background: bg, outline: o.theme === k ? '2px solid var(--fg)' : 'none', outlineOffset: '2px', border: '1px solid var(--line2)' }}></button>`)}</div><//>
-      <${Field} label="Show"><div class="col" style=${{ gap: '6px', fontSize: '13px' }}>
+      <${Field} label="Show"><div class="col" style=${{ gap: '6px', fontSize: '11.5px' }}>
         <label class="row" style=${{ gap: '8px', cursor: 'pointer' }}><input type="checkbox" checked=${o.money} onChange=${e => setOpt({ money: e.target.checked })}/>Dollar amounts</label>
         ${o.money && html`<label class="row" style=${{ gap: '8px', cursor: 'pointer' }}><input type="checkbox" checked=${o.cents} onChange=${e => setOpt({ cents: e.target.checked })}/>Cents</label>`}
         ${o.money && html`<label class="row" style=${{ gap: '8px', cursor: 'pointer' }}><input type="checkbox" checked=${o.payouts} onChange=${e => setOpt({ payouts: e.target.checked })}/>Payouts</label>`}</div><//>
-      <${Field} label="Look"><div class="col" style=${{ gap: '6px', fontSize: '13px' }}>
+      <${Field} label="Look"><div class="col" style=${{ gap: '6px', fontSize: '11.5px' }}>
         <label class="row" style=${{ gap: '8px', cursor: 'pointer' }}><input type="checkbox" checked=${o.color} onChange=${e => setOpt({ color: e.target.checked })}/>Green/red number</label>
         <label class="row" style=${{ gap: '8px', cursor: 'pointer' }}><input type="checkbox" checked=${o.anon} onChange=${e => setOpt({ anon: e.target.checked })}/>Hide my name</label></div><//>
-    </div><div class="dim" style=${{ fontSize: '12.5px', marginTop: '12px' }}>The card uses the accounts selected at the top left. With dollar amounts off it shows total R instead, so you can flex the edge without the size.</div></div>
+    </div><div class="dim" style=${{ fontSize: '11px', marginTop: '12px' }}>The card uses the accounts selected at the top left. With dollar amounts off it shows total R instead, so you can flex the edge without the size.</div></div>
   </div>`;
 }
 
@@ -2532,11 +2433,11 @@ function Desk({ C, onPick }) {
   const warn = (lim && used >= lim * .75) || (st.maxTrades && today.length >= st.maxTrades) || (st.maxConsecLosses && cl >= st.maxConsecLosses);
   return html`<aside class="desk" aria-label="Accounts">
     <div class="rhead"><span class="lbl" style=${{ color: 'var(--fg2)', letterSpacing: '.2em' }}>Desk</span><button class="ib" onClick=${C.toggleDesk} aria-label="Collapse"><${I} n="dleft" s=${14}/></button></div>
-    <div class="row" style=${{ padding: '4px 2px 10px' }}><span class="lbl">Accounts</span><span class="sp"></span><span class="dim" style=${{ fontSize: '12px' }}>${accs.length} · Open</span></div>
+    <div class="row" style=${{ padding: '4px 2px 10px' }}><span class="lbl">Accounts</span><span class="sp"></span><span class="dim" style=${{ fontSize: '10.5px' }}>${accs.length} · Open</span></div>
     <div class="col" style=${{ gap: '8px', overflow: 'auto', flex: 1, minHeight: 0, paddingBottom: '10px' }}>
       ${accs.map(a => { const s = acctState(a, all, Object.values(S.adjust).filter(x => x.account === a.id)); const on = (C.F.accounts || []).includes(a.id); const lp = a.mll ? clamp(s.left / (+a.mll) * 100) : 100;
         return html`<button key=${a.id} class=${'acct' + (on ? ' on' : '')} onClick=${() => onPick(a.id)} title=${on ? 'Click to remove from the view' : 'Click to view this account (add more to combine)'}>
-          <div class="row" style=${{ flexWrap: 'nowrap', gap: '8px' }}><${FirmLogo} id=${a.firm} s=${20}/><b style=${{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>${a.label}</b><span class=${'tn ' + cls(s.today)} style=${{ fontSize: '12px', fontWeight: 700 }}>${s.today ? moneyK(s.today, { sign: true }) : '—'}</span></div>
+          <div class="row" style=${{ flexWrap: 'nowrap', gap: '8px' }}><${FirmLogo} id=${a.firm} s=${20}/><b style=${{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>${a.label}</b><span class=${'tn ' + cls(s.today)} style=${{ fontSize: '10.5px', fontWeight: 700 }}>${s.today ? moneyK(s.today, { sign: true }) : '—'}</span></div>
           <div class="prog"><i style=${{ width: lp + '%', background: lp < 30 ? 'var(--neg)' : lp < 60 ? 'var(--warn)' : 'var(--acc)' }}></i></div>
           <div class="kv"><span>${a.type === 'eval' ? 'EVAL' : a.type === 'funded' ? 'FUNDED' : 'LIVE'}</span><b>${money(s.left, { dec: 0 })} left</b></div>
           ${s.consLimit ? html`<div class="kv"><span>CONSISTENCY</span><b class=${s.consOk ? '' : 'neg'}>${s.consOk ? pct(s.consLimit, 0) + ' limit' : pct(s.consUsed, 0) + ' · over'}</b></div>` : s.toGo != null ? html`<div class="kv"><span>TARGET</span><b>${money(s.toGo, { dec: 0 })} to go</b></div>` : null}
@@ -2544,9 +2445,9 @@ function Desk({ C, onPick }) {
       <button class="acct" style=${{ borderStyle: 'dashed', alignItems: 'center', color: 'var(--mut)', flexDirection: 'row', justifyContent: 'center' }} onClick=${() => UI.open('account')}><${I} n="plus" s=${14}/>Add account</button>
     </div>
     <div style=${{ borderTop: '1px solid var(--line)', paddingTop: '12px' }}>
-      <div class="row"><span class="lbl" style=${{ color: warn ? 'var(--neg)' : undefined }}>Guardrails</span><span class="sp"></span><span class="tn" style=${{ fontSize: '12.5px', fontWeight: 700 }}>${money(tp, { dec: 0 })} / -${money(lim, { dec: 0 }).replace('$', '$')}</span></div>
+      <div class="row"><span class="lbl" style=${{ color: warn ? 'var(--neg)' : undefined }}>Guardrails</span><span class="sp"></span><span class="tn" style=${{ fontSize: '11px', fontWeight: 700 }}>${money(tp, { dec: 0 })} / -${money(lim, { dec: 0 }).replace('$', '$')}</span></div>
       <div class="prog" style=${{ margin: '10px 0' }}><i style=${{ width: usedPct + '%', background: usedPct > 75 ? 'var(--neg)' : usedPct > 40 ? 'var(--warn)' : 'var(--pos)' }}></i></div>
-      <div class="row" style=${{ fontSize: '12.5px' }}><span class=${warn ? 'neg' : 'mut'}>${warn ? (cl >= st.maxConsecLosses ? `${cl} losses in a row. Walk away.` : today.length >= st.maxTrades ? `Trade cap hit (${today.length}/${st.maxTrades}). Done for today.` : 'Close to your daily max loss.') : today.length ? `${today.length}/${st.maxTrades} trades today` : 'No loss today.'}</span><span class="sp"></span><button class="ib" onClick=${() => UI.open('settings', { tab: 'guard' })} aria-label="Edit guardrails"><${I} n="sliders" s=${14}/></button></div>
+      <div class="row" style=${{ fontSize: '11px' }}><span class=${warn ? 'neg' : 'mut'}>${warn ? (cl >= st.maxConsecLosses ? `${cl} losses in a row. Walk away.` : today.length >= st.maxTrades ? `Trade cap hit (${today.length}/${st.maxTrades}). Done for today.` : 'Close to your daily max loss.') : today.length ? `${today.length}/${st.maxTrades} trades today` : 'No loss today.'}</span><span class="sp"></span><button class="ib" onClick=${() => UI.open('settings', { tab: 'guard' })} aria-label="Edit guardrails"><${I} n="sliders" s=${14}/></button></div>
       <div style=${{ marginTop: '10px' }}><${Seg} v=${C.F.mode} set=${C.setMode} opts=${[['live', 'Live money'], ['paper', 'Paper money']]}/></div>
     </div></aside>`;
 }
@@ -2560,22 +2461,22 @@ function Rail({ C }) {
   const sess = day.session; const elapsed = sess?.start ? ((sess.end || Date.now()) - sess.start) / 60000 : 0;
   const Sec = ({ id, title, right, children }) => html`<div class="sec"><div class=${'sech' + (cl[id] ? ' closed' : '')} onClick=${() => tog(id)}><${I} n="down" c="chev"/><span class="lbl">${title}</span><span onClick=${e => e.stopPropagation()}>${right}</span></div>${!cl[id] && children}</div>`;
   return html`<aside class="rail" aria-label="Today">
-    <div class="rhead"><button class="ib" onClick=${C.toggleRail} aria-label="Collapse"><${I} n="dright" s=${14}/></button><b class="tn" style=${{ fontSize: '15px', letterSpacing: '.04em' }}>${pad(new Date().getMonth() + 1)}/${pad(new Date().getDate())}</b></div>
+    <div class="rhead"><button class="ib" onClick=${C.toggleRail} aria-label="Collapse"><${I} n="dright" s=${14}/></button><b class="tn" style=${{ fontSize: '13px', letterSpacing: '.04em' }}>${pad(new Date().getMonth() + 1)}/${pad(new Date().getDate())}</b></div>
     <${Sec} id="plan" title="The plan" right=${html`<button class="lnk" onClick=${() => UI.open('plan', { day: k })}>${day.plan ? 'Edit' : 'Write'}</button>`}>
-      ${day.plan ? html`<button class="card tight" style=${{ textAlign: 'left', width: '100%', fontSize: '13px', display: 'flex', flexDirection: 'column', gap: '6px' }} onClick=${() => UI.open('plan', { day: k })}>
+      ${day.plan ? html`<button class="card tight" style=${{ textAlign: 'left', width: '100%', fontSize: '11.5px', display: 'flex', flexDirection: 'column', gap: '6px' }} onClick=${() => UI.open('plan', { day: k })}>
         ${day.plan.bias && html`<span class=${'chip ' + (day.plan.bias === 'bull' ? 'pos' : day.plan.bias === 'bear' ? 'neg' : '')} style=${{ alignSelf: 'flex-start' }}>${({ bull: 'Bullish', bear: 'Bearish', neutral: 'Neutral', wait: 'Wait for it' })[day.plan.bias]}</span>`}
-        ${day.plan.focus && html`<b>${day.plan.focus}</b>`}${day.plan.levels && html`<span class="mut mdtx" style=${{ fontSize: '12.5px', fontFamily: 'var(--mono)' }}>${day.plan.levels}</span>`}${day.plan.news && html`<span class="dim">News: ${day.plan.news}</span>`}</button>`
-        : html`<button class="card tight dim" style=${{ width: '100%', fontSize: '13px', textAlign: 'center', borderStyle: 'dashed' }} onClick=${() => UI.open('plan', { day: k })}>No pre-market plan yet</button>`}<//>
-    <${Sec} id="check" title="Checklist" right=${html`<span class="row" style=${{ gap: '4px' }}><span class="dim tn" style=${{ fontSize: '12px' }}>${done}/${st.checklist.length}</span><button class="ib" style=${{ width: '24px', height: '24px' }} onClick=${() => UI.open('settings', { tab: 'journal' })} aria-label="Edit checklist"><${I} n="edit" s=${12}/></button></span>`}>
+        ${day.plan.focus && html`<b>${day.plan.focus}</b>`}${day.plan.levels && html`<span class="mut mdtx" style=${{ fontSize: '11px', fontFamily: 'var(--mono)' }}>${day.plan.levels}</span>`}${day.plan.news && html`<span class="dim">News: ${day.plan.news}</span>`}</button>`
+        : html`<button class="card tight dim" style=${{ width: '100%', fontSize: '11.5px', textAlign: 'center', borderStyle: 'dashed' }} onClick=${() => UI.open('plan', { day: k })}>No pre-market plan yet</button>`}<//>
+    <${Sec} id="check" title="Checklist" right=${html`<span class="row" style=${{ gap: '4px' }}><span class="dim tn" style=${{ fontSize: '10.5px' }}>${done}/${st.checklist.length}</span><button class="ib" style=${{ width: '24px', height: '24px' }} onClick=${() => UI.open('settings', { tab: 'journal' })} aria-label="Edit checklist"><${I} n="edit" s=${12}/></button></span>`}>
       ${st.checklist.map((c, i) => html`<button key=${i} class=${'chk' + (checks[i] ? ' on' : '')} onClick=${() => store.put('days', { ...day, id: k, checks: { ...checks, [i]: !checks[i] } })}><span class="bx">${checks[i] && html`<${I} n="check" w=${3}/>`}</span><span>${c}</span></button>`)}
       ${done === st.checklist.length && st.checklist.length > 0 && html`<div class="chip pos" style=${{ marginTop: '6px' }}>Cleared to trade</div>`}<//>
     <${Sec} id="sess" title="Session" right=${sess?.start && !sess.end ? html`<span class="chip pos tn">● ${fmtDur(elapsed)}</span>` : null}>
-      <div class="row" style=${{ alignItems: 'baseline' }}><span class="tn" style=${{ fontSize: '26px', fontWeight: 800, letterSpacing: '-.03em' }}>${sess?.start ? fmtDur(elapsed) : '—'}</span><span class="sp"></span>
+      <div class="row" style=${{ alignItems: 'baseline' }}><span class="tn" style=${{ fontSize: '23px', fontWeight: 800, letterSpacing: '-.03em' }}>${sess?.start ? fmtDur(elapsed) : '—'}</span><span class="sp"></span>
         ${!sess?.start || sess.end ? html`<button class="btn btn-g xs" onClick=${() => store.put('days', { ...day, id: k, session: { start: Date.now() } })}><${I} n="play" s=${12}/>${sess?.end ? 'Restart' : 'Start'}</button>` : html`<button class="btn btn-g xs" onClick=${() => store.put('days', { ...day, id: k, session: { ...sess, end: Date.now() } })}><${I} n="stop" s=${12}/>End</button>`}</div>
       <div class="kv" style=${{ marginTop: '8px' }}><span>Rules kept</span><b>${today.length ? `${kept}/${today.length}` : '—'}</b></div>
       <div class="kv" style=${{ marginTop: '4px' }}><span>Today</span><b class=${cls(sum(today, t => t.pnl))}>${today.length ? money(sum(today, t => t.pnl), { sign: true, dec: 0 }) : '—'}</b></div><//>
     <${Sec} id="recent" title="Recent trades" right=${html`<button class="lnk" onClick=${() => C.go('journal')}>All</button>`}>
-      ${D.ts.length ? D.ts.slice(0, 6).map(t => html`<button key=${t.id} class="row" style=${{ width: '100%', padding: '7px 0', flexWrap: 'nowrap', gap: '8px', fontSize: '13px' }} onClick=${() => UI.open('detail', { id: t.id, list: D.ts.slice(0, 30).map(x => x.id) })}><span class=${'dot ' + (t.pnl >= 0 ? 'ok' : '')} style=${{ background: t.pnl >= 0 ? 'var(--pos)' : 'var(--neg)', boxShadow: 'none' }}></span><b>${t.symbol}</b><span class="dim tn">${fmtDate(t.t)}</span><span class="sp"></span><${Money} v=${t.pnl}/></button>`) : html`<div class="dim" style=${{ fontSize: '13px' }}>Nothing logged yet.</div>`}<//>
+      ${D.ts.length ? D.ts.slice(0, 6).map(t => html`<button key=${t.id} class="row" style=${{ width: '100%', padding: '7px 0', flexWrap: 'nowrap', gap: '8px', fontSize: '11.5px' }} onClick=${() => UI.open('detail', { id: t.id, list: D.ts.slice(0, 30).map(x => x.id) })}><span class=${'dot ' + (t.pnl >= 0 ? 'ok' : '')} style=${{ background: t.pnl >= 0 ? 'var(--pos)' : 'var(--neg)', boxShadow: 'none' }}></span><b>${t.symbol}</b><span class="dim tn">${fmtDate(t.t)}</span><span class="sp"></span><${Money} v=${t.pnl}/></button>`) : html`<div class="dim" style=${{ fontSize: '11.5px' }}>Nothing logged yet.</div>`}<//>
   </aside>`;
 }
 
@@ -2592,10 +2493,8 @@ function App() {
   const [lc, setLc] = useState(LS.get('compound.ldc', false)); const [rc, setRc] = useState(LS.get('compound.rdc', false));
   const [lo, setLo] = useState(false); const [ro, setRo] = useState(false);
   const mainRef = useRef();
-  useLayoutEffect(() => { const r = document.documentElement; r.classList.toggle('lt', S.settings.theme === 'light'); r.dataset.acc = S.settings.accent || 'obsidian' }, [S.settings.theme, S.settings.accent]);
-  useEffect(() => { liquid.init() }, []);
-  useEffect(() => { liquid.set(S.settings.bg || 'live', S.settings.theme === 'light') }, [S.settings.bg, S.settings.theme]);
-  useEffect(() => { if (store.mode !== 'cloud' && store.mode !== 'local') return; if ((S.settings.themeV || 0) < 2) store.setSettings({ themeV: 2, accent: 'obsidian' }) }, [store.mode, S.settings.themeV]);
+  useLayoutEffect(() => { const r = document.documentElement; r.classList.toggle('lt', S.settings.theme === 'light'); r.dataset.acc = S.settings.accent || 'cobalt' }, [S.settings.theme, S.settings.accent]);
+  useEffect(() => { if (store.mode !== 'cloud' && store.mode !== 'local') return; if ((S.settings.themeV || 0) < 3) store.setSettings({ themeV: 3, accent: 'cobalt' }) }, [store.mode, S.settings.themeV]);
   const go = (v, p) => { setView(v); setParams(p ? { ...p, _: Date.now() } : null); LS.set('compound.view', v); setModals([]); setLo(false); setRo(false); if (mainRef.current) mainRef.current.scrollTop = 0 };
   UI.go = go;
   UI.open = (kind, props = {}) => setModals(m => [...m.filter(x => !(kind === 'detail' && x.kind === 'detail')), { kind, props, id: uid() }]);
@@ -2623,7 +2522,7 @@ function App() {
   return html`<div class=${'shell' + (lc ? ' ldc' : '') + (rc || full ? ' rdc' : '') + (lo ? ' ldo' : '') + (ro ? ' rdo' : '') + (full ? ' ldc' : '')}>
     <header class="top">
       <div class="l"><button class="ib" style=${{ display: lc || innerWidth <= 1020 || full ? 'grid' : 'none' }} onClick=${() => { if (innerWidth <= 1020) setLo(!lo); else { setLc(false); LS.set('compound.ldc', false) } }} aria-label="Accounts"><${I} n="dright" s=${14}/></button>
-        <button class="mark" onClick=${() => go('dashboard')} aria-label="Compound home"><${Mark} s=${26}/><span class="wm mob-only" style=${{ fontSize: '17px' }}>Compound</span></button>
+        <button class="mark" onClick=${() => go('dashboard')} aria-label="Compound home"><${Mark} s=${26}/><span class="wm mob-only" style=${{ fontSize: '15px' }}>Compound</span></button>
         <div style=${{ position: 'relative' }}><button class=${'pill' + (validA.length ? ' hot' : '')} onClick=${() => setAm(!am)} title="Choose which accounts everything shows"><${I} n="layers" s=${13}/><b>${scope}</b><${I} n="down" s=${12}/></button>
           <${AcctMenu} open=${am} onClose=${() => setAm(false)} S=${S} sel=${validA} setSel=${setAccts} tog=${togAcct}/></div>${F.mode === 'paper' && html`<span class="pill" style=${{ color: 'var(--gold)' }}>Paper</span>`}</div>
       <nav class="nav" aria-label="Sections">${VIEWS.map((v, i) => v === '|' ? html`<button key="wm" class="wmc mark" onClick=${() => go('dashboard')}><span class="wm" style=${{ textAlign: 'center' }}>Compound<small>${F.mode === 'paper' ? 'Paper money' : 'Live money'}</small></span></button>` : html`<button key=${v[0]} class=${'tab' + (view === v[0] ? ' on' : '')} onClick=${() => go(v[0])} title=${v[1] + ' (' + (tabs.indexOf(v) + 1) + ')'}><${I} n=${v[2]}/><span class="t">${v[1]}</span></button>`)}</nav>
@@ -2635,12 +2534,12 @@ function App() {
     </header>
     ${!full && html`<${Desk} C=${C} onPick=${id => togAcct(id)}/>`}
     <main class="main" ref=${mainRef} style=${full ? { overflow: 'hidden' } : null}>
-      ${store.mode === 'local' && html`<div class="card tight row" style=${{ margin: '14px 30px 0', borderColor: 'var(--warn)' }}><span class="dot wait"></span><span style=${{ flex: 1, fontSize: '13.5px' }}>Not syncing. This copy saves to this browser only. Use your Compound app (home-screen / taskbar icon) so trades show up on every device.</span></div>`}
+      ${store.mode === 'local' && html`<div class="card tight row" style=${{ margin: '14px 30px 0', borderColor: 'var(--warn)' }}><span class="dot wait"></span><span style=${{ flex: 1, fontSize: '12px' }}>Not syncing. This copy saves to this browser only. Use your Compound app (home-screen / taskbar icon) so trades show up on every device.</span></div>`}
       ${store.localPending && html`<div class="card tight row" style=${{ margin: '14px 30px 0', borderColor: 'var(--accg)' }}><${I} n="refresh"/><span style=${{ flex: 1 }}>You have journal data saved in this browser from before sync was on.</span><button class="btn btn-w sm" onClick=${() => store.migrateLocal()}>Move it into my synced journal</button><button class="btn btn-t sm" onClick=${() => store.dismissLocal()}>Not now</button></div>`}
       <${V} C=${C} params=${params}/></main>
     ${!full && html`<${Rail} C=${C}/>`}
     <footer class="foot"><span class="sync"><span class=${'dot ' + sync[0]}></span>${sync[1]}</span><span class="dim hide-m">n new trade · q quick log · / search · h hide P&L · 1–9 pages</span>
-      <span class="mid"><a class="dim hide-m" href="https://www.tradingview.com/" target="_blank" rel="noopener" style=${{ fontSize: '11.5px', textDecoration: 'none' }}>Charts by TradingView</a></span><button class="btn btn-t xs" onClick=${() => UI.open('import', { mode })}><${I} n="upload" s=${13}/>Import</button><button class="btn btn-t xs" onClick=${() => UI.open('settings', { tab: 'data' })}><${I} n="download" s=${13}/>Backup</button></footer>
+      <span class="mid"><a class="dim hide-m" href="https://www.tradingview.com/" target="_blank" rel="noopener" style=${{ fontSize: '10px', textDecoration: 'none' }}>Charts by TradingView</a></span><button class="btn btn-t xs" onClick=${() => UI.open('import', { mode })}><${I} n="upload" s=${13}/>Import</button><button class="btn btn-t xs" onClick=${() => UI.open('settings', { tab: 'data' })}><${I} n="download" s=${13}/>Backup</button></footer>
     <nav class="nav-m" aria-label="Sections">${tabs.map(v => html`<button key=${v[0]} class=${view === v[0] ? 'on' : ''} onClick=${() => go(v[0])}><${I} n=${v[2]}/>${v[1]}</button>`)}</nav>
   </div>
   ${view !== 'ai' && html`<button class="fab" onClick=${() => go('ai')} aria-label="Ask your coach" title="Ask your coach"><${Mark} s=${26}/></button>`}
@@ -2664,11 +2563,11 @@ function AcctMenu({ open, onClose, S, sel, setSel, tog }) {
   const accs = Object.values(S.accounts).sort((a, b) => (a.status === 'active' ? 0 : 1) - (b.status === 'active' ? 0 : 1) || (a.created || 0) - (b.created || 0));
   const quick = (l, f) => { const ids = accs.filter(f).map(a => a.id); return ids.length ? html`<button class="chip" onClick=${() => setSel(ids)}>${l} · ${ids.length}</button>` : null };
   return html`<${Menu} open=${open} onClose=${onClose} style=${{ top: '36px', left: 0, width: 'min(320px,calc(100vw - 24px))', padding: '8px' }}>
-    <button class=${!sel.length ? 'on' : ''} onClick=${() => setSel([])}><${I} n="layers"/><span style=${{ flex: 1 }}><b>All accounts</b><span class="dim" style=${{ display: 'block', fontSize: '11.5px' }}>Cumulative view of everything</span></span>${!sel.length && html`<${I} n="check"/>`}</button>
+    <button class=${!sel.length ? 'on' : ''} onClick=${() => setSel([])}><${I} n="layers"/><span style=${{ flex: 1 }}><b>All accounts</b><span class="dim" style=${{ display: 'block', fontSize: '10px' }}>Cumulative view of everything</span></span>${!sel.length && html`<${I} n="check"/>`}</button>
     <hr/>
-    ${accs.length ? accs.map(a => { const on = sel.includes(a.id); return html`<button key=${a.id} class=${on ? 'on' : ''} onClick=${() => tog(a.id)}><span class=${'chk' + (on ? ' on' : '')} style=${{ width: 'auto', padding: 0 }}><span class="bx">${on && html`<${I} n="check" w=${3}/>`}</span></span><${FirmLogo} id=${a.firm} s=${20}/><span style=${{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>${a.label}</span><span class="dim" style=${{ fontSize: '11px' }}>${a.status === 'active' ? (a.type === 'eval' ? 'Eval' : a.type === 'funded' ? 'Funded' : 'Live') : a.status}</span></button>` }) : html`<div class="dim" style=${{ padding: '8px 10px', fontSize: '13px' }}>No accounts yet.</div>`}
+    ${accs.length ? accs.map(a => { const on = sel.includes(a.id); return html`<button key=${a.id} class=${on ? 'on' : ''} onClick=${() => tog(a.id)}><span class=${'chk' + (on ? ' on' : '')} style=${{ width: 'auto', padding: 0 }}><span class="bx">${on && html`<${I} n="check" w=${3}/>`}</span></span><${FirmLogo} id=${a.firm} s=${20}/><span style=${{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>${a.label}</span><span class="dim" style=${{ fontSize: '9.5px' }}>${a.status === 'active' ? (a.type === 'eval' ? 'Eval' : a.type === 'funded' ? 'Funded' : 'Live') : a.status}</span></button>` }) : html`<div class="dim" style=${{ padding: '8px 10px', fontSize: '11.5px' }}>No accounts yet.</div>`}
     <hr/>
     <div class="row" style=${{ gap: '6px', padding: '4px 6px' }}>${quick('Evals', a => a.type === 'eval' && a.status === 'active')}${quick('Funded', a => a.type === 'funded' && a.status === 'active')}${quick('Active', a => a.status === 'active')}</div>
-    <div class="row" style=${{ padding: '6px', justifyContent: 'space-between' }}><span class="dim" style=${{ fontSize: '12px' }}>${sel.length ? sel.length + ' selected' : 'Showing all'}</span><button class="btn btn-w xs" onClick=${onClose}>Done</button></div>
+    <div class="row" style=${{ padding: '6px', justifyContent: 'space-between' }}><span class="dim" style=${{ fontSize: '10.5px' }}>${sel.length ? sel.length + ' selected' : 'Showing all'}</span><button class="btn btn-w xs" onClick=${onClose}>Done</button></div>
   <//>`;
 }
