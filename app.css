@@ -679,4 +679,24 @@ button.chip:hover{border-color:var(--line3)}
   .page{padding-left:max(24px,env(safe-area-inset-left,0px));padding-right:max(24px,env(safe-area-inset-right,0px))}
 }
 
+/* ---------- deleting trades ---------- */
+.tc{position:relative}
+.tcdel{position:absolute;top:8px;right:8px;z-index:2;width:30px;height:30px;border-radius:9px;display:grid;place-items:center;background:rgba(0,0,0,.6);border:1px solid var(--line2);color:var(--mut);opacity:0;transition:opacity .15s,color .15s,border-color .15s}
+.tc:hover .tcdel,.tc:focus-within .tcdel{opacity:1}
+.tcdel:hover{color:var(--neg);border-color:var(--neg)}
+@media (hover:none){.tcdel{opacity:.85}}
+.tcsel{position:absolute;top:8px;right:8px;z-index:2;width:24px;height:24px;border-radius:7px;display:grid;place-items:center;background:rgba(0,0,0,.6);border:1.5px solid var(--line3);color:#fff}
+.tcsel.on{background:var(--acc);border-color:var(--acc)}
+.tc.sel{outline:2px solid var(--acc);outline-offset:-1px}
+.tdel{width:40px;padding-left:0!important}
+.tdel .ib{width:28px;height:28px;opacity:0;color:var(--mut)}
+.tbl tr:hover .tdel .ib,.tdel .ib:focus{opacity:1}
+.tdel .ib:hover{color:var(--neg)}
+@media (hover:none){.tdel .ib{opacity:.8}}
+.selr td{background:var(--accs)}
+.cbx{width:16px;height:16px;accent-color:var(--acc)}
+.selbar{min-height:34px}
+.selbar.on{padding:6px 10px;border-radius:12px;background:var(--card);border:1px solid var(--accg)}
+.dangerh:hover{color:var(--neg);border-color:var(--neg)}
+
 body{padding-top:env(safe-area-inset-top,0px)}

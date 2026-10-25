@@ -866,6 +866,25 @@ function AccountPicker({ v, set, multi, S, allowNone = true }) {
 /* ---------- copy trading: one idea, a main account and its copies ---------- */
 function groupOf(S, t) { return t?.group ? Object.values(S.trades).filter(x => x.group === t.group) : (t ? [t] : []) }
 function leadOf(S, t) { const g = groupOf(S, t); return g.find(x => x.lead) || g.sort((a, b) => (a.created || 0) - (b.created || 0))[0] || t }
+/* deleting: a main trade takes its copies with it; a copy goes on its own. Always undoable for a few seconds. */
+function delSet(S, ids) { const out = new Set(); for (const id of ids) { const t = S.trades[id]; if (!t) continue; if (t.group && t.role === 'copy' && !ids.includes(leadOf(S, t).id)) out.add(id); else groupOf(S, t).forEach(x => out.add(x.id)) } return [...out] }
+function removeTrades(ids) {
+  const S = store.s; const all = delSet(S, ids); const saved = all.map(id => S.trades[id]).filter(Boolean);
+  saved.forEach(t => store.del('trades', t.id));
+  toast(saved.length === 1 ? 'Trade deleted' : saved.length + ' trades deleted', { label: 'Undo', fn: () => { saved.forEach(t => store.put('trades', t)); toast('Restored') } });
+  return saved.length;
+}
+function askDelete(ids, after) {
+  const S = store.s; ids = ids.filter(id => S.trades[id]); if (!ids.length) return;
+  const all = delSet(S, ids); const copies = all.length - ids.length; const one = ids.length === 1 ? S.trades[ids[0]] : null;
+  const isCopy = one && one.group && one.role === 'copy';
+  UI.confirm({
+    title: ids.length === 1 ? 'Delete this trade?' : `Delete ${ids.length} trades?`,
+    body: isCopy ? `Only the copy on ${S.accounts[one.account]?.label || 'this account'} is removed. The main trade and other copies stay.` : (copies > 0 ? `${copies} copied trade${copies > 1 ? 's' : ''} on your other accounts go too. ` : '') + 'They leave your journal and every stat. You can undo for a few seconds.',
+    yes: all.length > 1 ? `Delete ${all.length}` : 'Delete',
+    onYes: () => { removeTrades(ids); after && after() }
+  });
+}
 function initialCopy(S, ex) {
   if (ex) { const lead = leadOf(S, ex); const sib = groupOf(S, ex).filter(x => x.id !== lead.id); return { main: lead.account || '', copies: sib.map(x => x.account).filter(Boolean), sizes: Object.fromEntries(sib.map(x => [x.account, x.qty])), lead } }
   const last = S.settings.copySet || {}; const live = id => S.accounts[id] && S.accounts[id].status === 'active';
@@ -935,7 +954,7 @@ function TradeForm({ id, onClose, preset = {}, mode }) {
     toast(ex ? (n > 1 ? `Updated on ${n} accounts` : 'Trade updated') : (n > 1 ? `Logged to main + ${n - 1} cop${n - 1 === 1 ? "y" : "ies"}` : 'Trade logged'));
     onClose();
   };
-  return html`<${Modal} title=${ex ? 'Edit trade' : 'Log trade'} onClose=${onClose} size="wide" foot=${html`${ex && html`<button class="btn btn-d" style=${{ marginRight: 'auto' }} onClick=${() => UI.confirm({ title: 'Delete this trade?', body: groupOf(S, ex).length > 1 ? 'The main trade and all its copies are removed from your journal and every stat.' : 'It is removed from your journal and every stat.', onYes: () => { groupOf(S, ex).forEach(x => store.del('trades', x.id)); onClose(); toast('Trade deleted') } })}><${I} n="trash"/>Delete${groupOf(S, ex).length > 1 ? ' all ' + groupOf(S, ex).length : ''}</button>`}<button class="btn btn-g" onClick=${onClose}>Cancel</button><button class="btn btn-w" onClick=${save}><${I} n="check"/>${ex ? 'Save' : 'Log trade'}</button>`}>
+  return html`<${Modal} title=${ex ? 'Edit trade' : 'Log trade'} onClose=${onClose} size="wide" foot=${html`${ex && html`<button class="btn btn-d" style=${{ marginRight: 'auto' }} onClick=${() => askDelete([leadOf(S, ex).id], onClose)}><${I} n="trash"/>Delete${groupOf(S, ex).length > 1 ? ' all ' + groupOf(S, ex).length : ''}</button>`}<button class="btn btn-g" onClick=${onClose}>Cancel</button><button class="btn btn-w" onClick=${save}><${I} n="check"/>${ex ? 'Save' : 'Log trade'}</button>`}>
     <div class="grid tfg">
       <div class="col" style=${{ gap: '14px' }}>
         <div class="grid g3 keep2">
@@ -1435,12 +1454,13 @@ function MonthCal({ C, compact }) {
     </div>`;
 }
 
-function TradeTable({ ts, S, showAcct = true }) {
-  return html`<div class="scroll-x"><table class="tbl"><thead><tr><th>Date</th><th>Symbol</th><th>Side</th><th class="r">Qty</th><th class="r">Entry</th><th class="r">Exit</th><th>Setup</th><th>Grade</th>${showAcct && html`<th>Account</th>`}<th class="r">R</th><th class="r">P&L</th></tr></thead>
-    <tbody>${ts.map(t => html`<tr key=${t.id} class="click" onClick=${() => UI.open('detail', { id: t.id, list: ts.map(x => x.id) })}>
+function TradeTable({ ts, S, showAcct = true, sel, setSel }) {
+  const tog = id => setSel(x => x.includes(id) ? x.filter(y => y !== id) : [...x, id]);
+  return html`<div class="scroll-x"><table class="tbl"><thead><tr>${sel && html`<th style=${{ width: '34px' }}><input type="checkbox" class="cbx" aria-label="Select all" checked=${ts.length > 0 && ts.every(t => sel.includes(t.id))} onChange=${e => setSel(e.target.checked ? ts.map(t => t.id) : [])}/></th>`}<th>Date</th><th>Symbol</th><th>Side</th><th class="r">Qty</th><th class="r">Entry</th><th class="r">Exit</th><th>Setup</th><th>Grade</th>${showAcct && html`<th>Account</th>`}<th class="r">R</th><th class="r">P&L</th><th class="tdel"></th></tr></thead>
+    <tbody>${ts.map(t => html`<tr key=${t.id} class=${'click' + (sel?.includes(t.id) ? ' selr' : '')} onClick=${() => sel ? tog(t.id) : UI.open('detail', { id: t.id, list: ts.map(x => x.id) })}>${sel && html`<td><input type="checkbox" class="cbx" aria-label="Select trade" checked=${sel.includes(t.id)} onClick=${e => e.stopPropagation()} onChange=${() => tog(t.id)}/></td>`}
       <td><span class="tn">${fmtDate(t.t)}</span> <span class="dim tn">${fmtTime(t.t)}</span></td><td><b>${t.symbol}</b></td><td><${Side} s=${t.side}/></td><td class="r">${t.qty}</td><td class="r">${t.entry || '—'}</td><td class="r">${t.exit || '—'}</td>
       <td class="mut">${(t.setups || []).slice(0, 2).join(', ') || (S.strategies[t.strategy]?.name || '—')}</td><td><${Grade} g=${t.grade}/></td>${showAcct && html`<td class="mut">${S.accounts[t.account]?.label || '—'}</td>`}
-      <td class=${'r ' + cls(tR(t))}>${tR(t) != null ? rfmt(tR(t)) : '—'}</td><td class="r" style=${{ fontWeight: 700 }}><${Money} v=${t.pnl}/></td></tr>`)}</tbody></table></div>`;
+      <td class=${'r ' + cls(tR(t))}>${tR(t) != null ? rfmt(tR(t)) : '—'}</td><td class="r" style=${{ fontWeight: 700 }}><${Money} v=${t.pnl}/></td><td class="r tdel"><button class="ib xs" aria-label="Delete trade" title="Delete trade" onClick=${e => { e.stopPropagation(); askDelete([t.id]) }}><${I} n="trash" s=${14}/></button></td></tr>`)}</tbody></table></div>`;
 }
 
 function PsychCard({ C }) {
@@ -1482,9 +1502,10 @@ function FilterBar({ f, setF, S, count, total, view, setView }) {
     ${setView && html`<${Seg} sm v=${view} set=${setView} opts=${[['grid', '', 'grid'], ['list', '', 'list']]}/>`}
   </div>`;
 }
-function TradeCard({ t, S, onClick }) {
+function TradeCard({ t, S, onClick, selected, selecting }) {
   const shot = (t.shots || [])[0]; const st = S.strategies[t.strategy];
-  return html`<button class="tc" onClick=${onClick}>
+  return html`<button class=${'tc' + (selected ? ' sel' : '')} onClick=${onClick}>
+    ${selecting ? html`<span class=${'tcsel' + (selected ? ' on' : '')}>${selected && html`<${I} n="check" s=${13}/>`}</span>` : html`<span class="tcdel" role="button" tabindex="0" aria-label="Delete trade" title="Delete trade" onClick=${e => { e.stopPropagation(); askDelete([t.id]) }}><${I} n="trash" s=${14}/></span>`}
     <div class="shot">${shot ? html`<img src=${shot.url} alt="" loading="lazy"/>` : html`<div class="ph2"><${MiniLadder} t=${t}/></div>`}
       ${t.pin && html`<span class="pin chip gold"><${I} n="pin" s=${11}/>Pinned</span>`}</div>
     <div class="bd"><div class="row" style=${{ gap: '8px' }}><b>${t.symbol}</b><${Side} s=${t.side}/><${Grade} g=${t.grade}/><span class="sp"></span><span class="dim tn" style=${{ fontSize: '10.5px' }}>${fmtDate(t.t)} · ${fmtTime(t.t)}</span></div>
@@ -1514,6 +1535,7 @@ function Journal({ C, params }) {
   const [view, setView] = useState(LS.get('compound.jview', 'grid'));
   const [ts, f, setF] = useTradeFilter(D.ts); const s = stats(ts);
   const [planReq, setPlanReq] = useState(0);
+  const [sel, setSel] = useState(null); const selTog = id => setSel(x => x.includes(id) ? x.filter(y => y !== id) : [...x, id]);
   useEffect(() => { if (params?.day) setTab('daily') }, [params]);
   return html`<div class="page">
     <${PageHead} title="Trade journal" sub=${D.ts.length + ' trades logged · ' + scopeLabel(S, C.F)}>
@@ -1530,9 +1552,11 @@ function Journal({ C, params }) {
         <${Kpi} k="Avg win / loss" v=${money(s.avgW, { dec: 2 })} s=${'Avg loss: ' + money(-s.avgL, { dec: 2 })}/>
       </div>
       <${FilterBar} f=${f} setF=${setF} S=${S} count=${ts.length} total=${D.ts.length} view=${view} setView=${v => { setView(v); LS.set('compound.jview', v) }}/>
+      ${ts.length > 0 && html`<div class=${'row selbar' + (sel ? ' on' : '')}>${sel ? html`<b class="tn">${sel.length} selected</b><button class="btn btn-t xs" onClick=${() => setSel(ts.map(t => t.id))}>Select all ${ts.length}</button><span class="sp"></span><button class="btn btn-g sm" onClick=${() => setSel(null)}>Cancel</button><button class="btn btn-d sm" disabled=${!sel.length} onClick=${() => askDelete(sel, () => setSel(null))}><${I} n="trash"/>Delete${sel.length ? ' ' + sel.length : ''}</button>`
+        : html`<span class="sp"></span><button class="btn btn-t xs" onClick=${() => setSel([])}><${I} n="check" s=${13}/>Select trades</button>`}</div>`}
       ${!ts.length ? html`<${Empty} title=${D.ts.length ? 'No trades match' : 'No trades yet'} body=${D.ts.length ? 'Loosen the filters to see more.' : 'Log one by hand, or bring your history in from your broker.'}>${!D.ts.length && html`<button class="btn btn-w" onClick=${() => UI.open('trade')}>Log a trade</button><button class="btn btn-t" onClick=${() => UI.open('import')}>Import trades</button>`}<//>`
-        : view === 'grid' ? html`<div class="tgrid">${ts.map(t => html`<${TradeCard} key=${t.id} t=${t} S=${S} onClick=${() => UI.open('detail', { id: t.id, list: ts.map(x => x.id) })}/>`)}</div>`
-        : html`<div class="card" style=${{ padding: 0 }}><${TradeTable} ts=${ts} S=${S}/></div>`}`}
+        : view === 'grid' ? html`<div class="tgrid">${ts.map(t => html`<${TradeCard} key=${t.id} t=${t} S=${S} selecting=${!!sel} selected=${sel?.includes(t.id)} onClick=${() => sel ? selTog(t.id) : UI.open('detail', { id: t.id, list: ts.map(x => x.id) })}/>`)}</div>`
+        : html`<div class="card" style=${{ padding: 0 }}><${TradeTable} ts=${ts} S=${S} sel=${sel} setSel=${setSel}/></div>`}`}
     ${tab === 'daily' && html`<${DailyView} C=${C} focus=${params?.day} planReq=${planReq}/>`}
     ${tab === 'weekly' && html`<${WeeklyView} C=${C}/>`}
   </div>`;
@@ -1580,7 +1604,7 @@ function TradeDetail({ id, list, onClose }) {
         <div><div class="lbl">R</div><div class=${'tn ' + cls(r)} style=${{ fontSize: '23px', fontWeight: 800 }}>${r != null ? rfmt(r) : '—'}</div></div>
         <span class="sp"></span>
         <button class=${'btn sm ' + (t.pin ? 'btn-a' : 'btn-g')} onClick=${() => store.patch('trades', t.id, { pin: !t.pin })}><${I} n="pin"/>${t.pin ? 'Pinned' : 'Pin'}</button>
-        <button class="btn btn-g sm" onClick=${() => UI.open('trade', { id: t.id })}><${I} n="edit"/>Edit</button>
+        <button class="btn btn-g sm" onClick=${() => UI.open('trade', { id: t.id })}><${I} n="edit"/>Edit</button><button class="btn btn-g sm dangerh" onClick=${() => askDelete([t.id], onClose)} aria-label="Delete trade"><${I} n="trash"/><span class="hide-m">Delete</span></button>
         <button class="btn btn-ai sm" onClick=${review} disabled=${ai}><${I} n="spark"/>${ai ? 'Reviewing…' : 'AI review'}</button>
       </div>
       <div class="card" style=${{ padding: '14px' }}><div class="ch"><span class="lbl">Price action</span>${LIVE_OK && html`<${Seg} sm v=${pa} set=${v => { setPa(v); LS.set('compound.pa', v) }} opts=${[['replay', 'Replay'], ['live', 'Live']]}/>`}<span class="sp"></span><a class="btn btn-t xs" href=${tvURL(t.symbol)} target="_blank" rel="noopener"><${I} n="ext" s=${13}/>Open ${t.symbol} in TradingView</a>${t.tv && html`<a class="btn btn-t xs" href=${t.tv} target="_blank" rel="noopener"><${I} n="link" s=${13}/>Snapshot</a>`}</div>
