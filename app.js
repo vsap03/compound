@@ -2846,3 +2846,23 @@ function AcctMenu({ open, onClose, S, sel, setSel, tog }) {
     <div class="row" style=${{ padding: '6px', justifyContent: 'space-between' }}><span class="dim" style=${{ fontSize: '10.5px' }}>${sel.length ? sel.length + ' selected' : 'Showing all'}</span><button class="btn btn-w xs" onClick=${onClose}>Done</button></div>
   <//>`;
 }
+
+/* standalone app: notice a newer build on GitHub Pages and switch to it.
+   Reopening the app from the home screen does not reload it on iOS, so check whenever it comes back to the front. */
+(function () {
+  if (!window.COMPOUND_V || location.protocol === 'file:') return;
+  let busy = false, pending = false, last = 0;
+  const idle = () => !document.querySelector('.ov,.drw') && !(document.activeElement && /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName));
+  const go = v => { try { sessionStorage.setItem('compound.upd', v) } catch (e) { } try { navigator.serviceWorker?.getRegistration().then(r => r?.update()) } catch (e) { } location.reload() };
+  const check = async (fromWake) => {
+    if (busy || Date.now() - last < 15000) return; busy = true; last = Date.now();
+    try {
+      const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' }); const j = await r.json();
+      if (j.v && j.v !== window.COMPOUND_V) { let tried = null; try { tried = sessionStorage.getItem('compound.upd') } catch (e) { } if (fromWake && idle() && tried !== j.v) return go(j.v); if (!pending) { pending = true; toast('A new version of Compound is ready', { label: 'Update', fn: () => go(j.v) }) } }
+    } catch (e) { } busy = false;
+  };
+  setTimeout(() => check(true), 3000);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') check(true) });
+  addEventListener('focus', () => check(true));
+  setInterval(() => { if (document.visibilityState === 'visible') { pending = false; check(false) } }, 10 * 60000);
+})();
