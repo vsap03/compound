@@ -120,6 +120,7 @@ const FIRMS = [
   { id: 'alpha', name: 'Alpha Futures', mono: 'α', c: ['#180B2E', '#A855F7'], plans: ['Standard', 'Advanced', 'Zero'], url: 'https://alpha-futures.com' },
   { id: 'fundednext', name: 'FundedNext Futures', mono: 'FN', c: ['#1C1035', '#7C3AED'], plans: ['Rapid', 'Legacy', 'Bolt'], url: 'https://fundednext.com' },
   { id: 'blueguardian', name: 'Blue Guardian', mono: 'BG', c: ['#05182F', '#1E90FF'], plans: ['Reserve', 'Instant', 'Futures Eval'], url: 'https://blueguardian.com' },
+  { id: 'blueguardianfx', name: 'Blue Guardian CFD', mono: 'BG', c: ['#05182F', '#3FA9FF'], plans: ['Standard', 'Elite', 'Rapid', 'Instant'], url: 'https://blueguardian.com', market: 'cfd', platform: 'MT5' },
   { id: 'bulenox', name: 'Bulenox', mono: 'BX', c: ['#2B0A0A', '#F43F5E'], plans: ['Option 1 · Trailing', 'Option 2 · EOD', 'Master'], url: 'https://bulenox.com' },
   { id: 'etf', name: 'Elite Trader Funding', mono: 'E', c: ['#231A02', '#EAB308'], plans: ['1-Step', 'EOD Drawdown', 'Static', 'Fast Track'], url: 'https://elitetraderfunding.com' },
   { id: 'tradeday', name: 'TradeDay', mono: 'TD', c: ['#03252A', '#06B6D4'], plans: ['Intraday', 'EOD', 'Static'], url: 'https://tradeday.com' },
@@ -129,6 +130,17 @@ const FIRMS = [
   { id: 'ffn', name: 'Funded Futures Network', mono: 'FF', c: ['#0B1F2E', '#38BDF8'], plans: ['Standard', 'Pro'], url: 'https://fundedfuturesnetwork.com' },
   { id: 'personal', name: 'Personal / Broker', mono: '$', c: ['#151619', '#8B8F99'], plans: ['Live cash', 'Paper', 'Sim'], url: '' },
 ];
+/* spending: fees paid per account (eval + resets + activation), times how many identical accounts a history entry stands for */
+const blownCost = b => ((+b.fee || 0) + (+b.resets || 0) + (+b.activation || 0)) * Math.max(1, +b.count || 1);
+const acctCost = a => (+a.cost || 0) + (+a.activation || 0) + (+a.resets || 0);
+const payoutFirm = (S, p) => p.firm || S.accounts[p.account]?.firm || '';
+function firmSpend(S) {
+  const m = {}; const row = f => (m[f] ||= { firm: f, blownN: 0, blownFees: 0, liveN: 0, liveFees: 0, paid: 0, payN: 0 });
+  for (const b of Object.values(S.blown || {})) { const r = row(b.firm || 'personal'); r.blownN += Math.max(1, +b.count || 1); r.blownFees += blownCost(b) }
+  for (const a of Object.values(S.accounts)) { const r = row(a.firm || 'personal'); if (a.status === 'blown') { r.blownN++; r.blownFees += acctCost(a) } else { r.liveN++; r.liveFees += acctCost(a) } }
+  for (const p of Object.values(S.payouts)) if (p.status === 'paid') { const r = row(payoutFirm(S, p) || 'personal'); r.paid += +p.amount || 0; r.payN++ }
+  return Object.values(m).map(r => ({ ...r, spent: r.blownFees + r.liveFees, net: r.paid - r.blownFees - r.liveFees })).filter(r => r.spent || r.paid || r.blownN || r.liveN);
+}
 const firmById = id => FIRMS.find(f => f.id === id) || FIRMS[FIRMS.length - 1];
 const SIZE_PRESETS = {
   10000: { target: 1000, mll: 500, dll: 0 }, 25000: { target: 1500, mll: 1500, dll: 500 }, 50000: { target: 3000, mll: 2000, dll: 1000 },
@@ -280,7 +292,7 @@ const moneyParse = s => { if (s == null) return null; s = String(s).trim(); if (
 function parseDateLoose(s) { if (s == null || s === '') return null; s = String(s).trim(); if (/^\d{9,10}$/.test(s)) return new Date(+s * 1000); if (/^\d{12,13}$/.test(s)) return new Date(+s); let d = new Date(s); if (!isNaN(d)) return d; const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})[ T]?(\d{1,2})?:?(\d{2})?:?(\d{2})?\s*(AM|PM)?/i); if (m) { let y = +m[3]; if (y < 100) y += 2000; let h = +(m[4] || 0); if (m[7]) { if (/pm/i.test(m[7]) && h < 12) h += 12; if (/am/i.test(m[7]) && h === 12) h = 0 } return new Date(y, +m[1] - 1, +m[2], h, +(m[5] || 0), +(m[6] || 0)) } return null }
 
 /* ---------- STORE: cloud (db capability, private to you) with local fallback ---------- */
-const COLLS = ['trades', 'accounts', 'payouts', 'strategies', 'notes', 'days', 'chats', 'charts', 'boards', 'adjust'];
+const COLLS = ['trades', 'accounts', 'payouts', 'strategies', 'notes', 'days', 'chats', 'charts', 'boards', 'adjust', 'blown'];
 const emptyState = () => { const s = { settings: { ...DEFAULT_SETTINGS }, report: null }; COLLS.forEach(c => s[c] = {}); return s };
 const store = {
   s: emptyState(), v: 0, subs: new Set(), mode: 'boot', root: null, uid: null, q: new Map(), timers: {}, ready: {}, localPending: null, caps: {},
@@ -1086,15 +1098,66 @@ function BalanceSync({ id, onClose }) {
   <//>`;
 }
 
+function FirmPick({ v, set, only }) {
+  const list = FIRMS.filter(f => f.id !== 'personal' && (!only || only(f)));
+  return html`<div class="firmpick">${list.map(f => html`<button type="button" key=${f.id} class=${'fp' + (v === f.id ? ' on' : '')} onClick=${() => set(f.id)}><${FirmLogo} id=${f.id} s=${20}/><span>${f.name}</span></button>`)}</div>`;
+}
+
 function PayoutForm({ id, account, onClose }) {
   const S = store.s; const ex = id ? S.payouts[id] : null;
-  const [p, setP] = useState(ex ? { ...ex } : { account: account || '', amount: '', d: todayKey(), status: 'paid', note: '', deduct: true });
+  const hasAccs = Object.values(S.accounts).some(a => a.status !== 'blown' && a.status !== 'closed');
+  const [p, setP] = useState(ex ? { ...ex, past: !!ex.past } : { account: account || '', amount: '', d: todayKey(), status: 'paid', note: '', deduct: true, past: !account && !hasAccs, firm: '', acctLabel: '' });
   const up = x => setP(o => ({ ...o, ...x }));
-  return html`<${Modal} title=${ex ? 'Edit payout' : 'Record payout'} icon=${html`<${I} n="wallet"/>`} onClose=${onClose} foot=${html`${ex && html`<button class="btn btn-d" style=${{ marginRight: 'auto' }} onClick=${() => { store.del('payouts', ex.id); const adj = Object.values(S.adjust).find(x => x.payout === ex.id); adj && store.del('adjust', adj.id); onClose() }}>Delete</button>`}<button class="btn btn-g" onClick=${onClose}>Cancel</button><button class="btn btn-w" onClick=${() => { if (!isNum(p.amount)) return toast('Enter an amount'); const o = store.put('payouts', { ...p, amount: +p.amount }); if (!ex && p.deduct && p.account) store.put('adjust', { id: uid(), account: p.account, v: -Math.abs(+p.amount), d: p.d + 'T23:59', payout: o.id, note: 'Payout withdrawn' }); toast('Payout recorded'); onClose() }}>Save</button>`}>
-    <${Field} label="Account"><${AccountPicker} S=${S} v=${p.account} set=${v => up({ account: v })}/><//>
+  const save = () => {
+    if (!isNum(p.amount)) return toast('Enter an amount');
+    if (p.past && !p.firm) return toast('Pick the prop firm');
+    const o = store.put('payouts', p.past ? { ...p, account: '', amount: +p.amount, deduct: false } : { ...p, firm: undefined, acctLabel: undefined, amount: +p.amount });
+    if (!ex && !p.past && p.deduct && p.account) store.put('adjust', { id: uid(), account: p.account, v: -Math.abs(+p.amount), d: p.d + 'T23:59', payout: o.id, note: 'Payout withdrawn' });
+    toast('Payout recorded'); onClose();
+  };
+  return html`<${Modal} title=${ex ? 'Edit payout' : 'Record payout'} icon=${html`<${I} n="wallet"/>`} onClose=${onClose} foot=${html`${ex && html`<button class="btn btn-d" style=${{ marginRight: 'auto' }} onClick=${() => { store.del('payouts', ex.id); const adj = Object.values(S.adjust).find(x => x.payout === ex.id); adj && store.del('adjust', adj.id); onClose() }}>Delete</button>`}<button class="btn btn-g" onClick=${onClose}>Cancel</button><button class="btn btn-w" onClick=${save}>Save</button>`}>
+    <${Seg} v=${p.past ? 'past' : 'acct'} set=${v => up({ past: v === 'past' })} opts=${[['acct', 'Account in Compound'], ['past', 'Previous payout']]}/>
+    ${p.past ? html`
+      <${Field} label="Prop firm"><${FirmPick} v=${p.firm} set=${v => up({ firm: v })}/><//>
+      <${Field} label="Account (optional)" hint="Size or account ID, so you remember which one paid"><input class="in" placeholder="50K · BG-12345" value=${p.acctLabel || ''} onInput=${e => up({ acctLabel: e.target.value })}/><//>`
+    : html`<${Field} label="Account"><${AccountPicker} S=${S} v=${p.account} set=${v => up({ account: v })}/><//>`}
     <div class="grid g2"><${Field} label="Amount received"><div class="inwrap"><span class="pre">$</span><input class="in tn" style=${{ fontSize: '17.5px', fontWeight: 700 }} value=${p.amount} onInput=${e => up({ amount: e.target.value })}/></div><//><${Field} label="Date"><input class="in" type="date" value=${p.d} onInput=${e => up({ d: e.target.value })}/><//></div>
-    <div class="row"><${Seg} v=${p.status} set=${v => up({ status: v })} opts=${[['requested', 'Requested'], ['paid', 'Paid']]}/>${!ex && html`<label class="row" style=${{ gap: '8px', fontSize: '11.5px', cursor: 'pointer' }}><input type="checkbox" checked=${p.deduct} onChange=${e => up({ deduct: e.target.checked })}/>Deduct from account balance</label>`}</div>
+    <div class="row"><${Seg} v=${p.status} set=${v => up({ status: v })} opts=${[['requested', 'Requested'], ['paid', 'Paid']]}/>${!ex && !p.past && html`<label class="row" style=${{ gap: '8px', fontSize: '11.5px', cursor: 'pointer' }}><input type="checkbox" checked=${p.deduct} onChange=${e => up({ deduct: e.target.checked })}/>Deduct from account balance</label>`}</div>
     <${Field} label="Note"><input class="in" value=${p.note} onInput=${e => up({ note: e.target.value })}/><//>
+  <//>`;
+}
+
+const BLOWN_SIZES = [5000, 10000, 25000, 50000, 75000, 100000, 150000, 200000, 300000];
+function BlownForm({ id, onClose }) {
+  const S = store.s; const ex = id ? S.blown[id] : null;
+  const [b, setB] = useState(ex ? { ...ex } : { firm: '', plan: '', size: 50000, fee: '', resets: '', activation: '', count: 1, stage: 'eval', bought: '', d: todayKey(), note: '' });
+  const up = x => setB(o => ({ ...o, ...x }));
+  const f = b.firm ? firmById(b.firm) : null; const total = blownCost(b);
+  const save = (again) => {
+    if (!b.firm) return toast('Pick the prop firm'); if (!isNum(b.fee) && !isNum(b.resets) && !isNum(b.activation)) return toast('Add what you paid');
+    store.put('blown', { ...b, market: f?.market || 'futures', fee: +b.fee || 0, resets: +b.resets || 0, activation: +b.activation || 0, count: Math.max(1, Math.round(+b.count || 1)), size: +b.size || 0 });
+    toast(`${b.count > 1 ? b.count + ' blown accounts' : 'Blown account'} added · ${money(total, { dec: 0 })}`);
+    if (again) setB(o => ({ ...o, id: undefined, fee: '', resets: '', activation: '', count: 1, note: '' })); else onClose();
+  };
+  return html`<${Modal} title=${ex ? 'Edit blown account' : 'Add blown account'} size="wide" icon=${html`<${I} n="flame"/>`} onClose=${onClose} foot=${html`${ex && html`<button class="btn btn-d" style=${{ marginRight: 'auto' }} onClick=${() => UI.confirm({ title: 'Remove this entry?', body: 'Its fees come off your spending totals.', onYes: () => { store.del('blown', ex.id); onClose() } })}>Delete</button>`}<button class="btn btn-g" onClick=${onClose}>Cancel</button>${!ex && html`<button class="btn btn-g" onClick=${() => save(true)}>Save & add another</button>`}<button class="btn btn-w" onClick=${() => save(false)}>Save</button>`}>
+    <${Field} label="Prop firm"><${FirmPick} v=${b.firm} set=${v => up({ firm: v, plan: firmById(v).plans?.[0] || '' })}/><//>
+    <div class="grid g4 keep2">
+      <${Field} label="Plan"><select class="sel" value=${b.plan} onChange=${e => up({ plan: e.target.value })}><option value="">—</option>${(f?.plans || []).map(x => html`<option key=${x} value=${x} selected=${b.plan === x}>${x}</option>`)}</select><//>
+      <${Field} label="Account size"><select class="sel" value=${b.size} onChange=${e => up({ size: +e.target.value })}>${BLOWN_SIZES.map(x => html`<option key=${x} value=${x}>$${(x / 1000)}K</option>`)}</select><//>
+      <${Field} label="Blown at"><${Seg} v=${b.stage} set=${v => up({ stage: v })} opts=${[['eval', 'Eval'], ['funded', 'Funded']]}/><//>
+      <${Field} label="How many like this" hint="Blew the same one 4 times? Put 4"><input class="in tn" inputmode="numeric" value=${b.count} onInput=${e => up({ count: e.target.value })}/><//>
+    </div>
+    <div class="grid g3 keep2">
+      <${Field} label="Eval fee, per account"><div class="inwrap"><span class="pre">$</span><input class="in tn" inputmode="decimal" placeholder="0" value=${b.fee} onInput=${e => up({ fee: e.target.value })}/></div><//>
+      <${Field} label="Resets / extra"><div class="inwrap"><span class="pre">$</span><input class="in tn" inputmode="decimal" placeholder="0" value=${b.resets} onInput=${e => up({ resets: e.target.value })}/></div><//>
+      <${Field} label="Activation fee"><div class="inwrap"><span class="pre">$</span><input class="in tn" inputmode="decimal" placeholder="0" value=${b.activation} onInput=${e => up({ activation: e.target.value })}/></div><//>
+    </div>
+    <div class="grid g3 keep2">
+      <${Field} label="Bought (optional)"><input class="in" type="date" value=${b.bought} onInput=${e => up({ bought: e.target.value })}/><//>
+      <${Field} label="Blown on"><input class="in" type="date" value=${b.d} onInput=${e => up({ d: e.target.value })}/><//>
+      <${Field} label="Note"><input class="in" placeholder="What blew it?" value=${b.note} onInput=${e => up({ note: e.target.value })}/><//>
+    </div>
+    <div class="card tight row" style=${{ background: 'var(--negs)', borderColor: 'transparent' }}><span class="lbl">Total paid</span><span class="sp"></span><b class="tn neg" style=${{ fontSize: '19px' }}>${money(total, { dec: 0, show: true })}</b>${(+b.count || 1) > 1 && html`<span class="dim tn" style=${{ fontSize: '11px' }}>${b.count} × ${money(total / (+b.count || 1), { dec: 0, show: true })}</span>`}</div>
   <//>`;
 }
 
@@ -2161,18 +2224,57 @@ function Focus({ onClose, quote }) {
 }
 
 /* ---------------- Propfirm ---------------- */
+function Spending({ S }) {
+  const rows = useMemo(() => firmSpend(S).sort((a, b) => b.spent - a.spent), [store.v]);
+  const [pick, setPick] = useState(() => LS.get('compound.spendf', []));
+  const setP = v => { setPick(v); LS.set('compound.spendf', v) };
+  const valid = pick.filter(f => rows.some(r => r.firm === f)); const on = valid.length ? valid : null;
+  const shown = on ? rows.filter(r => on.includes(r.firm)) : rows;
+  const tot = { spent: sum(shown, r => r.spent), blownFees: sum(shown, r => r.blownFees), blownN: sum(shown, r => r.blownN), liveN: sum(shown, r => r.liveN), paid: sum(shown, r => r.paid) }; tot.net = tot.paid - tot.spent;
+  const hist = Object.values(S.blown || {}).filter(b => !on || on.includes(b.firm)).sort((a, b) => (b.d || '') < (a.d || '') ? -1 : 1);
+  const dead = Object.values(S.accounts).filter(a => a.status === 'blown' && (!on || on.includes(a.firm)));
+  const tog = f => setP(valid.includes(f) ? valid.filter(x => x !== f) : [...valid, f]);
+  return html`
+    <div class="card"><div class="ch"><h3>What prop firms have cost you</h3><span class="sp"></span><button class="btn btn-g sm" onClick=${() => UI.open('payout', {})}><${I} n="wallet"/>Previous payout</button><button class="btn btn-w sm" onClick=${() => UI.open('blown')}><${I} n="plus"/>Add blown account</button></div>
+      ${rows.length > 0 && html`<div class="row" style=${{ gap: '6px', marginBottom: '14px' }}><button class=${'chip' + (!on ? ' on' : '')} onClick=${() => setP([])}>All firms</button>${rows.map(r => html`<button key=${r.firm} class=${'chip firmchip' + (valid.includes(r.firm) ? ' on' : '')} onClick=${() => tog(r.firm)}><${FirmLogo} id=${r.firm} s=${16}/>${firmById(r.firm).name}</button>`)}${on && html`<span class="dim" style=${{ fontSize: '10.5px' }}>${on.length} selected · tap more to add</span>`}</div>`}
+      <div class="grid g5 keep2">
+        <${Kpi} small k="Total spent" v=${html`<span class="neg">${money(tot.spent, { dec: 0 })}</span>`} s=${on ? on.map(f => firmById(f).name).join(', ') : 'all firms'}/>
+        <${Kpi} small k="Lost to blown accounts" v=${money(tot.blownFees, { dec: 0 })} s=${tot.blownN + ' account' + (tot.blownN === 1 ? '' : 's') + ' blown'}/>
+        <${Kpi} small k="Avg cost per blow-up" v=${tot.blownN ? money(tot.blownFees / tot.blownN, { dec: 0 }) : '—'}/>
+        <${Kpi} small k="Payouts" v=${html`<span class="pos">${money(tot.paid, { dec: 0 })}</span>`}/>
+        <${Kpi} small k="Net" v=${html`<span class=${cls(tot.net)}>${money(tot.net, { sign: true, dec: 0 })}</span>`} s=${tot.spent ? 'ROI ' + pct(tot.net / tot.spent, 0) : ''}/>
+      </div></div>
+    ${!rows.length ? html`<${Empty} icon="flame" title="No spending logged yet" body="Add the accounts you blew before Compound, with what you paid for each. You will see exactly what every firm has cost you, and what it paid back."><button class="btn btn-w" onClick=${() => UI.open('blown')}>Add blown account</button><//>`
+    : html`<div class="grid g2">
+      <div class="card"><div class="ch"><span class="lbl">Spent vs paid out, per firm</span></div>
+        <div class="col" style=${{ gap: '12px' }}>${shown.map(r => { const mx = Math.max(1, ...shown.map(x => Math.max(x.spent, x.paid))); return html`<div key=${r.firm} class="col" style=${{ gap: '5px' }}>
+          <div class="row" style=${{ gap: '8px' }}><${FirmLogo} id=${r.firm} s=${20}/><b style=${{ fontSize: '12px' }}>${firmById(r.firm).name}</b><span class="sp"></span><span class=${'tn ' + cls(r.net)} style=${{ fontWeight: 700, fontSize: '12px' }}>${money(r.net, { sign: true, dec: 0 })}</span></div>
+          <div class="spbar"><i class="neg" style=${{ width: (r.spent / mx * 100) + '%' }}></i></div><div class="spbar"><i class="pos" style=${{ width: (r.paid / mx * 100) + '%' }}></i></div>
+          <div class="dim tn" style=${{ fontSize: '10.5px' }}>${money(r.spent, { dec: 0 })} spent · ${money(r.paid, { dec: 0 })} paid out · ${r.blownN} blown${r.liveN ? ' · ' + r.liveN + ' tracked' : ''}</div></div>` })}</div></div>
+      <div class="card" style=${{ padding: 0 }}><div class="ch" style=${{ padding: '16px 20px 0' }}><span class="lbl">Per firm</span></div><div class="scroll-x"><table class="tbl"><thead><tr><th>Firm</th><th class="r">Blown</th><th class="r">Fees lost</th><th class="r">Total spent</th><th class="r">Payouts</th><th class="r">Net</th></tr></thead><tbody>
+        ${shown.map(r => html`<tr key=${r.firm} class="click" onClick=${() => tog(r.firm)}><td><span class="row" style=${{ gap: '8px', flexWrap: 'nowrap' }}><${FirmLogo} id=${r.firm} s=${18}/>${firmById(r.firm).name}</span></td><td class="r tn">${r.blownN}</td><td class="r tn neg">${money(r.blownFees, { dec: 0 })}</td><td class="r tn">${money(r.spent, { dec: 0 })}</td><td class="r tn pos">${money(r.paid, { dec: 0 })}</td><td class=${'r tn ' + cls(r.net)} style=${{ fontWeight: 700 }}>${money(r.net, { sign: true, dec: 0 })}</td></tr>`)}
+        ${shown.length > 1 && html`<tr><td><b>Total</b></td><td class="r tn"><b>${tot.blownN}</b></td><td class="r tn neg"><b>${money(tot.blownFees, { dec: 0 })}</b></td><td class="r tn"><b>${money(tot.spent, { dec: 0 })}</b></td><td class="r tn pos"><b>${money(tot.paid, { dec: 0 })}</b></td><td class=${'r tn ' + cls(tot.net)}><b>${money(tot.net, { sign: true, dec: 0 })}</b></td></tr>`}
+      </tbody></table></div></div></div>
+      <div class="card" style=${{ padding: 0 }}><div class="ch" style=${{ padding: '16px 20px 0' }}><span class="lbl">Blown accounts · ${hist.length + dead.length}</span><span class="sp"></span><button class="btn btn-t xs" onClick=${() => UI.open('blown')}><${I} n="plus" s=${13}/>Add</button></div>
+        <div class="scroll-x"><table class="tbl"><thead><tr><th>Blown on</th><th>Firm</th><th>Account</th><th>Stage</th><th class="r">Count</th><th class="r">Fees</th><th>Note</th></tr></thead><tbody>
+          ${hist.map(b => html`<tr key=${b.id} class="click" onClick=${() => UI.open('blown', { id: b.id })}><td class="tn">${b.d ? fmtDate(parseDay(b.d), { year: true }) : '—'}</td><td><span class="row" style=${{ gap: '8px', flexWrap: 'nowrap' }}><${FirmLogo} id=${b.firm} s=${18}/>${firmById(b.firm).name}</span></td><td class="mut">${b.size ? '$' + (b.size / 1000) + 'K' : ''}${b.plan ? ' · ' + b.plan : ''}</td><td><span class="chip">${b.stage === 'funded' ? 'Funded' : 'Eval'}</span></td><td class="r tn">${Math.max(1, +b.count || 1)}</td><td class="r tn neg" style=${{ fontWeight: 700 }}>${money(blownCost(b), { dec: 0 })}</td><td class="mut">${b.note || ''}</td></tr>`)}
+          ${dead.map(a => html`<tr key=${a.id} class="click" onClick=${() => UI.open('account', { id: a.id })}><td class="tn">${a.blownAt ? fmtDate(parseDay(String(a.blownAt).slice(0, 10)), { year: true }) : '—'}</td><td><span class="row" style=${{ gap: '8px', flexWrap: 'nowrap' }}><${FirmLogo} id=${a.firm} s=${18}/>${firmById(a.firm).name}</span></td><td class="mut">${a.label}</td><td><span class="chip">${a.type === 'funded' ? 'Funded' : 'Eval'}</span></td><td class="r tn">1</td><td class="r tn neg" style=${{ fontWeight: 700 }}>${money(acctCost(a), { dec: 0 })}</td><td class="mut">tracked in Compound</td></tr>`)}
+        </tbody></table></div></div>`}`;
+}
+
 function Propfirm({ C }) {
-  const { S } = C; const [tab, setTab] = useState('accounts'); const [arch, setArch] = useState(false);
+  const { S } = C; const [tab, setTab] = useState(() => LS.get('compound.ptab', 'accounts')); const setTabS = v => { setTab(v); LS.set('compound.ptab', v) }; const [arch, setArch] = useState(false);
   const { all } = useMemo(() => computeTrades(S, { mode: 'all', dedupe: false }), [store.v]);
   const accs = Object.values(S.accounts).sort((a, b) => (a.created || 0) - (b.created || 0));
   const st = a => acctState(a, all, Object.values(S.adjust).filter(x => x.account === a.id));
   const groups = [['eval', 'Evals'], ['funded', 'Funded'], ['live', 'Live & personal']].map(([k, l]) => [l, accs.filter(a => a.type === k && a.status === 'active')]);
   const archived = accs.filter(a => a.status !== 'active');
   const payouts = Object.values(S.payouts).filter(p => p.status === 'paid'); const paid = sum(payouts, p => p.amount);
-  const spent = sum(accs, a => (+a.cost || 0) + (+a.activation || 0));
-  const passed = accs.filter(a => a.status === 'passed' || a.type === 'funded').length, blown = accs.filter(a => a.status === 'blown').length;
+  const hist = Object.values(S.blown || {});
+  const spent = sum(accs, acctCost) + sum(hist, blownCost);
+  const passed = accs.filter(a => a.status === 'passed' || a.type === 'funded').length, blown = accs.filter(a => a.status === 'blown').length + sum(hist, b => Math.max(1, +b.count || 1));
   return html`<div class="page">
-    <${PageHead} title="Prop firms" sub="Every eval, funded account and payout in one place"><${Seg} v=${tab} set=${setTab} opts=${[['accounts', 'Accounts'], ['payouts', 'Payouts'], ['certs', 'Certificates'], ['firms', 'Firms']]}/><//>
+    <${PageHead} title="Prop firms" sub="Every eval, funded account and payout in one place"><${Seg} v=${tab} set=${setTabS} opts=${[['accounts', 'Accounts'], ['spend', 'Spending'], ['payouts', 'Payouts'], ['certs', 'Certificates'], ['firms', 'Firms']]}/><//>
     <div class="grid g6 keep2">
       <${Kpi} small k="Active evals" v=${accs.filter(a => a.type === 'eval' && a.status === 'active').length}/><${Kpi} small k="Funded" v=${accs.filter(a => a.type === 'funded' && a.status === 'active').length}/>
       <${Kpi} small k="Fees spent" v=${money(spent, { dec: 0 })}/><${Kpi} small k="Payouts" v=${html`<span class="pos">${money(paid, { dec: 0 })}</span>`}/>
@@ -2184,11 +2286,12 @@ function Propfirm({ C }) {
       ${groups.filter(g => g[1].length).map(([l, list]) => html`<div key=${l}><div class="lbl" style=${{ marginBottom: '10px' }}>${l} · ${list.length}</div><div class="grid" style=${{ gridTemplateColumns: 'repeat(auto-fill,minmax(330px,1fr))' }}>${list.map(a => html`<${PropCard} key=${a.id} a=${a} st=${st(a)} S=${S}/>`)}</div></div>`)}
       <div class="card tight row"><${I} n="wallet"/><span class="mut">Already funded? Add the account and track it here.</span><span class="sp"></span><button class="btn btn-w sm" onClick=${() => UI.open('account')}>Add funded account</button></div>
       ${archived.length > 0 && html`<div><button class="sech" onClick=${() => setArch(!arch)} style=${{ width: '100%' }}><span class="lbl">Archive · ${archived.length}</span><${I} n="down" c="chev"/></button>${arch && html`<div class="grid" style=${{ gridTemplateColumns: 'repeat(auto-fill,minmax(330px,1fr))' }}>${archived.map(a => html`<${PropCard} key=${a.id} a=${a} st=${st(a)} S=${S}/>`)}</div>`}</div>`}`}
+    ${tab === 'spend' && html`<${Spending} S=${S}/>`}
     ${tab === 'payouts' && html`<div class="card"><div class="ch"><h3>Payouts</h3><span class="sp"></span><button class="btn btn-w sm" onClick=${() => UI.open('payout')}><${I} n="plus"/>Record payout</button></div>
-      ${Object.values(S.payouts).length ? html`<div style=${{ marginBottom: '14px' }}><${Bars} h=${170} color="var(--pos)" data=${Object.values(S.payouts).sort((a, b) => a.d < b.d ? -1 : 1).map(p => ({ l: fmtDate(parseDay(p.d)), v: p.amount, sub: S.accounts[p.account]?.label || '' }))}/></div>
-        <div class="scroll-x"><table class="tbl"><thead><tr><th>Date</th><th>Account</th><th>Status</th><th>Note</th><th class="r">Amount</th></tr></thead><tbody>${Object.values(S.payouts).sort((a, b) => a.d < b.d ? 1 : -1).map(p => html`<tr class="click" key=${p.id} onClick=${() => UI.open('payout', { id: p.id })}><td>${fmtDate(parseDay(p.d), { year: true })}</td><td><span class="row" style=${{ gap: '8px' }}>${S.accounts[p.account] && html`<${FirmLogo} id=${S.accounts[p.account].firm} s=${20}/>`}${S.accounts[p.account]?.label || '—'}</span></td><td><span class=${'status ' + (p.status === 'paid' ? 'st-passed' : 'st-active')}>${p.status}</span></td><td class="mut">${p.note}</td><td class="r pos" style=${{ fontWeight: 700 }}>${money(p.amount)}</td></tr>`)}</tbody></table></div>`
+      ${Object.values(S.payouts).length ? html`<div style=${{ marginBottom: '14px' }}><${Bars} h=${170} color="var(--pos)" data=${Object.values(S.payouts).sort((a, b) => a.d < b.d ? -1 : 1).map(p => ({ l: fmtDate(parseDay(p.d)), v: p.amount, sub: S.accounts[p.account]?.label || (p.firm ? firmById(p.firm).name : '') }))}/></div>
+        <div class="scroll-x"><table class="tbl"><thead><tr><th>Date</th><th>Account</th><th>Status</th><th>Note</th><th class="r">Amount</th></tr></thead><tbody>${Object.values(S.payouts).sort((a, b) => a.d < b.d ? 1 : -1).map(p => html`<tr class="click" key=${p.id} onClick=${() => UI.open('payout', { id: p.id })}><td>${fmtDate(parseDay(p.d), { year: true })}</td><td><span class="row" style=${{ gap: '8px' }}>${payoutFirm(S, p) && html`<${FirmLogo} id=${payoutFirm(S, p)} s=${20}/>`}${S.accounts[p.account]?.label || (p.past ? firmById(p.firm).name + (p.acctLabel ? ' · ' + p.acctLabel : '') : '—')}${p.past && html`<span class="chip" style=${{ height: '20px' }}>previous</span>`}</span></td><td><span class=${'status ' + (p.status === 'paid' ? 'st-passed' : 'st-active')}>${p.status}</span></td><td class="mut">${p.note}</td><td class="r pos" style=${{ fontWeight: 700 }}>${money(p.amount)}</td></tr>`)}</tbody></table></div>`
         : html`<${Empty} icon="wallet" title="No payouts yet" body="Record each withdrawal. Compound shows your real prop ROI: payouts against every fee you paid."/>`}</div>`}
-    ${tab === 'certs' && html`<div class="grid g3">${[...accs.filter(a => a.status === 'passed' || (a.type === 'funded')).map(a => ({ k: 'pass', a, d: a.passedAt || a.start })), ...payouts.map(p => ({ k: 'pay', p, a: S.accounts[p.account], d: p.d }))].sort((x, y) => x.d < y.d ? 1 : -1).map((c, i) => html`<div class="cert" key=${i}>
+    ${tab === 'certs' && html`<div class="grid g3">${[...accs.filter(a => a.status === 'passed' || (a.type === 'funded')).map(a => ({ k: 'pass', a, d: a.passedAt || a.start })), ...payouts.map(p => ({ k: 'pay', p, a: S.accounts[p.account] || (p.firm ? { firm: p.firm, label: p.acctLabel || '' } : null), d: p.d }))].sort((x, y) => x.d < y.d ? 1 : -1).map((c, i) => html`<div class="cert" key=${i}>
         <div class="row"><${Mark} s=${22}/><span class="lbl">${c.k === 'pay' ? 'Payout certificate' : 'Evaluation passed'}</span></div>
         <div><div class="amt tn">${c.k === 'pay' ? money(c.p.amount, { dec: 0 }) : money(+c.a.size, { dec: 0 })}</div><div class="mut">${c.a ? firmById(c.a.firm).name + ' · ' + (c.a.label || '') : ''}</div></div>
         <div class="row"><span class="mono dim" style=${{ fontSize: '9.5px' }}>${S.settings.name.toUpperCase()} · ${c.d ? fmtDate(parseDay(String(c.d).slice(0, 10)), { year: true }).toUpperCase() : ''}</span></div>
@@ -2824,7 +2927,7 @@ function App() {
       case 'detail': return html`<${TradeDetail} ...${p}/>`; case 'account': return html`<${AccountForm} ...${p}/>`; case 'payout': return html`<${PayoutForm} ...${p}/>`;
       case 'strategy': return html`<${StrategyForm} ...${p}/>`; case 'plan': return html`<${PlanForm} ...${p}/>`; case 'review': return html`<${ReviewForm} ...${p}/>`;
       case 'import': return html`<${ImportTrades} ...${p} mode=${p.mode || mode}/>`; case 'settings': return html`<${SettingsWrap} ...${p}/>`; case 'confirm': return html`<${Confirm} ...${p}/>`;
-      case 'assign': return html`<${AssignTrades} ...${p}/>`; case 'delacct': return html`<${DeleteAccount} ...${p}/>`; case 'balance': return html`<${BalanceSync} ...${p}/>`; case 'day': return html`<${DaySheet} ...${p} C=${C} days=${byDay(D.ts)}/>`; default: return null;
+      case 'assign': return html`<${AssignTrades} ...${p}/>`; case 'delacct': return html`<${DeleteAccount} ...${p}/>`; case 'balance': return html`<${BalanceSync} ...${p}/>`; case 'blown': return html`<${BlownForm} ...${p}/>`; case 'day': return html`<${DaySheet} ...${p} C=${C} days=${byDay(D.ts)}/>`; default: return null;
     } })}
   <${Toasts}/><${Tip}/>`;
 }

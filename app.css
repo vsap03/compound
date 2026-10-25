@@ -699,4 +699,15 @@ button.chip:hover{border-color:var(--line3)}
 .selbar.on{padding:6px 10px;border-radius:12px;background:var(--card);border:1px solid var(--accg)}
 .dangerh:hover{color:var(--neg);border-color:var(--neg)}
 
+/* ---------- prop spending ---------- */
+.firmpick{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:6px;max-height:228px;overflow:auto;padding:2px}
+.fp{display:flex;align-items:center;gap:8px;padding:7px 9px;border-radius:10px;background:var(--card2);border:1px solid var(--line);font-size:11.5px;text-align:left;min-width:0}
+.fp span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fp:hover{border-color:var(--line3)}
+.fp.on{border-color:var(--acc);background:var(--accs);color:var(--fg)}
+.firmchip{padding-left:4px}
+.spbar{height:6px;border-radius:3px;background:var(--card2);overflow:hidden}
+.spbar i{display:block;height:100%;border-radius:3px}
+.spbar i.neg{background:var(--neg)}.spbar i.pos{background:var(--pos)}
+
 body{padding-top:env(safe-area-inset-top,0px)}
