@@ -706,6 +706,12 @@ function CountUp({ v, fmt }) {
 }
 
 /* ---------- SVG charts ---------- */
+/* tablets (iPad): touch screens wider than a phone get the bottom tab bar and slide-over side panels */
+const TABLET_Q = '(pointer:coarse) and (min-width:761px)';
+const isTablet = () => { try { return matchMedia(TABLET_Q).matches } catch (e) { return false } };
+const deskNarrow = () => innerWidth <= 1020 || (isTablet() && innerWidth <= 1100);
+const railNarrow = () => innerWidth <= 1280 || (isTablet() && innerWidth <= 1366);
+function useViewport() { const [, set] = useState(0); useEffect(() => { let t; const f = () => { clearTimeout(t); t = setTimeout(() => set(n => n + 1), 80) }; addEventListener('resize', f); addEventListener('orientationchange', f); return () => { removeEventListener('resize', f); removeEventListener('orientationchange', f) } }, []) }
 function useWidth(def = 600) {
   const ref = useRef(); const [w, setW] = useState(def);
   useLayoutEffect(() => { const el = ref.current; if (!el) return; const f = () => { const x = Math.round(el.getBoundingClientRect().width); if (x > 40) setW(x) }; f(); const ro = new ResizeObserver(f); ro.observe(el); return () => ro.disconnect() }, []);
@@ -1983,7 +1989,7 @@ function tvSymFor(sym) { const f = instr(sym).fam; const saved = LS.get('compoun
 function TVLive({ symbol, interval = '5', h, studies = [], fill = false }) {
   const wrap = useRef(); const el = useRef(); const [hh, setHh] = useState(h || 560); const [full, setFull] = useState(false);
   useLayoutEffect(() => {
-    if (!fill) return; const fit = () => { const r = wrap.current?.getBoundingClientRect(); if (!r) return; setHh(Math.max(420, Math.round(innerHeight - r.top - (innerWidth < 760 ? 86 : 64)))) };
+    if (!fill) return; const fit = () => { const r = wrap.current?.getBoundingClientRect(); if (!r) return; setHh(Math.max(420, Math.round(innerHeight - r.top - (innerWidth < 760 || isTablet() ? 92 : 64)))) };
     fit(); addEventListener('resize', fit); const t = setTimeout(fit, 120); return () => { removeEventListener('resize', fit); clearTimeout(t) };
   }, [fill]);
   useEffect(() => { if (!full) return; const k = e => e.key === 'Escape' && setFull(false); addEventListener('keydown', k); return () => removeEventListener('keydown', k) }, [full]);
@@ -2470,7 +2476,7 @@ function AIPage({ C, params }) {
   };
   const undo = acts => { acts.forEach(a => a.c && a.id && store.del(a.c, a.id)); toast('Undone') };
   const sugg = mode === 'coach' ? ["What's my biggest leak right now?", 'Which setup should I stop trading?', 'How close am I to passing my eval, and what is the safest way to finish it?', 'Review my last 10 trades like a prop desk head', 'Build me a pre-market routine from my own data', 'When do I trade best, by time of day?'] : ['Log MNQ long 2 contracts on Lucid, copied to my Tradeify accounts, entry 21450 exit 21478 stop 21438, A grade, FVG', 'Add a Tradeify 50K Select eval, fee $159', 'Record a $1,250 payout from my Lucid account', 'Write today\'s plan: bearish below 21,500, focus on patience', 'Save a note: rules from today\'s session'];
-  return html`<div style=${{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+  return html`<div style=${{ height: '100%', minHeight: 0, flex: '1 1 auto', display: 'flex', flexDirection: 'column' }}>
     <div class="row" style=${{ padding: '14px 22px', borderBottom: '1px solid var(--line)', gap: '10px' }}>
       <span class="logo" style=${{ width: '30px', height: '30px', background: 'linear-gradient(135deg,#5B35E8,#9D7BFF)' }}><${I} n="spark" s=${16}/></span><b style=${{ fontSize: '15px' }}>${tab === 'report' ? 'Score & psychology' : mode === 'coach' ? 'Coach' : 'CoWork'}</b>
       ${tab !== 'report' && html`<select class="sel" style=${{ width: 'auto', maxWidth: '260px', height: '32px', padding: '4px 28px 4px 10px' }} value=${chatId || ''} onChange=${e => setChatId(e.target.value || null)}><option value="">New conversation</option>${chats.map(c => html`<option value=${c.id}>${c.title}</option>`)}</select>${chat && html`<button class="ib" onClick=${() => UI.confirm({ title: 'Delete conversation?', body: 'This chat is removed.', onYes: () => { store.del('chats', chat.id); setChatId(null) } })} aria-label="Delete conversation"><${I} n="trash"/></button>`}`}
@@ -2717,7 +2723,7 @@ function Rail({ C }) {
 }
 
 function App() {
-  const S = useStore();
+  const S = useStore(); useViewport();
   const hv = () => { const h = location.hash.slice(1); return VIEWS.find(v => v[0] === h) || h === 'flex' ? h : null };
   const [view, setView] = useState(() => hv() || LS.get('compound.view', 'dashboard'));
   const [params, setParams] = useState(null);
@@ -2742,7 +2748,7 @@ function App() {
   const validA = accts.filter(id => S.accounts[id]);
   const F = { mode, accounts: validA, account: validA.length === 1 ? validA[0] : 'all' };
   const D = useMemo(() => computeTrades(S, F), [store.v, F.mode, validA.join(',')]);
-  const C = { S, D, F, go, setMode, toggleHide, toggleDesk: () => { if (innerWidth <= 1020) setLo(false); else { setLc(!lc); LS.set('compound.ldc', !lc) } }, toggleRail: () => { if (innerWidth <= 1280) setRo(false); else { setRc(!rc); LS.set('compound.rdc', !rc) } } };
+  const C = { S, D, F, go, setMode, toggleHide, toggleDesk: () => { if (deskNarrow()) setLo(false); else { setLc(!lc); LS.set('compound.ldc', !lc) } }, toggleRail: () => { if (railNarrow()) setRo(false); else { setRc(!rc); LS.set('compound.rdc', !rc) } } };
   useEffect(() => {
     const k = e => { if (e.target.closest && e.target.closest('input,textarea,select,[contenteditable]')) return; if (e.metaKey || e.ctrlKey || e.altKey) return; if (modals.length) return;
       if (e.key === 'n') { e.preventDefault(); UI.open('trade', { mode }) } else if (e.key === 'q') { e.preventDefault(); UI.open('quick', { mode }) } else if (e.key === '/') { e.preventDefault(); go('journal'); setTimeout(() => document.getElementById('tsearch')?.focus(), 80) } else if (e.key === 'h') toggleHide(); else if (/^[1-9]$/.test(e.key)) { const v = VIEWS.filter(x => x !== '|')[+e.key - 1]; v && go(v[0]) } };
@@ -2757,7 +2763,7 @@ function App() {
   if (store.mode === 'setup') return html`<${Setup}/><${Toasts}/>`;
   return html`<div class=${'shell' + (lc ? ' ldc' : '') + (rc || full || wide ? ' rdc' : '') + (lo ? ' ldo' : '') + (ro ? ' rdo' : '') + (full || wide ? ' ldc' : '')}>
     <header class="top">
-      <div class="l"><button class="ib" style=${{ display: lc || innerWidth <= 1020 || full ? 'grid' : 'none' }} onClick=${() => { if (innerWidth <= 1020) setLo(!lo); else { setLc(false); LS.set('compound.ldc', false) } }} aria-label="Accounts"><${I} n="dright" s=${14}/></button>
+      <div class="l"><button class="ib" style=${{ display: lc || deskNarrow() || full ? 'grid' : 'none' }} onClick=${() => { if (deskNarrow()) setLo(!lo); else { setLc(false); LS.set('compound.ldc', false) } }} aria-label="Accounts"><${I} n="dright" s=${14}/></button>
         <button class="mark" onClick=${() => go('dashboard')} aria-label="Compound home"><${Mark} s=${26}/><span class="wm mob-only" style=${{ fontSize: '15px' }}>Compound</span></button>
         <div style=${{ position: 'relative' }}><button class=${'pill' + (validA.length ? ' hot' : '')} onClick=${() => setAm(!am)} title="Choose which accounts everything shows"><${I} n="layers" s=${13}/><b>${scope}</b><${I} n="down" s=${12}/></button>
           <${AcctMenu} open=${am} onClose=${() => setAm(false)} S=${S} sel=${validA} setSel=${setAccts} tog=${togAcct}/></div>${F.mode === 'paper' && html`<span class="pill" style=${{ color: 'var(--gold)' }}>Paper</span>`}</div>
@@ -2765,11 +2771,11 @@ function App() {
       <div class="r"><button class="ib mob-only" onClick=${() => toast(sync[1])} aria-label=${sync[1]} title=${sync[1]}><span class=${'dot ' + sync[0]}></span></button><button class=${'ib flexbtn' + (view === 'flex' ? ' on' : '')} onClick=${() => go('flex')} title="Flex your results" aria-label="Flex"><span class="flexd">$</span></button><button class="ib hide-m" onClick=${toggleHide} title="Hide P&L (h)"><${I} n=${UIS.hide ? 'eyeoff' : 'eye'}/></button>
         <button class="ib" onClick=${() => UI.open('quick', { mode })} title="Quick log (q)"><${I} n="bolt"/></button>
         <button class="ib" onClick=${() => UI.open('settings')} title="Settings"><${I} n="palette"/></button>
-        <button class="ib" style=${{ display: rc || innerWidth <= 1280 || full ? 'grid' : 'none' }} onClick=${() => { if (innerWidth <= 1280) setRo(!ro); else { setRc(false); LS.set('compound.rdc', false) } }} aria-label="Today panel"><${I} n="cal"/></button>
+        <button class="ib" style=${{ display: rc || railNarrow() || full ? 'grid' : 'none' }} onClick=${() => { if (railNarrow()) setRo(!ro); else { setRc(false); LS.set('compound.rdc', false) } }} aria-label="Today panel"><${I} n="cal"/></button>
         <span class="ava hide-m">${(S.settings.name || 'V')[0]}</span></div>
     </header>
     ${!full && !wide && html`<${Desk} C=${C} onPick=${id => togAcct(id)}/>`}
-    <main class="main" ref=${mainRef} style=${full ? { overflow: 'hidden' } : null}>
+    <main class="main" ref=${mainRef} style=${full ? { overflow: 'hidden', display: 'flex', flexDirection: 'column' } : null}>
       ${store.mode === 'local' && html`<div class="card tight row" style=${{ margin: '14px 30px 0', borderColor: 'var(--warn)' }}><span class="dot wait"></span><span style=${{ flex: 1, fontSize: '12px' }}>Not syncing. This copy saves to this browser only. Use your Compound app (home-screen / taskbar icon) so trades show up on every device.</span></div>`}
       ${store.localPending && html`<div class="card tight row" style=${{ margin: '14px 30px 0', borderColor: 'var(--accg)' }}><${I} n="refresh"/><span style=${{ flex: 1 }}>You have journal data saved in this browser from before sync was on.</span><button class="btn btn-w sm" onClick=${() => store.migrateLocal()}>Move it into my synced journal</button><button class="btn btn-t sm" onClick=${() => store.dismissLocal()}>Not now</button></div>`}
       <${V} C=${C} params=${params}/></main>
