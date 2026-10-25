@@ -519,4 +519,6 @@ button.chip:hover{border-color:var(--line3)}
 .ib.flexon{color:var(--gold);background:var(--golds)}
 @media (hover:hover) and (pointer:fine){.ib:hover svg[data-x]{}}
 
+.fxcanvas{position:fixed;inset:0;pointer-events:none;z-index:66}
+
 body{padding-top:env(safe-area-inset-top,0px)}

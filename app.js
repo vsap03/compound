@@ -556,6 +556,7 @@ const fileDownloads = { save: async ({ filename, data }) => { const b = data ins
 
 /* login screen for the standalone app */
 function Login() {
+  useEffect(() => { fx.init(); fx.network(true); return () => fx.network(false) }, []);
   const [email, setEmail] = useState(LS.get('compound.email', '')); const [pw, setPw] = useState(''); const [mode, setMode] = useState('in'); const [busy, setBusy] = useState(false); const [err, setErr] = useState('');
   const go = async e => {
     e.preventDefault(); setBusy(true); setErr('');
@@ -567,7 +568,7 @@ function Login() {
     } catch (x) { setErr(x.message === 'Invalid login credentials' ? 'Wrong email or password.' : x.message) }
     setBusy(false);
   };
-  return html`<div style=${{ minHeight: '100%', display: 'grid', placeItems: 'center', padding: '24px max(16px,env(safe-area-inset-left,0px))', background: 'radial-gradient(60% 40% at 50% 30%,var(--accs),transparent),var(--bg)' }}>
+  return html`<div style=${{ minHeight: '100%', display: 'grid', placeItems: 'center', padding: '24px max(16px,env(safe-area-inset-left,0px))', background: 'radial-gradient(60% 40% at 50% 30%,var(--accs),transparent)', position: 'relative', zIndex: 1 }}>
     <form onSubmit=${go} class="col" style=${{ width: 'min(380px,100%)', gap: '14px' }}>
       <div class="col" style=${{ alignItems: 'center', gap: '10px', marginBottom: '10px' }}><${Mark} s=${54}/><div class="wm" style=${{ fontSize: '30px' }}>Compound</div><div class="mut" style=${{ textAlign: 'center' }}>${mode === 'in' ? 'Sign in to your journal. It syncs to every device you sign in on.' : 'Create your private journal account. Use it on every device.'}</div></div>
       <${Field} label="Email"><input id="lg-email" class="in" type="email" autocomplete="email" required value=${email} onInput=${e => setEmail(e.target.value)}/><//>
@@ -813,6 +814,140 @@ function EquityChart({ series, h = 260, area = true }) {
   document.addEventListener('pointerleave', () => { if (last) { last.style.removeProperty('--rx'); last.style.removeProperty('--ry'); last = null } });
 })();
 
+/* ================= Compound · particle engine =================
+   One full-screen canvas above the page (pointer-events: none), drawn additively in dark mode.
+   Layers: ambient dust + bokeh with cursor swirl, element emitters (hero embers, radar sparkles,
+   orbiting rings, AI thinking motes), click sparks, and event bursts (win confetti, loss ash,
+   payout coins, eval-pass fireworks). Pauses when hidden; scales down on phones; off with reduced motion. */
+const fx = (() => {
+  const S = { level: 'full', cv: null, x: null, w: 0, h: 0, dpr: 1, run: false, dust: [], parts: [], emit: new Map(), mx: -9999, my: -9999, mvx: 0, mvy: 0, t: 0, light: false, reduced: false, network: false, frame: 0, lastTrail: 0 };
+  const fine = matchMedia('(hover:hover) and (pointer:fine)').matches; const phone = innerWidth < 760;
+  const rnd = (a, b) => a + Math.random() * (b - a); const pick = a => a[(Math.random() * a.length) | 0];
+  const hex = (h, a) => { h = (h || '#5B8CFF').trim(); if (h.startsWith('rgb')) return h.replace(/rgba?\(([^)]+)\)/, (m, v) => `rgba(${v.split(',').slice(0, 3).join(',')},${a})`); if (h.length === 4) h = '#' + [...h.slice(1)].map(c => c + c).join(''); const n = parseInt(h.slice(1, 7), 16); return `rgba(${n >> 16 & 255},${n >> 8 & 255},${n & 255},${a})` };
+  const pal = () => ({ acc: cssv('--acc') || '#5B8CFF', ai: cssv('--ai') || '#9D7BFF', pos: cssv('--pos') || '#35D49A', neg: cssv('--neg') || '#FF5A6E', gold: cssv('--gold') || '#F3B43F', fg: cssv('--fg') || '#F2F2F2' });
+  let P = pal();
+  function size() { const c = S.cv; S.dpr = Math.min(2, devicePixelRatio || 1); S.w = innerWidth; S.h = innerHeight; c.width = S.w * S.dpr; c.height = S.h * S.dpr; c.style.width = S.w + 'px'; c.style.height = S.h + 'px'; S.x.setTransform(S.dpr, 0, 0, S.dpr, 0, 0); seedDust() }
+  function seedDust() {
+    const lvl = S.level; if (lvl === 'off' || S.reduced) { S.dust = []; return }
+    const base = (S.w * S.h) / (phone ? 26000 : 17000) * (lvl === 'subtle' ? .55 : 1) * (S.network ? 1.6 : 1);
+    const n = Math.min(S.network ? 150 : 110, Math.round(base)); S.dust = [];
+    for (let i = 0; i < n; i++) { const z = Math.random(); S.dust.push({ x: rnd(0, S.w), y: rnd(0, S.h), z, vx: rnd(-.06, .06), vy: rnd(-.12, -.02), r: .5 + z * 1.6, a: .08 + z * .32, tw: rnd(0, 6.28), ts: rnd(.6, 1.8), c: Math.random() < .14 ? 'ai' : Math.random() < .08 ? 'gold' : 'acc' }) }
+    const orbs = S.network ? 0 : (lvl === 'subtle' ? 3 : phone ? 3 : 6);
+    for (let i = 0; i < orbs; i++) S.dust.push({ orb: true, x: rnd(0, S.w), y: rnd(0, S.h), vx: rnd(-.08, .08), vy: rnd(-.06, .06), r: rnd(70, 180), a: rnd(.025, .055), c: pick(['acc', 'ai', 'acc']), z: .2, tw: rnd(0, 6), ts: rnd(.1, .3) });
+  }
+  function add(p) { if (S.parts.length > (phone ? 360 : 700)) S.parts.shift(); S.parts.push(p); wake() }
+  /* ---------- spawners ---------- */
+  function spark(x, y, o = {}) { const n = o.n ?? 14, col = o.color || P.acc, sp = o.speed ?? 3.2; for (let i = 0; i < n; i++) { const a = o.dir != null ? o.dir + rnd(-(o.spread ?? .6), o.spread ?? .6) : rnd(0, 6.283), v = rnd(.35, 1) * sp; add({ k: 'spark', x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 0, max: rnd(28, 52) * (o.long ? 1.6 : 1), r: rnd(.8, 2.2) * (o.big ? 1.6 : 1), c: Array.isArray(col) ? pick(col) : col, drag: .93, g: o.g ?? .04 }) } }
+  function confetti(x, y, o = {}) { const n = o.n ?? 90, cols = o.colors || [P.gold, P.pos, P.acc, P.ai, '#ffffff']; for (let i = 0; i < n; i++) { const a = rnd(-Math.PI * .92, -Math.PI * .08), v = rnd(5, 13) * (o.power ?? 1); add({ k: 'conf', x: x + rnd(-20, 20), y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 0, max: rnd(90, 150), w: rnd(5, 9), h: rnd(8, 14), rot: rnd(0, 6.28), vr: rnd(-.25, .25), flip: rnd(0, 6.28), vf: rnd(.08, .2), c: pick(cols), drag: .975, g: .16 }) } }
+  function coins(x, y, o = {}) { const n = o.n ?? 26; for (let i = 0; i < n; i++) { const a = rnd(-Math.PI * .85, -Math.PI * .15), v = rnd(5, 11); add({ k: 'coin', x: x + rnd(-30, 30), y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 0, max: rnd(100, 150), r: rnd(6, 10), flip: rnd(0, 6.28), vf: rnd(.15, .3), drag: .98, g: .22 }) } spark(x, y, { n: 30, color: [P.gold, '#fff3c4'], speed: 5, long: true }) }
+  function ash(x, y, o = {}) { const n = o.n ?? 22; for (let i = 0; i < n; i++) add({ k: 'ash', x: x + rnd(-140, 140), y: y + rnd(-30, 30), vx: rnd(-.3, .3), vy: rnd(-.4, .3), life: 0, max: rnd(120, 200), r: rnd(1, 2.6), c: Math.random() < .3 ? P.neg : '#8E8E8E', drag: .99, g: .012, sway: rnd(0, 6) }) }
+  function firework(x, y, col) { add({ k: 'rocket', x, y: S.h + 10, tx: x, ty: y, vx: rnd(-1, 1), vy: -rnd(13, 16), life: 0, max: 200, c: col, r: 2.4, drag: 1, g: .19 }) }
+  function ring(x, y, col, R = 40) { add({ k: 'ring', x, y, life: 0, max: 34, R, c: col }) }
+  /* ---------- emitters bound to elements ---------- */
+  function emitter(el, o) { if (!el) return () => { }; S.emit.set(el, { ...o, acc: 0, rect: null, rf: -99, ang: rnd(0, 6.28) }); wake(); return () => S.emit.delete(el) }
+  function runEmitters() {
+    if (S.level === 'off' || S.reduced) return;
+    for (const [el, e] of S.emit) {
+      if (!el.isConnected) { S.emit.delete(el); continue }
+      if (S.frame - e.rf > 20) { e.rect = el.getBoundingClientRect(); e.rf = S.frame }
+      const r = e.rect; if (!r || r.bottom < 0 || r.top > S.h || r.width === 0) continue;
+      const mul = S.level === 'subtle' ? .45 : 1; e.acc += (e.rate || .3) * mul;
+      const col = typeof e.color === 'function' ? e.color() : (e.color || P.acc);
+      while (e.acc >= 1) {
+        e.acc -= 1;
+        if (e.type === 'rise') add({ k: 'ember', x: rnd(r.left + r.width * .05, r.right - r.width * .05), y: rnd(r.top + r.height * .55, r.bottom), vx: rnd(-.25, .25), vy: -rnd(.35, 1.1), life: 0, max: rnd(70, 130), r: rnd(.8, 2.2), c: col, drag: .995, g: -.004, sway: rnd(0, 6.28) });
+        else if (e.type === 'sparkle') { const a = rnd(0, 6.28), rr = Math.max(r.width, r.height) * .5 * rnd(.55, 1.05); add({ k: 'twinkle', x: r.left + r.width / 2 + Math.cos(a) * rr, y: r.top + r.height / 2 + Math.sin(a) * rr, vx: 0, vy: -rnd(0, .2), life: 0, max: rnd(40, 80), r: rnd(1.5, 3.2), c: col, drag: 1, g: 0 }) }
+        else if (e.type === 'orbit') { e.ang += .55; const cx = r.left + r.width / 2, cy = r.top + r.height / 2, R = r.width * .62; add({ k: 'orb', cx, cy, a: e.ang, R, va: .045, life: 0, max: rnd(50, 80), r: rnd(.9, 1.8), c: col }) }
+        else if (e.type === 'think') { const a = rnd(0, 6.28); add({ k: 'spark', x: r.left + r.width / 2 + Math.cos(a) * 12, y: r.top + r.height / 2 + Math.sin(a) * 12, vx: Math.cos(a) * rnd(.3, 1), vy: Math.sin(a) * rnd(.3, 1) - .3, life: 0, max: rnd(30, 60), r: rnd(.8, 1.8), c: col, drag: .97, g: -.01 }) }
+        else if (e.type === 'edge') { const per = 2 * (r.width + r.height); let d = rnd(0, per), px, py; if (d < r.width) { px = r.left + d; py = r.top } else if ((d -= r.width) < r.height) { px = r.right; py = r.top + d } else if ((d -= r.height) < r.width) { px = r.right - d; py = r.bottom } else { px = r.left; py = r.bottom - (d - r.width) } add({ k: 'twinkle', x: px, y: py, vx: rnd(-.2, .2), vy: rnd(-.3, 0), life: 0, max: rnd(40, 70), r: rnd(1, 2.4), c: col, drag: 1, g: 0 }) }
+      }
+    }
+  }
+  /* ---------- loop ---------- */
+  function wake() { if (!S.run && S.cv && document.visibilityState === 'visible') { S.run = true; requestAnimationFrame(loop) } }
+  function loop() {
+    if (!S.run) return; S.frame++; S.t += 1 / 60;
+    const x = S.x; x.clearRect(0, 0, S.w, S.h);
+    x.globalCompositeOperation = S.light ? 'source-over' : 'lighter';
+    const am = S.light ? .55 : 1;
+    // ambient
+    const mx = S.mx, my = S.my; S.mvx *= .9; S.mvy *= .9;
+    for (const d of S.dust) {
+      if (d.orb) { d.x += d.vx; d.y += d.vy; if (d.x < -d.r) d.x = S.w + d.r; if (d.x > S.w + d.r) d.x = -d.r; if (d.y < -d.r) d.y = S.h + d.r; if (d.y > S.h + d.r) d.y = -d.r; const g = x.createRadialGradient(d.x, d.y, 0, d.x, d.y, d.r); g.addColorStop(0, hex(P[d.c], d.a * am * (.8 + .2 * Math.sin(S.t * d.ts + d.tw)))); g.addColorStop(1, hex(P[d.c], 0)); x.fillStyle = g; x.beginPath(); x.arc(d.x, d.y, d.r, 0, 6.283); x.fill(); continue }
+      const dx = d.x - mx, dy = d.y - my, dist2 = dx * dx + dy * dy;
+      if (dist2 < 22000) { const f = (1 - dist2 / 22000) * (.6 + d.z); d.vx += (dx * .0009 - dy * .0012) * f + S.mvx * .02 * f; d.vy += (dy * .0009 + dx * .0012) * f + S.mvy * .02 * f }
+      d.vx = d.vx * .985 + (Math.random() - .5) * .004; d.vy = d.vy * .985 + (-.05 * (.3 + d.z) - d.vy) * .01;
+      d.x += d.vx * (.5 + d.z); d.y += d.vy * (.5 + d.z);
+      if (d.y < -5) { d.y = S.h + 5; d.x = rnd(0, S.w) } if (d.x < -5) d.x = S.w + 5; if (d.x > S.w + 5) d.x = -5; if (d.y > S.h + 5) d.y = -5;
+      const tw = .55 + .45 * Math.sin(S.t * d.ts * 2 + d.tw);
+      x.fillStyle = hex(P[d.c], d.a * tw * am); x.beginPath(); x.arc(d.x, d.y, d.r, 0, 6.283); x.fill();
+    }
+    if (S.network) { x.lineWidth = .6; const D = S.dust; for (let i = 0; i < D.length; i++) { const a = D[i]; if (a.orb) continue; for (let j = i + 1; j < D.length; j++) { const b = D[j]; if (b.orb) continue; const dx = a.x - b.x, dy = a.y - b.y, q = dx * dx + dy * dy; if (q < 13000) { x.strokeStyle = hex(P.acc, (1 - q / 13000) * .22 * am); x.beginPath(); x.moveTo(a.x, a.y); x.lineTo(b.x, b.y); x.stroke() } } if (mx > 0) { const dx = a.x - mx, dy = a.y - my, q = dx * dx + dy * dy; if (q < 26000) { x.strokeStyle = hex(P.ai, (1 - q / 26000) * .45 * am); x.beginPath(); x.moveTo(a.x, a.y); x.lineTo(mx, my); x.stroke() } } } }
+    runEmitters();
+    // particles
+    const keep = [];
+    for (const p of S.parts) {
+      p.life++; const t = p.life / p.max; if (t >= 1) { if (p.k === 'rocket') burstAt(p) ; continue }
+      if (p.k === 'orb') { p.a += p.va; const px = p.cx + Math.cos(p.a) * p.R, py = p.cy + Math.sin(p.a) * p.R * .42; const al = Math.sin(t * Math.PI) * am; x.fillStyle = hex(p.c, al * .9); x.beginPath(); x.arc(px, py, p.r, 0, 6.283); x.fill(); keep.push(p); continue }
+      if (p.k === 'ring') { const al = (1 - t) * .7 * am; x.strokeStyle = hex(p.c, al); x.lineWidth = 2 * (1 - t) + .5; x.beginPath(); x.arc(p.x, p.y, p.R * (.2 + t), 0, 6.283); x.stroke(); keep.push(p); continue }
+      p.vx *= p.drag; p.vy = p.vy * p.drag + p.g; if (p.sway != null) { p.sway += .05; p.vx += Math.sin(p.sway) * .02 }
+      p.x += p.vx; p.y += p.vy;
+      if (p.k === 'rocket') { if (p.vy >= -1 || p.y <= p.ty) { burstAt(p); continue } x.fillStyle = hex('#ffffff', .9 * am); x.beginPath(); x.arc(p.x, p.y, 2, 0, 6.283); x.fill(); if (S.frame % 2 === 0) add({ k: 'spark', x: p.x, y: p.y, vx: rnd(-.3, .3), vy: rnd(.5, 1.5), life: 0, max: 26, r: 1.2, c: p.c, drag: .95, g: .02 }); keep.push(p); continue }
+      const al = (p.k === 'ember' || p.k === 'twinkle' ? Math.sin(t * Math.PI) : 1 - t * t) * am;
+      if (p.k === 'conf') { p.rot += p.vr; p.flip += p.vf; const sx = Math.cos(p.flip); x.save(); x.translate(p.x, p.y); x.rotate(p.rot); x.scale(sx, 1); x.fillStyle = hex(p.c, Math.min(1, (1 - t) * 1.6) * am); x.fillRect(-p.w / 2, -p.h / 2, p.w, p.h); x.restore() }
+      else if (p.k === 'coin') { p.flip += p.vf; const sx = Math.abs(Math.cos(p.flip)) * .9 + .1; x.save(); x.translate(p.x, p.y); x.scale(sx, 1); const g = x.createRadialGradient(-p.r * .3, -p.r * .3, 0, 0, 0, p.r); g.addColorStop(0, hex('#FFF1C2', al)); g.addColorStop(.6, hex(P.gold, al)); g.addColorStop(1, hex('#9A6A10', al)); x.fillStyle = g; x.beginPath(); x.arc(0, 0, p.r, 0, 6.283); x.fill(); if (sx > .5) { x.fillStyle = hex('#7A520A', al * .8); x.font = `900 ${p.r * 1.3}px Satoshi, sans-serif`; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('$', 0, 1) } x.restore() }
+      else if (p.k === 'twinkle') { const s = p.r * (1 + .3 * Math.sin(p.life * .3)); x.strokeStyle = hex(p.c, al * .95); x.lineWidth = 1; x.beginPath(); x.moveTo(p.x - s * 2.2, p.y); x.lineTo(p.x + s * 2.2, p.y); x.moveTo(p.x, p.y - s * 2.2); x.lineTo(p.x, p.y + s * 2.2); x.stroke(); x.fillStyle = hex('#ffffff', al * .9); x.beginPath(); x.arc(p.x, p.y, s * .55, 0, 6.283); x.fill() }
+      else { x.fillStyle = hex(p.c, al * .95); x.beginPath(); x.arc(p.x, p.y, p.r * (p.k === 'spark' ? (1 - t * .5) : 1), 0, 6.283); x.fill(); if (p.r > 1.4 && !S.light) { x.fillStyle = hex(p.c, al * .18); x.beginPath(); x.arc(p.x, p.y, p.r * 3.2, 0, 6.283); x.fill() } }
+      keep.push(p);
+    }
+    S.parts = keep;
+    if (!S.dust.length && !S.parts.length && !S.emit.size) { S.run = false; x.clearRect(0, 0, S.w, S.h); return }
+    requestAnimationFrame(loop);
+  }
+  function burstAt(p) { const cols = p.c === 'multi' ? [P.gold, P.pos, P.acc, P.ai, '#fff'] : [p.c, '#ffffff']; for (let i = 0; i < 70; i++) { const a = rnd(0, 6.283), v = rnd(1.5, 6.5); add({ k: 'spark', x: p.x, y: p.y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 0, max: rnd(50, 90), r: rnd(1, 2.4), c: pick(cols), drag: .955, g: .06 }) } ring(p.x, p.y, p.c === 'multi' ? P.gold : p.c, 90) }
+  /* ---------- public ---------- */
+  const api = {
+    init() {
+      if (S.cv) return; S.reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const c = document.createElement('canvas'); c.className = 'fxcanvas'; c.setAttribute('aria-hidden', 'true'); document.body.appendChild(c); S.cv = c; S.x = c.getContext('2d'); size();
+      addEventListener('resize', () => { clearTimeout(S.rz); S.rz = setTimeout(size, 150) });
+      document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') wake(); else S.run = false });
+      addEventListener('pointermove', e => { if (e.pointerType !== 'mouse') return; S.mvx = e.clientX - S.mx; S.mvy = e.clientY - S.my; if (Math.abs(S.mvx) > 200) S.mvx = 0; if (Math.abs(S.mvy) > 200) S.mvy = 0; S.mx = e.clientX; S.my = e.clientY; api.trail(e) }, { passive: true });
+      document.addEventListener('pointerleave', () => { S.mx = S.my = -9999 });
+      document.addEventListener('pointerdown', e => api.click(e), { passive: true, capture: true });
+      wake();
+    },
+    setLevel(l) { S.level = l || 'full'; seedDust(); wake() },
+    theme() { P = pal(); S.light = document.documentElement.classList.contains('lt'); },
+    network(on) { if (S.network === !!on) return; S.network = !!on; if (S.cv) S.cv.style.zIndex = on ? '0' : ''; seedDust(); wake() },
+    emitter, spark, ring,
+    trail(e) { if (!fine || S.level !== 'full' || S.reduced) return; const now = performance.now(); if (now - S.lastTrail < 34) return; const el = e.target.closest && e.target.closest('.tc,.card,.cert,.acct,.btn-w,.btn-ai,.hero,.flexwrap'); if (!el) return; S.lastTrail = now; const sp = Math.hypot(S.mvx, S.mvy); if (sp < 2) return; const col = el.classList.contains('btn-ai') ? P.ai : el.classList.contains('cert') ? P.gold : P.acc; add({ k: 'spark', x: e.clientX + rnd(-3, 3), y: e.clientY + rnd(-3, 3), vx: -S.mvx * .04 + rnd(-.3, .3), vy: -S.mvy * .04 + rnd(-.3, .3), life: 0, max: rnd(22, 38), r: rnd(.7, 1.6), c: col, drag: .94, g: .01 }) },
+    click(e) {
+      if (S.level === 'off' || S.reduced) return; const t = e.target.closest && e.target.closest('.btn-w,.btn-ai,.btn-a,.chk,.grade,.copytog,.tab,.chip,.seg button,.cell,.firm'); if (!t) return;
+      const x = e.clientX, y = e.clientY; const cl = t.classList; const sub = S.level === 'subtle';
+      if (cl.contains('btn-ai')) { spark(x, y, { n: sub ? 10 : 22, color: [P.ai, '#C9B6FF', '#fff'], speed: 3.6 }); ring(x, y, P.ai, 34) }
+      else if (cl.contains('chk')) { const on = !cl.contains('on'); if (on) { spark(x, y, { n: sub ? 8 : 16, color: [P.pos, '#bff5df'], speed: 2.6 }); ring(x, y, P.pos, 22) } }
+      else if (cl.contains('grade')) { const g = t.textContent.trim(); spark(x, y, { n: g === 'A+' ? 30 : 10, color: g === 'A+' ? [P.gold, '#FFE7A8', '#fff'] : g === 'D' ? [P.neg] : [P.acc, '#fff'], speed: g === 'A+' ? 4.5 : 2.4, big: g === 'A+' }); if (g === 'A+') ring(x, y, P.gold, 40) }
+      else if (cl.contains('btn-w') || cl.contains('btn-a')) { spark(x, y, { n: sub ? 8 : 16, color: [P.fg, P.acc], speed: 3 }); ring(x, y, P.acc, 30) }
+      else if (cl.contains('cell')) { spark(x, y, { n: 10, color: [P.acc, '#fff'], speed: 2.2 }) }
+      else { if (!sub) spark(x, y, { n: 6, color: P.acc, speed: 1.8 }) }
+    },
+    /* outcome of a logged trade: confetti for wins, quiet ash for losses */
+    trade(pnl, big) { if (S.level === 'off' || S.reduced || pnl == null) return; const cx = S.w / 2, cy = S.h * .62; if (pnl > 0) { confetti(cx, cy, { n: big ? 140 : 80, power: big ? 1.15 : .9 }); spark(cx, cy, { n: 40, color: [P.pos, P.gold, '#fff'], speed: 6, long: true }); ring(cx, cy, P.pos, 120) } else if (pnl < 0) { ash(cx, S.h * .35, { n: 26 }) } else spark(cx, cy, { n: 20, color: '#8E8E8E', speed: 3 }) },
+    payout() { if (S.level === 'off' || S.reduced) return; coins(S.w / 2, S.h * .7, { n: 34 }); confetti(S.w / 2, S.h * .7, { n: 60, colors: [P.gold, '#FFE7A8', P.pos] }) },
+    passed() { if (S.level === 'off' || S.reduced) return; const xs = [.25, .5, .75, .38, .62]; xs.forEach((f, i) => setTimeout(() => firework(S.w * f, S.h * rnd(.18, .38), i % 2 ? 'multi' : [P.gold, P.pos, P.acc, P.ai][i % 4]), i * 280)); setTimeout(() => confetti(S.w / 2, S.h * .8, { n: 120, power: 1.25 }), 900) },
+    clearedChecklist(el) { if (S.level === 'off' || S.reduced || !el) return; const r = el.getBoundingClientRect(); for (let i = 0; i < 4; i++) setTimeout(() => spark(rnd(r.left, r.right), rnd(r.top, r.bottom), { n: 14, color: [P.pos, '#fff', P.gold], speed: 3 }), i * 90); ring(r.left + r.width / 2, r.top + r.height / 2, P.pos, 120) },
+  };
+  return api;
+})();
+
+/* hook: bind a particle emitter to an element for as long as it is mounted */
+function useFx(opts, deps = []) {
+  const ref = useRef();
+  useEffect(() => { if (!opts) return; return fx.emitter(ref.current, opts) }, deps);
+  return ref;
+}
+
 /* ================= Compound · forms ================= */
 function ListEdit({ v, set, placeholder = 'Add item' }) {
   const [x, setX] = useState('');
@@ -912,6 +1047,7 @@ function TradeForm({ id, onClose, preset = {}, mode }) {
     base.tx = base.tx || base.t;
     for (const k of ['id', 'account', 'group', 'lead', 'role', 'copyOf', 'created', 'u']) delete base[k];
     const n = saveCopyGroup(S, base, { ...cp, copies: (cp.copyOn ?? cp.copies.length > 0) ? cp.copies : [] }, ex);
+    if (!ex) fx.trade(calc.pnl, t.grade === 'A+');
     toast(ex ? (n > 1 ? `Updated on ${n} accounts` : 'Trade updated') : (n > 1 ? `Logged to main + ${n - 1} cop${n - 1 === 1 ? "y" : "ies"}` : 'Trade logged'));
     onClose();
   };
@@ -974,7 +1110,7 @@ function QuickLog({ onClose, mode }) {
   const [t, setT] = useState({ symbol: st.defaultSymbol || 'MNQ', side: 'long', qty: st.defaultQty || 1, pnl: '', grade: '', setups: [] }); const [cp, setCp] = useState(() => initialCopy(S, null));
   const up = p => setT(o => ({ ...o, ...p })); const ref = useRef();
   useEffect(() => ref.current?.focus(), []);
-  const save = () => { if (!isNum(t.pnl)) return toast('Enter the P&L'); const n = saveCopyGroup(S, { ...t, symbol: normSym(t.symbol), pnlManual: true, t: localISO(), tx: localISO(), mode: mode || 'live', quick: true }, { ...cp, copies: (cp.copyOn ?? cp.copies.length > 0) ? cp.copies : [] }, null); toast(n > 1 ? `Logged to main + ${n - 1} cop${n - 1 === 1 ? "y" : "ies"}` : 'Logged. Add notes later from the journal.'); onClose() };
+  const save = () => { if (!isNum(t.pnl)) return toast('Enter the P&L'); fx.trade(+t.pnl); const n = saveCopyGroup(S, { ...t, symbol: normSym(t.symbol), pnlManual: true, t: localISO(), tx: localISO(), mode: mode || 'live', quick: true }, { ...cp, copies: (cp.copyOn ?? cp.copies.length > 0) ? cp.copies : [] }, null); toast(n > 1 ? `Logged to main + ${n - 1} cop${n - 1 === 1 ? "y" : "ies"}` : 'Logged. Add notes later from the journal.'); onClose() };
   return html`<${Modal} title="Quick log" icon=${html`<${I} n="bolt"/>`} onClose=${onClose} foot=${html`<button class="btn btn-g" onClick=${onClose}>Cancel</button><button class="btn btn-w" onClick=${save}>Log it</button>`}>
     <div class="grid g3 keep2"><${Field} label="Symbol"><input class="in" list="syms" value=${t.symbol} onInput=${e => up({ symbol: e.target.value.toUpperCase() })}/><datalist id="syms">${Object.keys(INSTR).map(k => html`<option value=${k}/>`)}</datalist><//><${Field} label="Side"><${Seg} v=${t.side} set=${v => up({ side: v })} opts=${[['long', 'Long'], ['short', 'Short']]}/><//><${Field} label=${isCfdAcct(S, cp.main) ? 'Lots' : 'Contracts'}><input class="in tn" type="number" step="any" inputmode="decimal" value=${t.qty} onInput=${e => up({ qty: e.target.value })}/><//></div>
     <${Field} label="Net P&L"><div class="inwrap"><span class="pre">$</span><input ref=${ref} class="in tn" style=${{ fontSize: '22px', fontWeight: 700, height: '52px' }} inputmode="decimal" placeholder="240" value=${t.pnl} onInput=${e => up({ pnl: e.target.value })} onKeyDown=${e => e.key === 'Enter' && save()}/></div><//>
@@ -1051,7 +1187,7 @@ function PayoutForm({ id, account, onClose }) {
   const S = store.s; const ex = id ? S.payouts[id] : null;
   const [p, setP] = useState(ex ? { ...ex } : { account: account || '', amount: '', d: todayKey(), status: 'paid', note: '', deduct: true });
   const up = x => setP(o => ({ ...o, ...x }));
-  return html`<${Modal} title=${ex ? 'Edit payout' : 'Record payout'} icon=${html`<${I} n="wallet"/>`} onClose=${onClose} foot=${html`${ex && html`<button class="btn btn-d" style=${{ marginRight: 'auto' }} onClick=${() => { store.del('payouts', ex.id); const adj = Object.values(S.adjust).find(x => x.payout === ex.id); adj && store.del('adjust', adj.id); onClose() }}>Delete</button>`}<button class="btn btn-g" onClick=${onClose}>Cancel</button><button class="btn btn-w" onClick=${() => { if (!isNum(p.amount)) return toast('Enter an amount'); const o = store.put('payouts', { ...p, amount: +p.amount }); if (!ex && p.deduct && p.account) store.put('adjust', { id: uid(), account: p.account, v: -Math.abs(+p.amount), d: p.d + 'T23:59', payout: o.id, note: 'Payout withdrawn' }); toast('Payout recorded'); onClose() }}>Save</button>`}>
+  return html`<${Modal} title=${ex ? 'Edit payout' : 'Record payout'} icon=${html`<${I} n="wallet"/>`} onClose=${onClose} foot=${html`${ex && html`<button class="btn btn-d" style=${{ marginRight: 'auto' }} onClick=${() => { store.del('payouts', ex.id); const adj = Object.values(S.adjust).find(x => x.payout === ex.id); adj && store.del('adjust', adj.id); onClose() }}>Delete</button>`}<button class="btn btn-g" onClick=${onClose}>Cancel</button><button class="btn btn-w" onClick=${() => { if (!isNum(p.amount)) return toast('Enter an amount'); const o = store.put('payouts', { ...p, amount: +p.amount }); if (!ex && p.deduct && p.account) store.put('adjust', { id: uid(), account: p.account, v: -Math.abs(+p.amount), d: p.d + 'T23:59', payout: o.id, note: 'Payout withdrawn' }); toast('Payout recorded'); if (!ex && p.status === 'paid') fx.payout(); onClose() }}>Save</button>`}>
     <${Field} label="Account"><${AccountPicker} S=${S} v=${p.account} set=${v => up({ account: v })}/><//>
     <div class="grid g2"><${Field} label="Amount received"><div class="inwrap"><span class="pre">$</span><input class="in tn" style=${{ fontSize: '20px', fontWeight: 700 }} value=${p.amount} onInput=${e => up({ amount: e.target.value })}/></div><//><${Field} label="Date"><input class="in" type="date" value=${p.d} onInput=${e => up({ d: e.target.value })}/><//></div>
     <div class="row"><${Seg} v=${p.status} set=${v => up({ status: v })} opts=${[['requested', 'Requested'], ['paid', 'Paid']]}/>${!ex && html`<label class="row" style=${{ gap: '8px', fontSize: '13px', cursor: 'pointer' }}><input type="checkbox" checked=${p.deduct} onChange=${e => up({ deduct: e.target.checked })}/>Deduct from account balance</label>`}</div>
@@ -1234,6 +1370,7 @@ function Settings({ onClose, tab: tab0 }) {
     ${tab === 'general' && html`<div class="grid g2" style=${{ gap: '18px' }}>
       <${Field} label="Your name"><input class="in" value=${st.name} onInput=${e => set({ name: e.target.value })}/><//>
       <${Field} label="Appearance"><${Seg} v=${st.theme} set=${v => set({ theme: v })} opts=${[['dark', 'Dark', 'moon'], ['light', 'Light', 'sun']]}/><//>
+      <${Field} label="Particles" hint="Ambient dust, click sparks, win confetti, payout coins"><${Seg} v=${st.fx || 'full'} set=${v => set({ fx: v })} opts=${[['full', 'Full'], ['subtle', 'Subtle'], ['off', 'Off']]}/><//>
       <${Field} label="Accent"><div class="row" style=${{ gap: '8px' }}>${[['cobalt', '#5B8CFF'], ['violet', '#9D7BFF'], ['ember', '#FF8A4C'], ['ice', '#6FD3FF'], ['gold', '#F3B43F'], ['mono', '#E9EAEE']].map(([k, c]) => html`<button key=${k} onClick=${() => set({ accent: k })} title=${k} style=${{ width: '30px', height: '30px', borderRadius: '9px', background: c, outline: st.accent === k ? '2px solid var(--fg)' : 'none', outlineOffset: '2px' }}></button>`)}</div><//>
       <${Field} label="Default symbol & size"><div class="row" style=${{ flexWrap: 'nowrap' }}><input class="in" list="syms" value=${st.defaultSymbol} onInput=${e => set({ defaultSymbol: e.target.value.toUpperCase() })}/><input class="in tn" style=${{ width: '90px' }} value=${st.defaultQty} onInput=${e => set({ defaultQty: +e.target.value || 1 })}/></div><//>
       <label class="row" style=${{ gap: '8px', fontSize: '13.5px', cursor: 'pointer' }}><input type="checkbox" checked=${st.dedupeCopies} onChange=${e => set({ dedupeCopies: e.target.checked })}/>Count copy-traded ideas once in analytics (when viewing all accounts)</label></div>`}
@@ -1354,6 +1491,8 @@ function Dashboard({ C }) {
   const wkS = stats(D.ts.filter(t => new Date(t.t) >= weekStart(new Date())));
   const setR = r => { setRange(r); LS.set('compound.range', r); setRm(false) };
   const noTrades = !Object.keys(S.trades).length;
+  const heroFx = useFx({ type: 'rise', rate: .5, color: () => document.querySelector('.hero .big.neg') ? cssv('--neg') : cssv('--acc') });
+  const radarFx = useFx({ type: 'sparkle', rate: .1, color: () => cssv('--acc') });
   return html`<div class="page">
     <${PageHead} title="Dashboard" sub=${fmtLong(new Date()) + ' · ' + scopeLabel(S, C.F)}><button class="btn btn-t sm" onClick=${() => UI.open('settings')}><${I} n="gear"/>Settings</button><//>
     ${noTrades && html`<div class="card" style=${{ padding: '22px 24px', background: 'radial-gradient(120% 160% at 0% 0%,var(--accs),transparent 55%),var(--card)' }}>
@@ -1362,7 +1501,7 @@ function Dashboard({ C }) {
     <div class="hero"><div class="glow"></div>
       <div class="dd lbl" style=${{ justifyContent: 'center', display: 'flex' }} onClick=${() => setRm(!rm)}>Total P&L · ${RANGES.find(r => r[0] === range)[1]}<${I} n="down" s=${12}/>
         <${Menu} open=${rm} onClose=${() => setRm(false)} style=${{ top: '22px', left: '50%', transform: 'translateX(-50%)' }}>${RANGES.map(([k, l]) => html`<button key=${k} class=${range === k ? 'on' : ''} onClick=${e => { e.stopPropagation(); setR(k) }}>${l}</button>`)}<//></div>
-      <div class=${'big ' + (s.net < 0 ? 'neg' : '')} style=${{ marginTop: '14px' }}><${CountUp} v=${s.net} fmt=${v => money(v, { dec: 0 })}/></div>
+      <div ref=${heroFx} class=${'big ' + (s.net < 0 ? 'neg' : '')} style=${{ marginTop: '14px' }}><${CountUp} v=${s.net} fmt=${v => money(v, { dec: 0 })}/></div>
       <div class="meta"><span class="mut tn" style=${{ fontWeight: 600 }}>${s.w}W / ${s.l}L${s.be ? ' / ' + s.be + 'BE' : ''}</span>
         ${today?.plan ? html`<button class="chip on" onClick=${() => UI.open('plan', { day: todayKey() })}><${I} n="check" s=${12}/>Plan set${today.plan.bias ? ' · ' + ({ bull: 'Bullish', bear: 'Bearish', neutral: 'Neutral', wait: 'Waiting' })[today.plan.bias] : ''}</button>` : html`<button class="lnk" style=${{ fontSize: '14px' }} onClick=${() => UI.open('plan', { day: todayKey() })}>Start pre-market plan →</button>`}</div></div>
 
@@ -1382,7 +1521,7 @@ function Dashboard({ C }) {
         <div class="kv" style=${{ marginTop: '10px' }}><span>Trades</span><b>${wkS.n || '—'}</b></div><div class="kv" style=${{ marginTop: '6px' }}><span>Win rate</span><b>${wkS.n ? pct(wkS.wr, 0) : '—'}</b></div>
         <div style=${{ marginTop: '14px' }}><${Bars} data=${wk} h=${140} onPick=${d => C.go('journal', { day: d.k })}/></div></div>
       <div class="card" style=${{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}><div class="ch" style=${{ width: '100%' }}><span class="lbl">Compound score</span><span class="sp"></span><span style=${{ fontSize: '26px', fontWeight: 900, letterSpacing: '-.04em' }}>${sc.total}<span class="dim" style=${{ fontSize: '13px', fontWeight: 500 }}>/100</span></span></div>
-        <${Radar} spokes=${sc.spokes} size=${232}/><div class="dim" style=${{ fontSize: '12px', textAlign: 'center', marginTop: '4px' }}>${D.ts.length < 10 ? 'Gets reliable after ~20 trades' : 'Win rate · profit factor · expectancy · journaling · discipline'}</div></div>
+        <div ref=${radarFx} style=${{ display: 'grid', placeItems: 'center' }}><${Radar} spokes=${sc.spokes} size=${232}/></div><div class="dim" style=${{ fontSize: '12px', textAlign: 'center', marginTop: '4px' }}>${D.ts.length < 10 ? 'Gets reliable after ~20 trades' : 'Win rate · profit factor · expectancy · journaling · discipline'}</div></div>
     </div>
 
     <div class="grid g2">
@@ -1940,7 +2079,7 @@ function PropCard({ a, st, S }) {
           <button onClick=${() => { setMenu(false); UI.open('account', { id: a.id }) }}><${I} n="edit"/>Edit rules</button>
           <button onClick=${() => { setMenu(false); UI.open('payout', { account: a.id }) }}><${I} n="wallet"/>Record payout</button>
           <button onClick=${() => { setMenu(false); setMc(true) }}><${I} n="layers"/>Pass probability</button>
-          <hr/>${a.type === 'eval' && a.status === 'active' && html`<button onClick=${() => { setMenu(false); store.put('accounts', { ...a, status: 'passed', passedAt: todayKey() }); toast('Congrats. Eval marked passed.') }}><${I} n="check"/>Mark passed</button>`}
+          <hr/>${a.type === 'eval' && a.status === 'active' && html`<button onClick=${() => { setMenu(false); store.put('accounts', { ...a, status: 'passed', passedAt: todayKey() }); toast('Congrats. Eval marked passed.'); fx.passed() }}><${I} n="check"/>Mark passed</button>`}
           ${a.status === 'active' && html`<button onClick=${() => { setMenu(false); store.put('accounts', { ...a, status: 'blown', blownAt: todayKey() }) }}><${I} n="x"/>Mark blown</button>`}
           ${a.status !== 'active' && html`<button onClick=${() => { setMenu(false); store.put('accounts', { ...a, status: 'active' }) }}><${I} n="rotate"/>Reactivate</button>`}
           <hr/><button style=${{ color: 'var(--neg)' }} onClick=${() => { setMenu(false); UI.open('delacct', { id: a.id }) }}><${I} n="trash"/>Delete account</button>
@@ -2250,7 +2389,7 @@ function AIPage({ C, params }) {
             <div class="row" style=${{ justifyContent: 'center', gap: '8px', marginTop: '8px', maxWidth: '680px' }}>${sugg.map(s => html`<button key=${s} class="chip" style=${{ height: 'auto', padding: '8px 12px', whiteSpace: 'normal', textAlign: 'left' }} onClick=${() => mode === 'cowork' ? setTxt(s) : send(s)}>${s}</button>`)}</div></div>`
           : msgs.map((m, i) => html`<div key=${i} class=${'msg ' + (m.r === 'u' ? 'u' : 'a')}><div class="av">${m.r === 'u' ? (S.settings.name || 'V')[0] : html`<${I} n="spark" s=${15}/>`}</div><div class="tx">${m.r === 'u' ? html`<div class="mdtx" style=${{ color: 'var(--fg)' }}>${m.t}</div>` : html`<div dangerouslySetInnerHTML=${{ __html: mdLite(m.t) }}></div>`}
               ${m.acts && html`<div class="col" style=${{ gap: '6px', marginTop: '8px' }}>${m.acts.filter(a => a.label).map((a, j) => html`<span key=${j} class="act-log"><${I} n="check" s=${13}/>${a.label}</span>`)}${m.acts.some(a => a.c) && html`<button class="btn btn-t xs" style=${{ alignSelf: 'flex-start' }} onClick=${() => undo(m.acts)}><${I} n="rotate" s=${12}/>Undo these</button>`}</div>`}</div></div>`)}
-        ${live != null && html`<div class="msg a"><div class="av"><${I} n="spark" s=${15}/></div><div class="tx">${live ? html`<div dangerouslySetInnerHTML=${{ __html: mdLite(live) }}></div>` : html`<span class="typing"><i></i><i></i><i></i></span> <span class="dim">Reading your journal…</span>`}</div></div>`}
+        ${live != null && html`<div class="msg a"><div class="av"><${I} n="spark" s=${15}/></div><div class="tx">${live ? html`<div dangerouslySetInnerHTML=${{ __html: mdLite(live) }}></div>` : html`<${Thinking}/>`}</div></div>`}
         ${err && html`<div class="msg"><div class="av"></div><div class="tx neg" style=${{ fontSize: '13.5px' }}>${err}</div></div>`}
       </div>
       <div class="compose"><div class="box"><textarea rows="1" placeholder=${mode === 'coach' ? 'Ask your coach…' : 'e.g. log my 2 MNQ trades from this morning…'} value=${txt} onInput=${e => { setTxt(e.target.value); e.target.style.height = 'auto'; e.target.style.height = Math.min(180, e.target.scrollHeight) + 'px' }} onKeyDown=${e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }} disabled=${!smp}></textarea>
@@ -2286,6 +2425,8 @@ function Report({ C, auto }) {
     : !busy && html`<${Empty} icon="brain" title="No report yet" body="Run it once you have a week or two of trades. Re-run it every Sunday to see the trend."/>`}
   </div>`;
 }
+
+function Thinking() { const r = useFx({ type: 'think', rate: .6, color: () => cssv('--ai') }); return html`<span ref=${r} style=${{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}><span class="typing"><i></i><i></i><i></i></span><span class="dim">Reading your journal…</span></span>` }
 
 /* ================= Compound · Flex (shareable P&L card) ================= */
 function flexData(C, range, rangeOpt) {
@@ -2385,6 +2526,7 @@ function Flex({ C }) {
   const [range, setRange] = useState(LS.get('compound.flex.range', 'all')); const [ro, setRo] = useState({ m: now.getMonth(), y: now.getFullYear() });
   const [o, setO] = useState(() => ({ format: innerWidth < 760 ? 'story' : 'landscape', theme: 'midnight', money: true, cents: true, color: false, anon: false, payouts: true, ...LS.get('compound.flex.opts', {}) }));
   const cv = useRef(); const [busy, setBusy] = useState(false);
+  const flexFx = useFx({ type: 'edge', rate: .4, color: () => o.theme === 'gold' ? cssv('--gold') : o.theme === 'aurora' ? cssv('--ai') : cssv('--acc') }, [o.theme]);
   const d = useMemo(() => flexData(C, range, ro), [C.D, range, ro.m, ro.y]);
   const setOpt = p => { const n = { ...o, ...p }; setO(n); LS.set('compound.flex.opts', n) };
   useEffect(() => { let live = true; const go = () => live && cv.current && drawFlex(cv.current, d, o); Promise.all([document.fonts?.load?.('900 100px Satoshi'), document.fonts?.load?.('500 20px "Geist Mono"')].filter(Boolean)).then(go, go); go(); return () => { live = false } }, [d, o, store.s.settings.accent]);
@@ -2400,7 +2542,7 @@ function Flex({ C }) {
       ${range !== 'all' && html`<div class="row" style=${{ gap: '4px' }}><button class="ib" onClick=${() => shift(-1)} aria-label="Previous"><${I} n="left"/></button><b style=${{ minWidth: '110px', textAlign: 'center' }}>${range === 'month' ? MON[ro.m] + ' ' + ro.y : ro.y}</b><button class="ib" onClick=${() => shift(1)} aria-label="Next"><${I} n="right"/></button></div>`}
       <span class="sp"></span><span class="mut hide-m" style=${{ fontSize: '13px' }}>${scopeLabel(C.S, C.F)}</span>
       <button class="btn btn-g sm" onClick=${copy}><${I} n="copy"/>Copy</button><button class="btn btn-g sm" onClick=${() => download()}><${I} n="download"/>Save image</button><button class="btn btn-w" disabled=${busy} onClick=${share}><${I} n="send"/>Share</button></div>
-    <div class="flexwrap"><canvas ref=${cv} class=${'flexcv ' + o.format} aria-label=${`${d.label} P&L card`}></canvas></div>
+    <div class="flexwrap" ref=${flexFx}><canvas ref=${cv} class=${'flexcv ' + o.format} aria-label=${`${d.label} P&L card`}></canvas></div>
     <div class="card"><div class="grid g4 keep2" style=${{ gap: '16px', alignItems: 'start' }}>
       <${Field} label="Format"><${Seg} sm v=${o.format} set=${v => setOpt({ format: v })} opts=${[['landscape', 'Post'], ['story', 'Story']]}/><//>
       <${Field} label="Style"><div class="row" style=${{ gap: '8px' }}>${Object.entries({ midnight: '#1a1a1a', aurora: 'linear-gradient(135deg,#5B35E8,#13D6B4)', gold: 'linear-gradient(135deg,#F3B43F,#E2622A)', ice: 'linear-gradient(135deg,#6FD3FF,#5B8CFF)' }).map(([k, bg]) => html`<button key=${k} title=${k} onClick=${() => setOpt({ theme: k })} style=${{ width: '30px', height: '30px', borderRadius: '9px', background: bg, outline: o.theme === k ? '2px solid var(--fg)' : 'none', outlineOffset: '2px', border: '1px solid var(--line2)' }}></button>`)}</div><//>
@@ -2466,7 +2608,7 @@ function Rail({ C }) {
         ${day.plan.focus && html`<b>${day.plan.focus}</b>`}${day.plan.levels && html`<span class="mut mdtx" style=${{ fontSize: '12.5px', fontFamily: 'var(--mono)' }}>${day.plan.levels}</span>`}${day.plan.news && html`<span class="dim">News: ${day.plan.news}</span>`}</button>`
         : html`<button class="card tight dim" style=${{ width: '100%', fontSize: '13px', textAlign: 'center', borderStyle: 'dashed' }} onClick=${() => UI.open('plan', { day: k })}>No pre-market plan yet</button>`}<//>
     <${Sec} id="check" title="Checklist" right=${html`<span class="row" style=${{ gap: '4px' }}><span class="dim tn" style=${{ fontSize: '12px' }}>${done}/${st.checklist.length}</span><button class="ib" style=${{ width: '24px', height: '24px' }} onClick=${() => UI.open('settings', { tab: 'journal' })} aria-label="Edit checklist"><${I} n="edit" s=${12}/></button></span>`}>
-      ${st.checklist.map((c, i) => html`<button key=${i} class=${'chk' + (checks[i] ? ' on' : '')} onClick=${() => store.put('days', { ...day, id: k, checks: { ...checks, [i]: !checks[i] } })}><span class="bx">${checks[i] && html`<${I} n="check" w=${3}/>`}</span><span>${c}</span></button>`)}
+      ${st.checklist.map((c, i) => html`<button key=${i} class=${'chk' + (checks[i] ? ' on' : '')} onClick=${e => { const nc = { ...checks, [i]: !checks[i] }; store.put('days', { ...day, id: k, checks: nc }); if (nc[i] && st.checklist.every((_, j) => nc[j])) { const box = e.currentTarget.closest('.sec'); setTimeout(() => fx.clearedChecklist(box), 60) } }}><span class="bx">${checks[i] && html`<${I} n="check" w=${3}/>`}</span><span>${c}</span></button>`)}
       ${done === st.checklist.length && st.checklist.length > 0 && html`<div class="chip pos" style=${{ marginTop: '6px' }}>Cleared to trade</div>`}<//>
     <${Sec} id="sess" title="Session" right=${sess?.start && !sess.end ? html`<span class="chip pos tn">● ${fmtDur(elapsed)}</span>` : null}>
       <div class="row" style=${{ alignItems: 'baseline' }}><span class="tn" style=${{ fontSize: '26px', fontWeight: 800, letterSpacing: '-.03em' }}>${sess?.start ? fmtDur(elapsed) : '—'}</span><span class="sp"></span>
@@ -2492,6 +2634,8 @@ function App() {
   const [lo, setLo] = useState(false); const [ro, setRo] = useState(false);
   const mainRef = useRef();
   useLayoutEffect(() => { const r = document.documentElement; r.classList.toggle('lt', S.settings.theme === 'light'); if (S.settings.accent && S.settings.accent !== 'cobalt') r.dataset.acc = S.settings.accent; else delete r.dataset.acc }, [S.settings.theme, S.settings.accent]);
+  useEffect(() => { fx.init() }, []);
+  useEffect(() => { fx.theme(); fx.setLevel(S.settings.fx || 'full') }, [S.settings.theme, S.settings.accent, S.settings.fx]);
   const go = (v, p) => { setView(v); setParams(p ? { ...p, _: Date.now() } : null); LS.set('compound.view', v); setModals([]); setLo(false); setRo(false); if (mainRef.current) mainRef.current.scrollTop = 0 };
   UI.go = go;
   UI.open = (kind, props = {}) => setModals(m => [...m.filter(x => !(kind === 'detail' && x.kind === 'detail')), { kind, props, id: uid() }]);
@@ -2514,6 +2658,7 @@ function App() {
   const tabs = VIEWS.filter(v => v !== '|');
   const sync = store.mode === 'cloud' ? (store.syncErr ? ['wait', 'Reconnecting…'] : ['ok', 'Synced across devices' + (store.lastSync ? ' · ' + fmtTime(store.lastSync) : '')]) : store.mode === 'local' ? ['loc', 'This browser only · not syncing'] : ['wait', 'Connecting…'];
   const full = view === 'ai';
+  const fabFx = useFx({ type: 'orbit', rate: .22, color: () => cssv('--ai') }, [view !== 'ai']);
   if (store.mode === 'login') return html`<${Login}/><${Toasts}/>`;
   if (store.mode === 'setup') return html`<${Setup}/><${Toasts}/>`;
   return html`<div class=${'shell' + (lc ? ' ldc' : '') + (rc || full ? ' rdc' : '') + (lo ? ' ldo' : '') + (ro ? ' rdo' : '') + (full ? ' ldc' : '')}>
@@ -2539,7 +2684,7 @@ function App() {
       <span class="mid"><a class="dim hide-m" href="https://www.tradingview.com/" target="_blank" rel="noopener" style=${{ fontSize: '11.5px', textDecoration: 'none' }}>Charts by TradingView</a></span><button class="btn btn-t xs" onClick=${() => UI.open('import', { mode })}><${I} n="upload" s=${13}/>Import</button><button class="btn btn-t xs" onClick=${() => UI.open('settings', { tab: 'data' })}><${I} n="download" s=${13}/>Backup</button></footer>
     <nav class="nav-m" aria-label="Sections">${tabs.map(v => html`<button key=${v[0]} class=${view === v[0] ? 'on' : ''} onClick=${() => go(v[0])}><${I} n=${v[2]}/>${v[1]}</button>`)}</nav>
   </div>
-  ${view !== 'ai' && html`<button class="fab" onClick=${() => go('ai')} aria-label="Ask your coach" title="Ask your coach"><${Mark} s=${26}/></button>`}
+  ${view !== 'ai' && html`<button class="fab" ref=${fabFx} onClick=${() => go('ai')} aria-label="Ask your coach" title="Ask your coach"><${Mark} s=${26}/></button>`}
   ${modals.map((m, i) => { const close = () => setModals(x => x.filter(y => y.id !== m.id)); const p = { ...m.props, onClose: close, key: m.id };
     switch (m.kind) {
       case 'trade': return html`<${TradeForm} ...${p} mode=${p.mode || mode}/>`; case 'quick': return html`<${QuickLog} ...${p} mode=${p.mode || mode}/>`;
