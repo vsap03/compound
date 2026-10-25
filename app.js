@@ -128,6 +128,36 @@ const FIRMS = [
   { id: 'phidias', name: 'Phidias', mono: 'Φ', c: ['#221005', '#FB923C'], plans: ['Static', 'Fundamental', 'Swing'], url: 'https://phidiaspropfirm.com' },
   { id: 'topone', name: 'Top One Futures', mono: '1', c: ['#111111', '#E5E7EB'], plans: ['Eval', 'Elite', 'Prime'], url: 'https://toponefutures.com' },
   { id: 'ffn', name: 'Funded Futures Network', mono: 'FF', c: ['#0B1F2E', '#38BDF8'], plans: ['Standard', 'Pro'], url: 'https://fundedfuturesnetwork.com' },
+  { id: 'purdia', name: 'Purdia Capital', mono: 'PC', c: ['#0E1A2B', '#60A5FA'], plans: ["Eval", "Funded"], url: '' },
+  { id: 'leeloo', name: 'Leeloo Trading', mono: 'LE', c: ['#1F0A24', '#E879F9'], plans: ["Eval", "Funded"], url: '' },
+  { id: 'oneup', name: 'OneUp Trader', mono: '1U', c: ['#0A1E33', '#0EA5E9'], plans: ["Eval", "Funded"], url: '' },
+  { id: 'uprofit', name: 'UProfit', mono: 'UP', c: ['#0B2A17', '#22C55E'], plans: ["Eval", "Funded"], url: '' },
+  { id: 'aquafutures', name: 'Aqua Futures', mono: 'AQ', c: ['#032833', '#22D3EE'], plans: ["Eval", "Funded"], url: '' },
+  { id: 'legends', name: 'Legends Trading', mono: 'LG', c: ['#2A1A05', '#F59E0B'], plans: ["Eval", "Funded"], url: '' },
+  { id: 'daytraders', name: 'DayTraders.com', mono: 'DT', c: ['#10172A', '#818CF8'], plans: ["Eval", "Funded"], url: '' },
+  { id: 'fundedtradingplus', name: 'Funded Trading Plus', mono: 'F+', c: ['#0A2433', '#38BDF8'], plans: ["Eval", "Funded"], url: '' },
+  { id: 'thetradingpit', name: 'The Trading Pit', mono: 'TTP', c: ['#1B0B0B', '#EF4444'], plans: ["Eval", "Funded"], url: '' },
+  { id: 'goatfutures', name: 'GOAT Funded Futures', mono: 'GF', c: ['#1A1A1A', '#FACC15'], plans: ["Eval", "Funded"], url: '' },
+  { id: 'ftmo', name: 'FTMO', mono: 'FT', c: ['#0B1530', '#3B82F6'], plans: ["1-Step", "2-Step", "Instant"], url: '', market: "cfd", platform: "MT5" },
+  { id: 'fundingpips', name: 'FundingPips', mono: 'FP', c: ['#06221D', '#10B981'], plans: ["1-Step", "2-Step", "Instant"], url: '', market: "cfd", platform: "MT5" },
+  { id: 'the5ers', name: 'The5ers', mono: '5', c: ['#1E1405', '#F97316'], plans: ["1-Step", "2-Step", "Instant"], url: '', market: "cfd", platform: "MT5" },
+  { id: 'e8', name: 'E8 Markets', mono: 'E8', c: ['#0D0D1F', '#6366F1'], plans: ["1-Step", "2-Step", "Instant"], url: '', market: "cfd", platform: "MT5" },
+  { id: 'fundednextcfd', name: 'FundedNext (CFD)', mono: 'FN', c: ['#1C1035', '#A78BFA'], plans: ["1-Step", "2-Step", "Instant"], url: '', market: "cfd", platform: "MT5" },
+  { id: 'alphacapital', name: 'Alpha Capital Group', mono: 'AC', c: ['#0F1720', '#94A3B8'], plans: ["1-Step", "2-Step", "Instant"], url: '', market: "cfd", platform: "MT5" },
+  { id: 'maven', name: 'Maven Trading', mono: 'MV', c: ['#1A0F2E', '#C084FC'], plans: ["1-Step", "2-Step", "Instant"], url: '', market: "cfd", platform: "MT5" },
+  { id: 'goat', name: 'Goat Funded Trader', mono: 'GT', c: ['#1A1A1A', '#EAB308'], plans: ["1-Step", "2-Step", "Instant"], url: '', market: "cfd", platform: "MT5" },
+  { id: 'instantfunding', name: 'Instant Funding', mono: 'IF', c: ['#071E2A', '#06B6D4'], plans: ["1-Step", "2-Step", "Instant"], url: '', market: "cfd", platform: "MT5" },
+  { id: 'aquafunded', name: 'AquaFunded', mono: 'AF', c: ['#032833', '#2DD4BF'], plans: ["1-Step", "2-Step", "Instant"], url: '', market: "cfd", platform: "MT5" },
+  { id: 'brightfunded', name: 'BrightFunded', mono: 'BF', c: ['#231A02', '#FDE047'], plans: ["1-Step", "2-Step", "Instant"], url: '', market: "cfd", platform: "MT5" },
+  { id: 'seacrest', name: 'Seacrest Funded', mono: 'SC', c: ['#04202B', '#0EA5E9'], plans: ["1-Step", "2-Step", "Instant"], url: '', market: "cfd", platform: "MT5" },
+  { id: 'audacity', name: 'Audacity Capital', mono: 'AU', c: ['#1F0D0D', '#F87171'], plans: ["1-Step", "2-Step", "Instant"], url: '', market: "cfd", platform: "MT5" },
+  { id: 'cti', name: 'City Traders Imperium', mono: 'CT', c: ['#0E1726', '#60A5FA'], plans: ["1-Step", "2-Step", "Instant"], url: '', market: "cfd", platform: "MT5" },
+  { id: 'fxify', name: 'FXIFY', mono: 'FY', c: ['#130B26', '#8B5CF6'], plans: ["1-Step", "2-Step", "Instant"], url: '', market: "cfd", platform: "MT5" },
+  { id: 'fundingtraders', name: 'Funding Traders', mono: 'FTr', c: ['#0A2216', '#34D399'], plans: ["1-Step", "2-Step", "Instant"], url: '', market: "cfd", platform: "MT5" },
+  { id: 'ftuk', name: 'FTUK', mono: 'UK', c: ['#0B1B33', '#2563EB'], plans: ["1-Step", "2-Step", "Instant"], url: '', market: "cfd", platform: "MT5" },
+  { id: 'myfundedfx', name: 'My Funded FX', mono: 'MX', c: ['#0A1A33', '#3B82F6'], plans: ["1-Step", "2-Step", "Instant"], url: '', market: "cfd", platform: "MT5" },
+  { id: 'fundedpeaks', name: 'Funded Peaks', mono: 'PK', c: ['#0C1E1A', '#14B8A6'], plans: ["1-Step", "2-Step", "Instant"], url: '', market: "cfd", platform: "MT5" },
+  { id: 'blueberry', name: 'Blueberry Funded', mono: 'BB', c: ['#0E0F2E', '#6366F1'], plans: ["1-Step", "2-Step", "Instant"], url: '', market: "cfd", platform: "MT5" },
   { id: 'personal', name: 'Personal / Broker', mono: '$', c: ['#151619', '#8B8F99'], plans: ['Live cash', 'Paper', 'Sim'], url: '' },
 ];
 /* spending: fees paid per account (eval + resets + activation), times how many identical accounts a history entry stands for */
@@ -141,7 +171,10 @@ function firmSpend(S) {
   for (const p of Object.values(S.payouts)) if (p.status === 'paid') { const r = row(payoutFirm(S, p) || 'personal'); r.paid += +p.amount || 0; r.payN++ }
   return Object.values(m).map(r => ({ ...r, spent: r.blownFees + r.liveFees, net: r.paid - r.blownFees - r.liveFees })).filter(r => r.spent || r.paid || r.blownN || r.liveN);
 }
-const firmById = id => FIRMS.find(f => f.id === id) || FIRMS[FIRMS.length - 1];
+/* firms typed in by hand are stored as "x:<name>" and get a generated monogram */
+const firmHue = n => { let h = 0; for (const ch of n) h = (h * 31 + ch.charCodeAt(0)) % 360; return h };
+const customFirm = id => { const n = id.slice(2) || 'Other'; const h = firmHue(n); return { id, name: n, mono: n.split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase(), c: [`hsl(${h} 45% 12%)`, `hsl(${h} 70% 55%)`], plans: ['Eval', 'Funded'], url: '', custom: true } };
+const firmById = id => (typeof id === 'string' && id.startsWith('x:')) ? customFirm(id) : (FIRMS.find(f => f.id === id) || FIRMS[FIRMS.length - 1]);
 const SIZE_PRESETS = {
   10000: { target: 1000, mll: 500, dll: 0 }, 25000: { target: 1500, mll: 1500, dll: 500 }, 50000: { target: 3000, mll: 2000, dll: 1000 },
   75000: { target: 4500, mll: 2500, dll: 1500 }, 100000: { target: 6000, mll: 3000, dll: 2000 }, 150000: { target: 9000, mll: 4500, dll: 3000 }, 200000: { target: 12000, mll: 6000, dll: 4000 }, 300000: { target: 20000, mll: 7500, dll: 5000 },
@@ -1098,9 +1131,21 @@ function BalanceSync({ id, onClose }) {
   <//>`;
 }
 
-function FirmPick({ v, set, only }) {
-  const list = FIRMS.filter(f => f.id !== 'personal' && (!only || only(f)));
-  return html`<div class="firmpick">${list.map(f => html`<button type="button" key=${f.id} class=${'fp' + (v === f.id ? ' on' : '')} onClick=${() => set(f.id)}><${FirmLogo} id=${f.id} s=${20}/><span>${f.name}</span></button>`)}</div>`;
+function FirmPick({ v, set }) {
+  const [q, setQ] = useState(''); const [mk, setMk] = useState('all');
+  const used = new Set([...Object.values(store.s.accounts).map(a => a.firm), ...Object.values(store.s.blown || {}).map(b => b.firm), ...Object.values(store.s.payouts).map(p => p.firm)].filter(Boolean));
+  const customs = [...used].filter(x => String(x).startsWith('x:')).map(customFirm);
+  const ql = q.trim().toLowerCase();
+  const list = [...FIRMS.filter(f => f.id !== 'personal'), ...customs].filter(f => (mk === 'all' || (mk === 'cfd' ? f.market === 'cfd' : f.market !== 'cfd')) && (!ql || f.name.toLowerCase().includes(ql)))
+    .sort((a, b) => (used.has(b.id) ? 1 : 0) - (used.has(a.id) ? 1 : 0));
+  const exact = list.some(f => f.name.toLowerCase() === ql);
+  return html`<div class="col" style=${{ gap: '8px' }}>
+    <div class="row" style=${{ gap: '8px', flexWrap: 'nowrap' }}><div class="search" style=${{ flex: 1 }}><${I} n="search" s=${14}/><input placeholder=${'Search ' + (FIRMS.length - 1) + ' prop firms, or type a new one'} value=${q} onInput=${e => setQ(e.target.value)}/></div><${Seg} sm v=${mk} set=${setMk} opts=${[['all', 'All'], ['futures', 'Futures'], ['cfd', 'CFD / FX']]}/></div>
+    <div class="firmpick">${list.map(f => html`<button type="button" key=${f.id} class=${'fp' + (v === f.id ? ' on' : '')} onClick=${() => set(f.id)}><${FirmLogo} id=${f.id} s=${20}/><span>${f.name}</span>${f.market === 'cfd' && html`<em>CFD</em>`}</button>`)}
+      ${ql && !exact && html`<button type="button" class="fp add" onClick=${() => { set('x:' + q.trim()); setQ('') }}><span class="logo" style=${{ width: '20px', height: '20px', borderRadius: '6px', fontSize: '13px' }}>+</span><span>Add “${q.trim()}”</span></button>`}
+      ${!list.length && !ql && html`<span class="dim" style=${{ fontSize: '11px' }}>No firms.</span>`}</div>
+    ${v && html`<div class="row dim" style=${{ fontSize: '11px', gap: '6px' }}>Selected <${FirmLogo} id=${v} s=${16}/><b style=${{ color: 'var(--fg)' }}>${firmById(v).name}</b></div>`}
+  </div>`;
 }
 
 function PayoutForm({ id, account, onClose }) {
@@ -2233,15 +2278,19 @@ function Spending({ S }) {
   const rows = useMemo(() => firmSpend(S).sort((a, b) => b.spent - a.spent), [store.v]);
   const [pick, setPick] = useState(() => LS.get('compound.spendf', []));
   const setP = v => { setPick(v); LS.set('compound.spendf', v) };
-  const valid = pick.filter(f => rows.some(r => r.firm === f)); const on = valid.length ? valid : null;
-  const shown = on ? rows.filter(r => on.includes(r.firm)) : rows;
+  const [adding, setAdding] = useState(false);
+  const valid = pick.filter(Boolean); const on = valid.length ? valid : null;
+  const zero = f => ({ firm: f, blownN: 0, blownFees: 0, liveN: 0, liveFees: 0, paid: 0, payN: 0, spent: 0, net: 0 });
+  const shown = on ? on.map(f => rows.find(r => r.firm === f) || zero(f)) : rows;
+  const chipFirms = [...new Set([...rows.map(r => r.firm), ...valid])];
   const tot = { spent: sum(shown, r => r.spent), blownFees: sum(shown, r => r.blownFees), blownN: sum(shown, r => r.blownN), liveN: sum(shown, r => r.liveN), paid: sum(shown, r => r.paid) }; tot.net = tot.paid - tot.spent;
   const hist = Object.values(S.blown || {}).filter(b => !on || on.includes(b.firm)).sort((a, b) => (b.d || '') < (a.d || '') ? -1 : 1);
   const dead = Object.values(S.accounts).filter(a => a.status === 'blown' && (!on || on.includes(a.firm)));
   const tog = f => setP(valid.includes(f) ? valid.filter(x => x !== f) : [...valid, f]);
   return html`
     <div class="card"><div class="ch"><h3>What prop firms have cost you</h3><span class="sp"></span><button class="btn btn-g sm" onClick=${() => UI.open('payout', {})}><${I} n="wallet"/>Previous payout</button><button class="btn btn-w sm" onClick=${() => UI.open('blown')}><${I} n="plus"/>Add blown account</button></div>
-      ${rows.length > 0 && html`<div class="row" style=${{ gap: '6px', marginBottom: '14px' }}><button class=${'chip' + (!on ? ' on' : '')} onClick=${() => setP([])}>All firms</button>${rows.map(r => html`<button key=${r.firm} class=${'chip firmchip' + (valid.includes(r.firm) ? ' on' : '')} onClick=${() => tog(r.firm)}><${FirmLogo} id=${r.firm} s=${16}/>${firmById(r.firm).name}</button>`)}${on && html`<span class="dim" style=${{ fontSize: '10.5px' }}>${on.length} selected · tap more to add</span>`}</div>`}
+      <div class="row" style=${{ gap: '6px', marginBottom: adding ? '10px' : '14px' }}><button class=${'chip' + (!on ? ' on' : '')} onClick=${() => setP([])}>All firms</button>${chipFirms.map(f => html`<button key=${f} class=${'chip firmchip' + (valid.includes(f) ? ' on' : '')} onClick=${() => tog(f)}><${FirmLogo} id=${f} s=${16}/>${firmById(f).name}</button>`)}<button class=${'chip' + (adding ? ' on' : '')} onClick=${() => setAdding(!adding)}><${I} n="search" s=${12}/>Any prop firm</button>${on && html`<span class="dim" style=${{ fontSize: '10.5px' }}>${on.length} selected · tap more to add</span>`}</div>
+      ${adding && html`<div class="card tight" style=${{ marginBottom: '14px', background: 'var(--bg)' }}><${FirmPick} v=${null} set=${f => { if (!valid.includes(f)) setP([...valid, f]); setAdding(false) }}/></div>`}
       <div class="grid g5 keep2">
         <${Kpi} small k="Total spent" v=${html`<span class="neg">${money(tot.spent, { dec: 0 })}</span>`} s=${on ? on.map(f => firmById(f).name).join(', ') : 'all firms'}/>
         <${Kpi} small k="Lost to blown accounts" v=${money(tot.blownFees, { dec: 0 })} s=${tot.blownN + ' account' + (tot.blownN === 1 ? '' : 's') + ' blown'}/>
@@ -2249,7 +2298,7 @@ function Spending({ S }) {
         <${Kpi} small k="Payouts" v=${html`<span class="pos">${money(tot.paid, { dec: 0 })}</span>`}/>
         <${Kpi} small k="Net" v=${html`<span class=${cls(tot.net)}>${money(tot.net, { sign: true, dec: 0 })}</span>`} s=${tot.spent ? 'ROI ' + pct(tot.net / tot.spent, 0) : ''}/>
       </div></div>
-    ${!rows.length ? html`<${Empty} icon="flame" title="No spending logged yet" body="Add the accounts you blew before Compound, with what you paid for each. You will see exactly what every firm has cost you, and what it paid back."><button class="btn btn-w" onClick=${() => UI.open('blown')}>Add blown account</button><//>`
+    ${!rows.length && !on ? html`<${Empty} icon="flame" title="No spending logged yet" body="Add the accounts you blew before Compound, with what you paid for each. You will see exactly what every firm has cost you, and what it paid back."><button class="btn btn-w" onClick=${() => UI.open('blown')}>Add blown account</button><//>`
     : html`<div class="grid g2">
       <div class="card"><div class="ch"><span class="lbl">Spent vs paid out, per firm</span></div>
         <div class="col" style=${{ gap: '12px' }}>${shown.map(r => { const mx = Math.max(1, ...shown.map(x => Math.max(x.spent, x.paid))); return html`<div key=${r.firm} class="col" style=${{ gap: '5px' }}>
