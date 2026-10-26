@@ -718,4 +718,16 @@ button.chip:hover{border-color:var(--line3)}
 .fp em{margin-left:auto;font-style:normal;font-family:var(--mono);font-size:8px;letter-spacing:.1em;color:var(--dim)}
 .fp.add{border-style:dashed;color:var(--acc)}
 
+/* ---------- no-trade days ---------- */
+.ntbox{display:flex;align-items:center;gap:12px;width:100%;padding:11px 13px;border-radius:12px;border:1px dashed var(--line3);background:var(--card2);text-align:left}
+button.ntbox:hover{border-color:var(--acc)}
+.ntbox.on{border-style:solid;border-color:var(--accg);background:var(--accs)}
+.ntbox.edit{border-style:solid;border-color:var(--line2)}
+.ntic{width:28px;height:28px;flex:0 0 28px;border-radius:50%;display:grid;place-items:center;border:1px solid var(--line3);color:var(--mut)}
+.ntbox.on .ntic{background:var(--acc);border-color:var(--acc);color:#fff}
+.djc .tl.nt{color:var(--fg2);font-weight:600}
+.djc.ntd{background:repeating-linear-gradient(135deg,var(--card2) 0 6px,color-mix(in srgb,var(--acc) 7%,var(--card2)) 6px 12px);border-color:var(--accg)}
+.djcard.nt{box-shadow:inset 0 2px 0 var(--acc)}
+.ntlbl{font-size:15px;color:var(--fg2)}
+
 body{padding-top:env(safe-area-inset-top,0px)}

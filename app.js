@@ -86,7 +86,7 @@ const gradeScore = g => ({ 'A+': 4, A: 3.4, B: 2.5, C: 1.5, D: 0.5 }[g] ?? null)
 function planLevels(p) { if (!p || !p.levels) return []; if (Array.isArray(p.levels)) return p.levels.filter(Boolean); return String(p.levels).split(/\n|·|;/).map(x => x.trim()).filter(Boolean) }
 function levelsText(p) { return planLevels(p).join(' / ') }
 function dayScore(d) { const r = d && d.review; if (!r) return null; if (r.score != null) return +r.score; if (r.rating != null) return Math.round(+r.rating * 2); return null }
-function journaledDay(d) { return !!(d && (d.plan || d.review)) }
+function journaledDay(d) { return !!(d && (d.plan || d.review || d.noTrade)) }
 const BIAS_L = { bull: 'Bullish', bear: 'Bearish', neutral: 'No bias', wait: 'Wait for it' };
 const DEFAULT_SETTINGS = {
   name: 'Vivek',
@@ -1821,6 +1821,23 @@ function CopyGroupCard({ S, t }) {
 
 /* ---------------- Daily journal: today strip + month page + day sheet ---------------- */
 const FEELINGS = ['Calm', 'Focused', 'Tired', 'Rushed'];
+const NT_REASONS = ['No A+ setup', 'Plan invalidated', 'Choppy, no range', 'News risk', 'Not in the right headspace', 'Missed the window'];
+const sitOut = (d, x) => !x && !!d?.noTrade;
+/* a planned day where you chose not to trade: saved on the day, counts as journaled */
+function NoTradeBox({ day, S, x, onDone, compact }) {
+  const d = S.days[day] || { id: day }; const nt = d.noTrade;
+  const [open, setOpen] = useState(false); const [rs, setRs] = useState(nt?.reasons || []); const [note, setNote] = useState(nt?.note || '');
+  if (x) return null;
+  const save = () => { store.put('days', { ...d, id: day, noTrade: { reasons: rs, note, at: Date.now() } }); toast('No-trade day logged. Sitting out is a position.'); setOpen(false); onDone && onDone() };
+  const undo = () => { const { noTrade, ...rest } = d; store.put('days', { ...rest, id: day }); setRs([]); setNote('') };
+  if (nt && !open) return html`<div class="ntbox on"><span class="ntic"><${I} n="check" s=${14}/></span><div class="col" style=${{ gap: '2px', minWidth: 0 }}><b style=${{ fontSize: '12.5px' }}>No trades${d.plan ? ', even with a plan' : ''}</b><span class="dim" style=${{ fontSize: '10.5px' }}>${(nt.reasons || []).join(' · ') || 'Stayed out'}${nt.note ? ' · ' + nt.note : ''}</span></div><span class="sp"></span><button class="lnk" onClick=${() => setOpen(true)}>Edit</button><button class="lnk dim" onClick=${undo}>Undo</button></div>`;
+  if (!open) return html`<button class=${'ntbox' + (compact ? ' compact' : '')} onClick=${() => setOpen(true)}><span class="ntic"><${I} n="x" s=${13}/></span><div class="col" style=${{ gap: '2px', textAlign: 'left' }}><b style=${{ fontSize: '12.5px' }}>No trades ${day === todayKey() ? 'today' : 'this day'}</b><span class="dim" style=${{ fontSize: '10.5px' }}>${d.plan ? 'Planned, but nothing was worth taking? Log it.' : 'Sat out on purpose? Log it.'}</span></div></button>`;
+  return html`<div class="ntbox edit"><div class="col" style=${{ gap: '10px', width: '100%' }}>
+    <b style=${{ fontSize: '12.5px' }}>Why no trades?</b>
+    <${Chips} all=${NT_REASONS} v=${rs} set=${setRs}/>
+    <input class="in" placeholder="Note (optional): price never came to my level" value=${note} onInput=${e => setNote(e.target.value)}/>
+    <div class="row"><span class="sp"></span><button class="btn btn-g sm" onClick=${() => setOpen(false)}>Cancel</button><button class="btn btn-w sm" onClick=${save}><${I} n="check"/>Log no-trade day</button></div></div></div>`;
+}
 const WDL = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const MONL = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const isWkday = d => { const w = d.getDay(); return w > 0 && w < 6 };
@@ -1859,6 +1876,8 @@ function daysSay(S, days) {
   const after = []; for (let i = 0; i < ks.length - 1; i++) if (days[ks[i]].trades.some(t => t.rules === false)) after.push(days[ks[i + 1]].pnl);
   if (after.length) out.push({ k: 'rule', head: 'After a rule broken', a: avg(after), sub: 'next day', n: after.length });
   const sc = ks.filter(k => dayScore(S.days[k]) != null); if (sc.length >= 3) { const hi = sc.filter(k => dayScore(S.days[k]) >= 7).map(k => days[k].pnl), lo = sc.filter(k => dayScore(S.days[k]) < 7).map(k => days[k].pnl); if (hi.length && lo.length) out.push({ k: 'score', head: 'Days you rate 7+', a: avg(hi), b: avg(lo), bl: 'below 7', n: hi.length }) }
+  const nt = Object.keys(S.days).filter(k => /^\d{4}-\d\d-\d\d$/.test(k) && !days[k] && S.days[k]?.noTrade);
+  if (nt.length) { const pl = nt.filter(k => S.days[k].plan).length; out.push({ k: 'nt', head: 'Sat out on purpose', a: null, txt: nt.length + ' day' + (nt.length > 1 ? 's' : ''), sub: `${pl} with a plan · no setup, no trade`, n: nt.length }) }
   return out;
 }
 
@@ -1877,10 +1896,10 @@ function DailyView({ C, focus, planReq }) {
   const stk = useMemo(() => dayStreak(S), [S.days]);
   const say = useMemo(() => daysSay(S, days), [S.days, days]);
   const past = useMemo(() => [...new Set([...Object.keys(days), ...Object.keys(S.days).filter(k => /^\d{4}-\d\d-\d\d$/.test(k) && journaledDay(S.days[k]))])].filter(k => k < tk).sort().reverse().slice(0, 12), [S.days, days]);
-  const open = (day, tab) => UI.open('day', { day, tab: tab || (days[day] ? (S.days[day]?.review ? 'trades' : 'review') : 'plan') });
+  const open = (day, tab) => UI.open('day', { day, tab: tab || (days[day] || S.days[day]?.noTrade ? (S.days[day]?.review ? 'trades' : 'review') : 'plan') });
   const steps = [
     { k: 'plan', t: 'Plan', d: today.plan ? planSummary(today.plan) || 'Plan set' : 'Bias, levels, one rule', done: !!today.plan, go: () => setPlanOpen(o => !o) },
-    { k: 'trade', t: 'Trade', d: tx ? `${tx.n} trade${tx.n > 1 ? 's' : ''} · ${money(tx.pnl, { sign: true, dec: 0 })}` : 'Trades land here by themselves', done: !!tx, go: () => tx ? open(tk, 'trades') : UI.open('trade') },
+    { k: 'trade', t: 'Trade', d: tx ? `${tx.n} trade${tx.n > 1 ? 's' : ''} · ${money(tx.pnl, { sign: true, dec: 0 })}` : today.noTrade ? 'No trades · sat out' : 'Trades land here by themselves', done: !!tx || !!today.noTrade, go: () => tx || today.noTrade ? open(tk, 'trades') : UI.open('trade') },
     { k: 'review', t: 'Review', d: today.review ? `Rated ${dayScore(today)}/10` : '4 questions, 2 minutes', done: !!today.review, go: () => open(tk, 'review') }];
   const next = steps.findIndex(s => !s.done);
   const now = new Date();
@@ -1892,12 +1911,13 @@ function DailyView({ C, focus, planReq }) {
           <span class="mut" style=${{ fontSize: '11.5px' }}><span class=${'djdot' + (clock.live ? ' live' : '')}></span>${clock.tag} · ${clock.text}</span>
         </div>
         <span class="sp"></span>
-        <div class="djsofar"><span class="lbl">Today so far</span><b class=${'tn ' + cls(tx?.pnl)}>${tx ? money(tx.pnl, { sign: true, dec: 0 }) : '$0'}</b><span class="dim" style=${{ fontSize: '10.5px' }}>${tx ? `${tx.n} trade${tx.n > 1 ? 's' : ''} · ${tx.w}W ${tx.l}L` : 'no trades yet'}</span></div>
+        <div class="djsofar"><span class="lbl">Today so far</span><b class=${'tn ' + cls(tx?.pnl)}>${tx ? money(tx.pnl, { sign: true, dec: 0 }) : '$0'}</b><span class="dim" style=${{ fontSize: '10.5px' }}>${tx ? `${tx.n} trade${tx.n > 1 ? 's' : ''} · ${tx.w}W ${tx.l}L` : today.noTrade ? 'no trades · by choice' : 'no trades yet'}</span></div>
         <div class="djstreak" title=${'Best run ' + stk.best + ' days'}><${I} n="flame" s=${15}/><b class="tn">${stk.cur}</b><span class="dim">day streak</span></div>
       </div>
       <div class="djsteps">${steps.map((s, i) => html`<button key=${s.k} class=${'djstep' + (s.done ? ' done' : '') + (i === next ? ' next' : '') + (s.k === 'plan' && planOpen ? ' open' : '')} onClick=${s.go}>
         <span class="n tn">${s.done ? html`<${I} n="check" s=${12}/>` : i + 1}</span><span class="col" style=${{ gap: '2px', minWidth: 0 }}><b>${s.t}</b><span class="d">${s.d}</span></span></button>`)}</div>
       ${planOpen && html`<div class="djplanwrap"><${PlanInline} day=${tk} S=${S} onSaved=${() => setPlanOpen(false)}/></div>`}
+      ${!tx && (today.plan || today.noTrade) && html`<${NoTradeBox} day=${tk} S=${S} x=${tx}/>`}
     </section>
 
     <div class="djmain">
@@ -1913,8 +1933,8 @@ function DailyView({ C, focus, planReq }) {
         <section class="card">
           <div class="ch"><span class="lbl">What your days say</span></div>
           ${say.length ? html`<div class="col" style=${{ gap: '8px' }}>${say.map(x => html`<div class="djsay" key=${x.k}>
-            <div class="row" style=${{ gap: '6px' }}><b style=${{ fontSize: '12px' }}>${x.head}</b><span class="sp"></span><b class=${'tn ' + cls(x.a)}>${money(x.a, { sign: true, dec: 0 })}</b></div>
-            <div class="dim" style=${{ fontSize: '10.5px' }}>${x.b != null ? html`vs <span class=${'tn ' + cls(x.b)}>${money(x.b, { sign: true, dec: 0 })}</span> ${x.bl} · avg per day` : html`${x.sub} on average · ${x.n} day${x.n > 1 ? 's' : ''}`}${x.worst ? html` · ${x.worst.f} <span class=${'tn ' + cls(x.worst.v)}>${money(x.worst.v, { sign: true, dec: 0 })}</span>` : ''}</div></div>`)}</div>`
+            <div class="row" style=${{ gap: '6px' }}><b style=${{ fontSize: '12px' }}>${x.head}</b><span class="sp"></span>${x.a == null ? html`<b class="tn">${x.txt}</b>` : html`<b class=${'tn ' + cls(x.a)}>${money(x.a, { sign: true, dec: 0 })}</b>`}</div>
+            <div class="dim" style=${{ fontSize: '10.5px' }}>${x.a == null ? x.sub : x.b != null ? html`vs <span class=${'tn ' + cls(x.b)}>${money(x.b, { sign: true, dec: 0 })}</span> ${x.bl} · avg per day` : html`${x.sub} on average · ${x.n} day${x.n > 1 ? 's' : ''}`}${x.worst ? html` · ${x.worst.f} <span class=${'tn ' + cls(x.worst.v)}>${money(x.worst.v, { sign: true, dec: 0 })}</span>` : ''}</div></div>`)}</div>`
             : html`<div class="dim" style=${{ fontSize: '11.5px' }}>Plan and review a few days. Compound will show what your best days have in common.</div>`}
         </section>
       </div>
@@ -1924,22 +1944,22 @@ function DailyView({ C, focus, planReq }) {
       <div class="ch"><span class="lbl">Past days</span><span class="sp"></span><${Seg} sm v=${pv} set=${v => { setPv(v); LS.set('compound.dview', v) }} opts=${[['cards', 'Cards'], ['list', 'List']]}/></div>
       ${!past.length ? html`<div class="card dim" style=${{ textAlign: 'center', fontSize: '11.5px' }}>Your past days will stack up here.</div>`
         : pv === 'cards' ? html`<div class="djpast">${past.map(k => html`<${PastDay} key=${k} k=${k} x=${days[k]} d=${S.days[k]} onClick=${() => open(k)}/>`)}</div>`
-        : html`<div class="card" style=${{ padding: 0 }}>${past.map(k => { const x = days[k], d = S.days[k] || {}, sc = dayScore(d); return html`<button key=${k} class="djrow" onClick=${() => open(k)}><span class="tn" style=${{ minWidth: '96px' }}>${fmtDate(parseDay(k), { wd: true })}</span><b class=${'tn ' + cls(x?.pnl)} style=${{ minWidth: '80px' }}>${x ? money(x.pnl, { sign: true, dec: 0 }) : '—'}</b><span class="mut hide-m" style=${{ fontSize: '11px' }}>${dayLine(x)}</span><span class="sp"></span>${d.plan && html`<span class="chip">${planSummary(d.plan) || 'Plan'}</span>`}<span class="tn dim" style=${{ minWidth: '36px', textAlign: 'right' }}>${sc != null ? sc + '/10' : '—'}</span></button>` })}</div>`}
+        : html`<div class="card" style=${{ padding: 0 }}>${past.map(k => { const x = days[k], d = S.days[k] || {}, sc = dayScore(d); return html`<button key=${k} class="djrow" onClick=${() => open(k)}><span class="tn" style=${{ minWidth: '96px' }}>${fmtDate(parseDay(k), { wd: true })}</span><b class=${'tn ' + cls(x?.pnl)} style=${{ minWidth: '80px' }}>${x ? money(x.pnl, { sign: true, dec: 0 }) : '—'}</b><span class="mut hide-m" style=${{ fontSize: '11px' }}>${dayLine(x, d)}</span><span class="sp"></span>${d.plan && html`<span class="chip">${planSummary(d.plan) || 'Plan'}</span>`}<span class="tn dim" style=${{ minWidth: '36px', textAlign: 'right' }}>${sc != null ? sc + '/10' : '—'}</span></button>` })}</div>`}
     </section>
   </div>`;
 }
 
-function dayLine(x) { if (!x) return 'No trades'; const br = x.trades.some(t => t.rules === false), kp = x.trades.some(t => t.rules === true); return `${x.n} trade${x.n > 1 ? 's' : ''}${br ? ' · rule broken' : kp ? ' · rules kept' : ''}` }
+function dayLine(x, d) { if (!x) return d?.noTrade ? 'No trades · sat out' + (d.noTrade.reasons?.[0] ? ' (' + d.noTrade.reasons[0] + ')' : '') : 'No trades'; const br = x.trades.some(t => t.rules === false), kp = x.trades.some(t => t.rules === true); return `${x.n} trade${x.n > 1 ? 's' : ''}${br ? ' · rule broken' : kp ? ' · rules kept' : ''}` }
 
 function scoreColor(sc) { return sc == null ? 'var(--line2)' : sc >= 7 ? 'var(--pos)' : sc >= 5 ? 'var(--acc)' : 'var(--neg)' }
 
 function PastDay({ k, x, d, onClick }) {
   const sc = dayScore(d); const dd = parseDay(k);
-  return html`<button class=${'card djcard ' + (x ? (x.pnl >= 0 ? 'up' : 'dn') : '')} onClick=${onClick}>
+  return html`<button class=${'card djcard ' + (x ? (x.pnl >= 0 ? 'up' : 'dn') : d?.noTrade ? 'nt' : '')} onClick=${onClick}>
     <div class="row" style=${{ gap: '8px', flexWrap: 'nowrap' }}><div class="col" style=${{ gap: '1px', minWidth: 0 }}><span class="lbl">${WDL[dd.getDay()].slice(0, 3)}</span><b>${dd.getDate()} ${MONL[dd.getMonth()].slice(0, 3)}</b></div><span class="sp"></span>
       <${Ring} v=${(sc || 0) * 10} size=${34} w=${3} color=${scoreColor(sc)}><span class="tn" style=${{ fontSize: '10.5px' }}>${sc ?? '–'}</span><//></div>
-    <b class=${'tn ' + cls(x?.pnl)} style=${{ fontSize: '19px', fontWeight: 800, letterSpacing: '-.02em' }}>${x ? money(x.pnl, { sign: true, dec: 0 }) : '—'}</b>
-    <span class="dim" style=${{ fontSize: '10.5px' }}>${dayLine(x)}</span>
+    <b class=${'tn ' + cls(x?.pnl)} style=${{ fontSize: '19px', fontWeight: 800, letterSpacing: '-.02em' }}>${x ? money(x.pnl, { sign: true, dec: 0 }) : d?.noTrade ? html`<span class="ntlbl">No trade</span>` : '—'}</b>
+    <span class="dim" style=${{ fontSize: '10.5px' }}>${dayLine(x, d)}</span>
     ${(d?.plan || d?.review?.lessons) && html`<span class="mut djclip">${d.review?.lessons || planSummary(d.plan)}</span>`}
   </button>`;
 }
@@ -1968,9 +1988,9 @@ function MonthPage({ S, days, m, setM, stk, onPick, onPlan }) {
       ${cells.map((d, i) => { if (!d) return html`<div key=${'e' + i} class="djc empty"></div>`; const k = dayKey(d); const x = days[k]; const dj = S.days[k]; const sc = dayScore(dj); const isT = k === tk; const fut = k > tk; const wk = !isWkday(d);
         const a = x ? .16 + .42 * Math.abs(x.pnl) / mx : 0;
         const bg = x ? `color-mix(in srgb,${x.pnl >= 0 ? 'var(--pos)' : 'var(--neg)'} ${Math.round(a * 100)}%,var(--card2))` : undefined;
-        return html`<button key=${k} class=${'djc' + (isT ? ' today' : '') + (fut ? ' fut' : '') + (wk ? ' wk' : '') + (x ? ' has' : '')} style=${{ background: bg }} onClick=${() => isT && !dj?.plan ? onPlan() : onPick(k)} disabled=${fut && !dj}>
+        return html`<button key=${k} class=${'djc' + (isT ? ' today' : '') + (fut ? ' fut' : '') + (wk ? ' wk' : '') + (x ? ' has' : '') + (!x && dj?.noTrade ? ' ntd' : '')} style=${{ background: bg }} onClick=${() => isT && !dj?.plan ? onPlan() : onPick(k)} disabled=${fut && !dj}>
           <div class="row" style=${{ gap: '4px', flexWrap: 'nowrap' }}><span class="dn tn">${d.getDate()}</span><span class="sp"></span>${sc != null && html`<span class="rg"><${Ring} v=${sc * 10} size=${20} w=${2.2} color=${scoreColor(sc)}><span class="tn" style=${{ fontSize: '8px' }}>${sc}</span><//></span>`}</div>
-          ${x ? html`<b class="pl tn">${money(x.pnl, { sign: true, dec: 0, compact: Math.abs(x.pnl) >= 10000 })}</b>` : isT ? html`<span class="tl">${dj?.plan ? 'Today · plan set' : '+ Plan today'}</span>` : html`<span></span>`}
+          ${x ? html`<b class="pl tn">${money(x.pnl, { sign: true, dec: 0, compact: Math.abs(x.pnl) >= 10000 })}</b>` : dj?.noTrade ? html`<span class="tl nt">No trade</span>` : isT ? html`<span class="tl">${dj?.plan ? 'Today · plan set' : '+ Plan today'}</span>` : html`<span></span>`}
           <div class="dots">${x ? x.trades.slice(0, 6).map((t, j) => html`<i key=${j} class=${t.pnl >= 0 ? 'w' : 'l'}></i>`) : ''}${dj?.plan && html`<i class="p" title="Plan"></i>`}${dj?.review && html`<i class="r" title="Reviewed"></i>`}</div>
         </button>` })}
     </div>`;
@@ -2023,7 +2043,7 @@ function DaySheet({ C, day, tab: tab0, days, onClose }) {
     setBusy(false);
   };
   const share = async () => {
-    const txt = `${WDL[dd.getDay()]} ${dd.getDate()} ${MONL[dd.getMonth()]}: ${x ? money(x.pnl, { sign: true, dec: 0 }) + ' · ' + x.n + ' trades' : 'no trades'}${sc != null ? ' · ' + sc + '/10' : ''}${d.plan ? '\nPlan: ' + planSummary(d.plan) : ''}${d.review?.lessons ? '\nLesson: ' + d.review.lessons : ''}\n— Compound`;
+    const txt = `${WDL[dd.getDay()]} ${dd.getDate()} ${MONL[dd.getMonth()]}: ${x ? money(x.pnl, { sign: true, dec: 0 }) + ' · ' + x.n + ' trades' : d.noTrade ? 'no trades, sat out on purpose' : 'no trades'}${sc != null ? ' · ' + sc + '/10' : ''}${d.plan ? '\nPlan: ' + planSummary(d.plan) : ''}${d.review?.lessons ? '\nLesson: ' + d.review.lessons : ''}\n— Compound`;
     try { if (navigator.share) await navigator.share({ text: txt }); else { await navigator.clipboard.writeText(txt); toast('Day copied') } } catch (e) { }
   };
   const tabs = [['plan', 'Plan'], ['trades', 'Trades' + (x ? ' · ' + x.n : '')], ['review', 'Review'], ['notes', 'Notes']];
@@ -2032,7 +2052,7 @@ function DaySheet({ C, day, tab: tab0, days, onClose }) {
       <div class="grab"></div>
       <div class="sh-h">
         <div class="col" style=${{ gap: '3px' }}><span class="lbl">${WDL[dd.getDay()]} ${dd.getDate()} ${MONL[dd.getMonth()]}</span>
-          <div class="row" style=${{ gap: '8px', alignItems: 'baseline' }}><b class=${'tn ' + cls(x?.pnl)} style=${{ fontSize: '22px', fontWeight: 800, letterSpacing: '-.03em' }}>${x ? money(x.pnl, { sign: true, dec: 0 }) : '$0'}</b><span class="mut tn" style=${{ fontSize: '11.5px' }}>${x ? x.n + ' trade' + (x.n > 1 ? 's' : '') : 'no trades'}${sc != null ? ' · ' + sc + '/10' : ''}</span></div></div>
+          <div class="row" style=${{ gap: '8px', alignItems: 'baseline' }}><b class=${'tn ' + cls(x?.pnl)} style=${{ fontSize: '22px', fontWeight: 800, letterSpacing: '-.03em' }}>${x ? money(x.pnl, { sign: true, dec: 0 }) : '$0'}</b><span class="mut tn" style=${{ fontSize: '11.5px' }}>${x ? x.n + ' trade' + (x.n > 1 ? 's' : '') : d.noTrade ? 'no trades · sat out' : 'no trades'}${sc != null ? ' · ' + sc + '/10' : ''}</span></div></div>
         <span class="sp"></span>
         <button class="btn btn-g sm" onClick=${share}><${I} n="upload" s=${13}/>Share day</button>
         <button class="ib" onClick=${onClose} aria-label="Close"><${I} n="x"/></button>
@@ -2043,7 +2063,7 @@ function DaySheet({ C, day, tab: tab0, days, onClose }) {
         ${tab === 'trades' && html`<div class="col" style=${{ gap: '8px' }}>
           ${x && html`<div class="grid g3 keep2" style=${{ gap: '8px' }}>${(() => { const s = stats(x.trades); return [['Win rate', pct(s.wr, 0), ''], ['Best', money(s.best?.pnl, { sign: true, dec: 0 }), 'pos'], ['Worst', money(s.worst?.pnl, { sign: true, dec: 0 }), 'neg']].map(([k, v, c]) => html`<div class="card tight" key=${k}><div class="lbl">${k}</div><b class=${'tn ' + c}>${v}</b></div>`) })()}</div>`}
           ${x ? [...x.trades].sort((a, b) => tTime(a) - tTime(b)).map(t => html`<button key=${t.id} class="djtrade" onClick=${() => UI.open('detail', { id: t.id, list: x.trades.map(y => y.id) })}><span class="dim tn">${fmtTime(t.t)}</span><b>${t.symbol}</b><${Side} s=${t.side}/><${Grade} g=${t.grade}/>${t.rules === false && html`<span class="chip neg">rule broken</span>`}<span class="sp"></span><${Money} v=${t.pnl}/></button>`)
-            : html`<div class="dim" style=${{ fontSize: '11.5px' }}>No trades on this day.</div>`}
+            : html`<${NoTradeBox} day=${day} S=${S} x=${x}/>`}
           <button class="btn btn-g sm" style=${{ alignSelf: 'flex-start' }} onClick=${() => UI.open('trade', { preset: { t: day + 'T09:30' } })}><${I} n="plus"/>Log a trade on this day</button></div>`}
         ${tab === 'review' && html`<div class="col" style=${{ gap: '16px' }}>
           <div class="djf"><span class="lbl">Did you follow your plan?</span><div class="seg">${[[true, 'Yes'], ['part', 'Partly'], [false, 'No']].map(([v, l]) => html`<button key=${l} class=${r.plan === v ? 'on' : ''} onClick=${() => up({ plan: v })}>${l}</button>`)}</div></div>
@@ -2607,7 +2627,7 @@ function buildContext(S, D) {
   const { all } = computeTrades(S, { mode: 'all', dedupe: false });
   const accs = Object.values(S.accounts).map(a => { const st = acctState(a, all, Object.values(S.adjust).filter(x => x.account === a.id)); return `${a.label} | ${firmById(a.firm).name} ${a.plan || ''} ${a.size} ${a.type} ${a.status} | balance ${Math.round(st.bal)}, profit ${Math.round(st.profit)}, drawdown left ${Math.round(st.left)} (floor ${Math.round(st.floor)}, ${a.dd} trailing max loss ${a.mll})${st.toGo != null ? ', to target ' + Math.round(st.toGo) : ''}${st.dll ? ', daily loss limit ' + st.dll + ' (left today ' + Math.round(st.dllLeft) + ')' : ''}${st.consLimit ? `, consistency rule ${a.cons}% (best day is ${pct(st.consUsed, 0)} of profit${st.consOk ? '' : ', needs +' + Math.round(st.consNeed)})` : ''}, trading days ${st.tradingDays}` }).join('\n');
   const strats = Object.values(S.strategies).map(x => `"${x.name}": ${x.desc || ''} | TF ${x.tf} | entry: ${(x.entry || []).join('; ')} | invalidation: ${x.invalid || '-'} | min RR ${x.minRR} | management: ${x.manage || '-'}`).join('\n');
-  const recentDays = Object.keys(S.days).filter(k => /^\d{4}-/.test(k)).sort().slice(-10).map(k => { const d = S.days[k]; return `${k}: ${d.plan ? 'PLAN bias ' + (d.plan.bias || '-') + '; focus ' + (d.plan.focus || '-') + '; feeling ' + (d.plan.feeling || '-') + '; levels ' + (levelsText(d.plan) || '-') + '; rule ' + (d.plan.rule || '-') : 'no plan'}${d.review ? ' | REVIEW mood ' + d.review.mood + ', day rating ' + (dayScore(d) ?? '-') + '/10, followed plan ' + (d.review.plan === true ? 'yes' : d.review.plan === false ? 'no' : d.review.plan === 'part' ? 'partly' : '-') + ': ' + (d.review.text || '').slice(0, 300) + (d.review.lessons ? ' Lesson: ' + d.review.lessons : '') : ''}${d.study ? ' | studied ' + d.study + 'min' : ''}` }).join('\n');
+  const recentDays = Object.keys(S.days).filter(k => /^\d{4}-/.test(k)).sort().slice(-10).map(k => { const d = S.days[k]; return `${k}: ${d.plan ? 'PLAN bias ' + (d.plan.bias || '-') + '; focus ' + (d.plan.focus || '-') + '; feeling ' + (d.plan.feeling || '-') + '; levels ' + (levelsText(d.plan) || '-') + '; rule ' + (d.plan.rule || '-') : 'no plan'}${d.review ? ' | REVIEW mood ' + d.review.mood + ', day rating ' + (dayScore(d) ?? '-') + '/10, followed plan ' + (d.review.plan === true ? 'yes' : d.review.plan === false ? 'no' : d.review.plan === 'part' ? 'partly' : '-') + ': ' + (d.review.text || '').slice(0, 300) + (d.review.lessons ? ' Lesson: ' + d.review.lessons : '') : ''}${d.noTrade ? ' | NO TRADES by choice: ' + ((d.noTrade.reasons || []).join(', ') || 'sat out') + (d.noTrade.note ? ' (' + d.noTrade.note + ')' : '') : ''}${d.study ? ' | studied ' + d.study + 'min' : ''}` }).join('\n');
   const trades = D.ts.slice(0, 90).map(t => tradeLine(t, S) + (t.notes ? ' | notes: ' + t.notes.slice(0, 160).replace(/\n/g, ' ') : '')).join('\n');
   const st = S.settings; const ins = insightsOf(D.ts, S).map(x => '- ' + x.title + ': ' + x.body).join('\n');
   return `TRADER: ${st.name}. Trades futures (mainly MNQ) on prop firm accounts, ICT/SMC style. Today is ${fmtLong(new Date())}, local time ${fmtTime(new Date())} (New York ${Math.floor(nyHM(new Date()))}:${pad(Math.round(nyHM(new Date()) % 1 * 60))}).
