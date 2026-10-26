@@ -666,6 +666,7 @@ const ICONS = {
   candle: '<path d="M7 3.5v3M7 15.5v5M17 6.5v4M17 18.5v2"/><rect x="5" y="6.5" width="4" height="9" rx="1"/><rect x="15" y="10.5" width="4" height="8" rx="1"/>',
   eye: '<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/>',
   eyeoff: '<path d="M4 4l16 16M10 6c.6-.1 1.3-.2 2-.2 6 0 9.5 6.4 9.5 6.4a17 17 0 01-2.6 3.4M6.6 7.4A16 16 0 002.5 12s3.5 6.5 9.5 6.5c1.6 0 3-.4 4.2-1"/><path d="M9.9 10a3 3 0 004.1 4.1"/>',
+  dots: '<circle cx="5.5" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="18.5" cy="12" r="1.6" fill="currentColor" stroke="none"/>',
   dollar: '<path d="M12 3v18M16.5 7.5c-.6-1.6-2.3-2.5-4.5-2.5-2.6 0-4.5 1.3-4.5 3.3 0 4.9 9.5 2.4 9.5 7.4 0 2-1.9 3.3-4.8 3.3-2.4 0-4.3-1-4.9-2.8"/>',
   plus: '<path d="M12 5v14M5 12h14"/>', bolt: '<path d="M13 2.5L5 13.5h6.5l-1 8 8-11H12z"/>',
   filter: '<path d="M4 5h16l-6.2 7.5V19l-3.6-1.8v-4.7z"/>', search: '<circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.3-4.3"/>',
@@ -2159,7 +2160,7 @@ function tvSymFor(sym) { const f = instr(sym).fam; const saved = LS.get('compoun
 function TVLive({ symbol, interval = '5', h, studies = [], fill = false }) {
   const wrap = useRef(); const el = useRef(); const [hh, setHh] = useState(h || 560); const [full, setFull] = useState(false);
   useLayoutEffect(() => {
-    if (!fill) return; const fit = () => { const r = wrap.current?.getBoundingClientRect(); if (!r) return; setHh(Math.max(420, Math.round(innerHeight - r.top - (innerWidth < 760 || isTablet() ? 92 : 64)))) };
+    if (!fill) return; const fit = () => { const r = wrap.current?.getBoundingClientRect(); if (!r) return; setHh(Math.max(420, Math.round(innerHeight - r.top - (innerWidth < 760 || isTablet() ? 100 : 64)))) };
     fit(); addEventListener('resize', fit); const t = setTimeout(fit, 120); return () => { removeEventListener('resize', fit); clearTimeout(t) };
   }, [fill]);
   useEffect(() => { if (!full) return; const k = e => e.key === 'Escape' && setFull(false); addEventListener('keydown', k); return () => removeEventListener('keydown', k) }, [full]);
@@ -3008,14 +3009,14 @@ function App() {
         <span class="ava hide-m">${(S.settings.name || 'V')[0]}</span></div>
     </header>
     ${!full && !wide && html`<${Desk} C=${C} onPick=${id => togAcct(id)}/>`}
-    <main class="main" ref=${mainRef} style=${full ? { overflow: 'hidden', display: 'flex', flexDirection: 'column' } : null}>
+    <main class=${'main' + (full ? ' mainfull' : '')} ref=${mainRef} style=${full ? { overflow: 'hidden', display: 'flex', flexDirection: 'column' } : null}>
       ${store.mode === 'local' && html`<div class="card tight row" style=${{ margin: '14px 30px 0', borderColor: 'var(--warn)' }}><span class="dot wait"></span><span style=${{ flex: 1, fontSize: '12px' }}>Not syncing. This copy saves to this browser only. Use your Compound app (home-screen / taskbar icon) so trades show up on every device.</span></div>`}
       ${store.localPending && html`<div class="card tight row" style=${{ margin: '14px 30px 0', borderColor: 'var(--accg)' }}><${I} n="refresh"/><span style=${{ flex: 1 }}>You have journal data saved in this browser from before sync was on.</span><button class="btn btn-w sm" onClick=${() => store.migrateLocal()}>Move it into my synced journal</button><button class="btn btn-t sm" onClick=${() => store.dismissLocal()}>Not now</button></div>`}
       <${V} C=${C} params=${params}/></main>
     ${!full && !wide && html`<${Rail} C=${C}/>`}
     <footer class="foot"><span class="sync"><span class=${'dot ' + sync[0]}></span>${sync[1]}</span><span class="dim hide-m">n new trade · q quick log · / search · h hide P&L · 1–9 pages</span>
       <span class="mid"><a class="dim hide-m" href="https://www.tradingview.com/" target="_blank" rel="noopener" style=${{ fontSize: '10px', textDecoration: 'none' }}>Charts by TradingView</a></span><button class="btn btn-t xs" onClick=${() => UI.open('import', { mode })}><${I} n="upload" s=${13}/>Import</button><button class="btn btn-t xs" onClick=${() => UI.open('settings', { tab: 'data' })}><${I} n="download" s=${13}/>Backup</button></footer>
-    <nav class="nav-m" aria-label="Sections">${tabs.map(v => html`<button key=${v[0]} class=${view === v[0] ? 'on' : ''} onClick=${() => go(v[0])}><${I} n=${v[2]}/>${v[1]}</button>`)}</nav>
+    <${PillNav} view=${view} go=${go} tabs=${tabs} mode=${mode}/>
   </div>
   ${view !== 'ai' && view !== 'chart' && html`<button class="fab" onClick=${() => go('ai')} aria-label="Ask your coach" title="Ask your coach"><${Mark} s=${26}/></button>`}
   ${modals.map((m, i) => { const close = () => setModals(x => x.filter(y => y.id !== m.id)); const p = { ...m.props, onClose: close, key: m.id };
@@ -3066,3 +3067,36 @@ function AcctMenu({ open, onClose, S, sel, setSel, tog }) {
   addEventListener('focus', () => check(true));
   setInterval(() => { if (document.visibilityState === 'visible') { pending = false; check(false) } }, 10 * 60000);
 })();
+
+/* ---------- bottom pill navigation (phone + tablet): a floating glass capsule with a sliding, stretching lens ---------- */
+function PillNav({ view, go, tabs, mode }) {
+  useViewport();
+  const tablet = isTablet() && innerWidth > 760;
+  const items = tablet ? tabs.map(v => v[0]) : ['dashboard', 'journal', 'analytics', 'propfirm', 'more'];
+  const inMore = !items.includes(view);
+  const active = inMore ? 'more' : view;
+  const meta = k => k === 'more' ? (inMore && view !== 'more' ? [view, (tabs.find(t => t[0] === view) || [0, view === 'flex' ? 'Flex' : 'More'])[1], (tabs.find(t => t[0] === view) || [0, 0, 'dots'])[2]] : ['more', 'More', 'dots']) : tabs.find(t => t[0] === k);
+  const wrap = useRef(); const btns = useRef({}); const [lens, setLens] = useState(null); const [drag, setDrag] = useState(null); const [stretch, setStretch] = useState(false); const [sheet, setSheet] = useState(false);
+  const place = k => { const b = btns.current[k], w = wrap.current; if (!b || !w) return null; return { x: b.offsetLeft, w: b.offsetWidth } };
+  useLayoutEffect(() => { const p = place(drag || active); if (p) setLens(p) }, [active, drag, innerWidth, items.length]);
+  useEffect(() => { setStretch(true); const t = setTimeout(() => setStretch(false), 260); return () => clearTimeout(t) }, [active]);
+  const keyAt = clientX => { const w = wrap.current.getBoundingClientRect(); const x = clientX - w.left; let best = null, bd = 1e9; for (const k of items) { const b = btns.current[k]; if (!b) continue; const c = b.offsetLeft + b.offsetWidth / 2; const d = Math.abs(c - x); if (d < bd) { bd = d; best = k } } return best };
+  const tap = k => { try { navigator.vibrate && navigator.vibrate(6) } catch (e) { } if (k === 'more') setSheet(true); else { setSheet(false); go(k) } };
+  const pd = useRef(null);
+  const onDown = e => { if (e.pointerType === 'mouse') return; pd.current = { x: e.clientX, moved: false } };
+  const onMove = e => { if (!pd.current) return; if (Math.abs(e.clientX - pd.current.x) > 8) pd.current.moved = true; if (pd.current.moved) { const k = keyAt(e.clientX); k && k !== drag && setDrag(k) } };
+  const onUp = () => { const st = pd.current; pd.current = null; if (st?.moved && drag) { const k = drag; setDrag(null); if (k !== active || k === 'more') tap(k) } else setDrag(null) };
+  const extra = tabs.filter(t => !items.includes(t[0]));
+  useEffect(() => { document.body.classList.toggle('moreopen', sheet); return () => document.body.classList.remove('moreopen') }, [sheet]);
+  return html`<div class=${'pillbar' + (tablet ? ' tab' : '')}>
+    <nav class="gpill" ref=${wrap} aria-label="Sections" onPointerDown=${onDown} onPointerMove=${onMove} onPointerUp=${onUp} onPointerCancel=${() => { pd.current = null; setDrag(null) }}>
+      ${lens && html`<span class=${'lens' + (stretch || drag ? ' st' : '') + (drag ? ' drag' : '')} style=${{ width: lens.w + 'px', transform: `translateX(${lens.x}px)` }}></span>`}
+      ${items.map(k => { const [id, l, ic] = meta(k); return html`<button key=${k} ref=${el => btns.current[k] = el} class=${(active === k ? 'on' : '') + (drag === k ? ' hov' : '')} onClick=${() => !pd.current?.moved && tap(k)} aria-current=${active === k ? 'page' : undefined}><${I} n=${ic}/><span>${l}</span></button>` })}
+    </nav>
+    ${sheet && html`<div class="moreov" onPointerDown=${e => { if (e.target === e.currentTarget) setSheet(false) }}><div class="moresheet" role="dialog" aria-label="More sections">
+      <div class="grab"></div>
+      <div class="moregrid">${[...extra, ['flex', 'Flex', 'dollar']].map(([k, l, ic]) => html`<button key=${k} class=${view === k ? 'on' : ''} onClick=${() => { setSheet(false); go(k) }}><span class="mi"><${I} n=${ic}/></span><span>${l}</span></button>`)}</div>
+      <div class="row" style=${{ gap: '8px', marginTop: '6px' }}><button class="btn btn-g sm" style=${{ flex: 1 }} onClick=${() => { setSheet(false); UI.open('import', { mode }) }}><${I} n="upload" s=${14}/>Import</button><button class="btn btn-g sm" style=${{ flex: 1 }} onClick=${() => { setSheet(false); UI.open('settings') }}><${I} n="palette" s=${14}/>Settings</button><button class="btn btn-g sm" style=${{ flex: 1 }} onClick=${() => { setSheet(false); UI.open('settings', { tab: 'data' }) }}><${I} n="download" s=${14}/>Backup</button></div>
+    </div></div>`}
+  </div>`;
+}
