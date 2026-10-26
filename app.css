@@ -729,5 +729,10 @@ button.ntbox:hover{border-color:var(--acc)}
 .djc.ntd{background:repeating-linear-gradient(135deg,var(--card2) 0 6px,color-mix(in srgb,var(--acc) 7%,var(--card2)) 6px 12px);border-color:var(--accg)}
 .djcard.nt{box-shadow:inset 0 2px 0 var(--acc)}
 .ntlbl{font-size:15px;color:var(--fg2)}
+.tbl .ract{width:76px;position:sticky;right:0;background:var(--card);padding-left:4px!important}
+.tbl tr:hover .ract{background:var(--hover)}
+.ract .ib{width:30px;height:30px;color:var(--mut)}
+.ract .ib:hover{color:var(--fg)}
+.ract .ib.del:hover{color:var(--neg)}
 
 body{padding-top:env(safe-area-inset-top,0px)}
