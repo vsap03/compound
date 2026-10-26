@@ -632,40 +632,40 @@ button.chip:hover{border-color:var(--line3)}
 .djf>.seg{align-self:flex-start}
 
 /* ---------- iPad / tablet (touch, wider than a phone) ---------- */
-@media (pointer:coarse) and (min-width:761px){
-  .in,.sel,.ta,.search input,.compose textarea{font-size:16px}
-  .in.sm{font-size:16px;height:34px}
-  .ib{width:38px;height:38px}
-  .chip{height:28px;padding:0 11px}
-  .seg button{padding:7px 13px}
-  .seg.sm button{padding:6px 11px}
-  .btn{min-height:38px}
-  .btn.xs,.btn.sm{min-height:32px}
-  .djc{min-height:84px}
-  .scorep button{height:38px}
-  .sh-tabs button{padding:11px 14px}
-  .sheet{width:min(820px,100%)}
+@media (min-width:761px){
+  :root.tablet .in,:root.tablet .sel,:root.tablet .ta,:root.tablet .search input,:root.tablet .compose textarea{font-size:16px}
+  :root.tablet .in.sm{font-size:16px;height:34px}
+  :root.tablet .ib{width:38px;height:38px}
+  :root.tablet .chip{height:28px;padding:0 11px}
+  :root.tablet .seg button{padding:7px 13px}
+  :root.tablet .seg.sm button{padding:6px 11px}
+  :root.tablet .btn{min-height:38px}
+  :root.tablet .btn.xs,:root.tablet .btn.sm{min-height:32px}
+  :root.tablet .djc{min-height:84px}
+  :root.tablet .scorep button{height:38px}
+  :root.tablet .sh-tabs button{padding:11px 14px}
+  :root.tablet .sheet{width:min(820px,100%)}
 }
-@media (pointer:coarse) and (min-width:761px) and (max-width:1366px){
-  .shell{--rdw:0px;grid-template-rows:56px 1fr;grid-template-areas:"top top top" "desk main rail"}
-  .rail{display:none}
-  .shell.rdo .rail{display:flex;position:fixed;z-index:75;right:0;top:56px;bottom:calc(var(--pillh) + 20px + var(--pillb));width:min(340px,60vw);background:var(--panel);border-left:1px solid var(--line2);box-shadow:var(--shadow);padding:6px 16px 16px}
-  .shell.ldo .desk{top:56px;bottom:calc(var(--pillh) + 20px + var(--pillb))}
-  .nav .tab{display:none}
-  .foot{display:none}
-  .mob-only.ib{display:grid}
-  .fab{bottom:calc(var(--pillh) + 22px + var(--pillb));right:calc(20px + env(safe-area-inset-right,0px))}
-  .toasts{bottom:calc(var(--pillh) + 22px + var(--pillb))}
-  .main{border-radius:0;border-left:0;border-right:0;border-bottom:0}
+@media (min-width:761px){
+  :root.tablet .shell{--rdw:0px;grid-template-rows:56px 1fr;grid-template-areas:"top top top" "desk main rail"}
+  :root.tablet .rail{display:none}
+  :root.tablet .shell.rdo .rail{display:flex;position:fixed;z-index:75;right:0;top:56px;bottom:calc(var(--pillh) + 20px + var(--pillb));width:min(340px,60vw);background:var(--panel);border-left:1px solid var(--line2);box-shadow:var(--shadow);padding:6px 16px 16px}
+  :root.tablet .shell.ldo .desk{top:56px;bottom:calc(var(--pillh) + 20px + var(--pillb))}
+  :root.tablet .nav .tab{display:none}
+  :root.tablet .foot{display:none}
+  :root.tablet .mob-only.ib{display:grid}
+  :root.tablet .fab{bottom:calc(var(--pillh) + 22px + var(--pillb));right:calc(20px + env(safe-area-inset-right,0px))}
+  :root.tablet .toasts{bottom:calc(var(--pillh) + 22px + var(--pillb))}
+  :root.tablet .main{border-radius:0;border-left:0;border-right:0;border-bottom:0}
 }
-@media (pointer:coarse) and (min-width:761px) and (max-width:1100px){
-  .shell{--ldw:0px} .desk{display:none}
-  .shell.ldo .desk{display:flex;position:fixed;z-index:75;left:0;width:min(300px,50vw);background:var(--panel);border-right:1px solid var(--line2);box-shadow:var(--shadow);padding:6px 14px 14px max(14px,env(safe-area-inset-left,0px))}
-  .dashrow{grid-template-columns:minmax(0,1fr) minmax(0,1fr)} .dashrow>:first-child{grid-column:1/-1}
-  .gk{grid-template-columns:repeat(2,minmax(0,1fr))}
+@media (min-width:761px) and (max-width:1100px){
+  :root.tablet .shell{--ldw:0px} :root.tablet .desk{display:none}
+  :root.tablet .shell.ldo .desk{display:flex;position:fixed;z-index:75;left:0;width:min(300px,50vw);background:var(--panel);border-right:1px solid var(--line2);box-shadow:var(--shadow);padding:6px 14px 14px max(14px,env(safe-area-inset-left,0px))}
+  :root.tablet .dashrow{grid-template-columns:minmax(0,1fr) minmax(0,1fr)} :root.tablet .dashrow>:first-child{grid-column:1/-1}
+  :root.tablet .gk{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
-@media (pointer:coarse) and (min-width:761px) and (orientation:portrait){
-  .page{padding-left:max(24px,env(safe-area-inset-left,0px));padding-right:max(24px,env(safe-area-inset-right,0px))}
+@media (min-width:761px) and (orientation:portrait){
+  :root.tablet .page{padding-left:max(24px,env(safe-area-inset-left,0px));padding-right:max(24px,env(safe-area-inset-right,0px))}
 }
 
 /* ---------- deleting trades ---------- */
@@ -767,16 +767,17 @@ button.ntbox:hover{border-color:var(--acc)}
   .toasts{bottom:calc(var(--pillh) + var(--pillb) + 14px)}
   .sheet{padding-bottom:calc(env(safe-area-inset-bottom,0px) + 8px)}
 }
-@media (pointer:coarse) and (min-width:761px) and (max-width:1366px){
-  .shell{position:fixed;inset:0;height:auto;padding-top:env(safe-area-inset-top,0px)}
-  .pillbar{display:flex}
-  .gpill{max-width:min(900px,100%);--pillh:66px}
-  .gpill button{font-size:10.5px}
-  .main.mainfull{padding-bottom:calc(var(--pillh) + var(--pillb) + 8px)}
-  .page{padding-bottom:calc(var(--pillh) + var(--pillb) + 40px)!important}
+@media (min-width:761px){
+  :root.tablet .shell{position:fixed;inset:0;height:auto;padding-top:env(safe-area-inset-top,0px)}
+  :root.tablet .pillbar{display:flex}
+  :root.tablet .gpill{max-width:min(900px,100%);--pillh:66px}
+  :root.tablet .gpill button{font-size:10.5px}
+  :root.tablet .main.mainfull{padding-bottom:calc(var(--pillh) + var(--pillb) + 8px)}
+  :root.tablet .page{padding-bottom:calc(var(--pillh) + var(--pillb) + 40px)!important}
 }
 @media (prefers-reduced-motion:reduce){.lens,.gpill button,.moresheet{transition:none!important;animation:none!important}}
 .moreopen .fab{opacity:0;pointer-events:none;transform:scale(.8)}
 .fab{transition:opacity .2s,transform .3s cubic-bezier(.3,1.5,.5,1)}
+@media (min-width:761px){:root.tablet .pillbar{left:var(--ldw,252px);right:var(--rdw,0px);transition:left .25s}}
 
 @media (min-width:761px) and (not (pointer:coarse)){body{padding-top:env(safe-area-inset-top,0px)}}

@@ -763,9 +763,13 @@ function CountUp({ v, fmt }) {
 /* ---------- SVG charts ---------- */
 /* tablets (iPad): touch screens wider than a phone get the bottom tab bar and slide-over side panels */
 const TABLET_Q = '(pointer:coarse) and (min-width:761px)';
-const isTablet = () => { try { return matchMedia(TABLET_Q).matches } catch (e) { return false } };
+/* iPadOS Safari reports itself as a Mac, and with a Magic Keyboard/trackpad attached it reports a fine pointer, so detect touch hardware directly */
+const TOUCH_DEV = (() => { try { const ua = navigator.userAgent; return /iPad|Android(?!.*Mobile)|Tablet/i.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1) || matchMedia('(pointer:coarse)').matches || matchMedia('(any-pointer:coarse)').matches } catch (e) { return false } })();
+const isTablet = () => TOUCH_DEV && innerWidth > 760;
+const markTablet = () => document.documentElement.classList.toggle('tablet', isTablet());
+markTablet(); addEventListener('resize', markTablet); addEventListener('orientationchange', () => setTimeout(markTablet, 120));
 const deskNarrow = () => innerWidth <= 1020 || (isTablet() && innerWidth <= 1100);
-const railNarrow = () => innerWidth <= 1280 || (isTablet() && innerWidth <= 1366);
+const railNarrow = () => innerWidth <= 1280 || isTablet();
 function useViewport() { const [, set] = useState(0); useEffect(() => { let t; const f = () => { clearTimeout(t); t = setTimeout(() => set(n => n + 1), 80) }; addEventListener('resize', f); addEventListener('orientationchange', f); return () => { removeEventListener('resize', f); removeEventListener('orientationchange', f) } }, []) }
 function useWidth(def = 600) {
   const ref = useRef(); const [w, setW] = useState(def);
