@@ -723,8 +723,10 @@ function Modal({ title, onClose, children, foot, size = '', icon }) {
       <div class="mb">${children}</div>${foot && html`<div class="mf">${foot}</div>`}
     </div></div>`;
 }
-function Drawer({ onClose, children, head }) {
+function Drawer({ onClose, children, head, center }) {
   useEffect(() => { const k = e => { if (e.key === 'Escape') onClose() }; addEventListener('keydown', k); return () => removeEventListener('keydown', k) }, [onClose]);
+  if (center) return html`<div class="ov cov" onMouseDown=${e => { if (e.target === e.currentTarget) onClose() }}><div class="cdlg" role="dialog" aria-modal="true">
+    <div class="mh">${head}<span class="sp"></span><button class="ib" onClick=${onClose} aria-label="Close"><${I} n="x"/></button></div>${children}</div></div>`;
   return html`<div><div class="ov" style=${{ zIndex: 69 }} onMouseDown=${onClose}></div><aside class="drw" role="dialog" aria-modal="true">
     <div class="mh">${head}<span class="sp"></span><button class="ib" onClick=${onClose} aria-label="Close"><${I} n="x"/></button></div>${children}</aside></div>`;
 }
@@ -2908,7 +2910,7 @@ function AccountDetail({ id, onClose }) {
   const [tab, setTab] = useState(LS.get('compound.acctab', 'overview')); const setT = v => { setTab(v); LS.set('compound.acctab', v) };
   const [mc, setMc] = useState(false); const [menu, setMenu] = useState(false);
   const { all } = useMemo(() => computeTrades(S, { mode: 'all', dedupe: false }), [store.v]);
-  if (!a) return html`<${Drawer} onClose=${onClose}><div class="mb"><${Empty} title="Account deleted"/></div><//>`;
+  if (!a) return html`<${Drawer} center onClose=${onClose}><div class="mb"><${Empty} title="Account deleted"/></div><//>`;
   const adj = Object.values(S.adjust).filter(x => x.account === a.id);
   const st = acctState(a, all, adj); const f = firmById(a.firm); const cfd = acctMarket(a) === 'cfd';
   const ts = [...st.trades].sort((x, y) => tTime(y) - tTime(x));
@@ -2932,7 +2934,7 @@ function AccountDetail({ id, onClose }) {
   const K = ({ k, v, c, sub }) => html`<div class="card tight adk"><div class="lbl">${k}</div><div class=${'tn v ' + (c || '')}>${v}</div>${sub && html`<div class="dim s">${sub}</div>`}</div>`;
   const KV = ({ k, v, c }) => html`<div class="adkv"><span>${k}</span><b class=${'tn ' + (c || '')}>${v ?? '—'}</b></div>`;
   const GT = ({ title, rows }) => rows.length ? html`<div class="card" style=${{ padding: 0 }}><div class="ch" style=${{ padding: '14px 18px 0' }}><span class="lbl">${title}</span></div><div class="scroll-x"><table class="tbl"><thead><tr><th></th><th class="r">Trades</th><th class="r">Win</th><th class="r">PF</th><th class="r">Net</th></tr></thead><tbody>${rows.slice(0, 8).map(r => html`<tr key=${r.k}><td><b>${r.k}</b></td><td class="r tn">${r.n}</td><td class="r tn">${pct(r.wr, 0)}</td><td class="r tn">${r.pf === Infinity ? '∞' : r.pf.toFixed(2)}</td><td class=${'r tn ' + cls(r.net)} style=${{ fontWeight: 700 }}>${money(r.net, { sign: true, dec: 0 })}</td></tr>`)}</tbody></table></div></div>` : null;
-  return html`<${Drawer} onClose=${onClose} head=${html`<div class="row" style=${{ gap: '10px', flexWrap: 'nowrap', minWidth: 0 }}><${FirmLogo} id=${a.firm} s=${34}/><div style=${{ minWidth: 0 }}><b style=${{ fontSize: '15px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block' }}>${a.label || f.name}</b><span class="dim" style=${{ fontSize: '11px' }}>${f.name}${a.plan ? ' · ' + a.plan : ''} · ${money(+a.size || 0, { dec: 0, show: true })}</span></div><span class=${'status st-' + (a.status === 'active' ? (a.type === 'funded' ? 'funded' : 'active') : a.status)}>${statusL}</span></div>`}>
+  return html`<${Drawer} center onClose=${onClose} head=${html`<div class="row" style=${{ gap: '10px', flexWrap: 'nowrap', minWidth: 0 }}><${FirmLogo} id=${a.firm} s=${34}/><div style=${{ minWidth: 0 }}><b style=${{ fontSize: '15px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block' }}>${a.label || f.name}</b><span class="dim" style=${{ fontSize: '11px' }}>${f.name}${a.plan ? ' · ' + a.plan : ''} · ${money(+a.size || 0, { dec: 0, show: true })}</span></div><span class=${'status st-' + (a.status === 'active' ? (a.type === 'funded' ? 'funded' : 'active') : a.status)}>${statusL}</span></div>`}>
     <div class="mb admb" style=${{ gap: '16px' }}>
       <div class="row" style=${{ gap: '8px' }}>
         <button class="btn btn-w sm" onClick=${() => UI.open('trade', { preset: { account: a.id } })}><${I} n="plus"/>Log trade</button>

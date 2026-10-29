@@ -796,5 +796,11 @@ button.ntbox:hover{border-color:var(--acc)}
 @media (max-width:760px){.adhero{grid-template-columns:minmax(0,1fr);gap:14px}.adbal{font-size:28px}}
 .admb>*{flex-shrink:0}
 .drw .mh .status{white-space:nowrap;flex:0 0 auto}
+.cov{align-items:center;padding-top:max(20px,env(safe-area-inset-top,0px));padding-bottom:max(20px,env(safe-area-inset-bottom,0px))}
+.cdlg{width:min(1040px,100%);max-height:min(900px,calc(100dvh - 40px));background:var(--panel);border:1px solid var(--line2);border-radius:22px;box-shadow:var(--shadow),0 40px 90px -30px rgba(0,0,0,.9);display:flex;flex-direction:column;overflow:hidden;animation:cpop .32s cubic-bezier(.2,1.2,.4,1)}
+@keyframes cpop{from{opacity:0;transform:translateY(14px) scale(.96)}to{opacity:1;transform:none}}
+.cdlg .mb{overflow:auto;flex:1;min-height:0}
+.cdlg .mh .status{white-space:nowrap;flex:0 0 auto}
+@media (max-width:760px){.cov{padding:max(10px,env(safe-area-inset-top,0px)) 8px max(10px,env(safe-area-inset-bottom,0px))}.cdlg{max-height:calc(100dvh - 20px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));border-radius:20px}}
 
 @media (min-width:761px) and (not (pointer:coarse)){body{padding-top:env(safe-area-inset-top,0px)}}
