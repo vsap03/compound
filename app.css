@@ -780,4 +780,21 @@ button.ntbox:hover{border-color:var(--acc)}
 .fab{transition:opacity .2s,transform .3s cubic-bezier(.3,1.5,.5,1)}
 @media (min-width:761px){:root.tablet .pillbar{left:var(--ldw,252px);right:var(--rdw,0px);transition:left .25s}}
 
+/* ---------- account detail ---------- */
+.pac.click{cursor:pointer;transition:border-color .15s,transform .2s}
+.pac.click:hover{border-color:var(--line3)}
+.adhero{display:grid;grid-template-columns:minmax(0,auto) minmax(0,1fr);gap:24px;align-items:center;padding:16px 18px;border-radius:16px;background:var(--card);border:1px solid var(--line)}
+.adbal{font-size:32px;font-weight:900;letter-spacing:-.04em;line-height:1.1;margin:2px 0}
+.adtabs{align-self:flex-start;max-width:100%;overflow-x:auto;scrollbar-width:none}
+.adtabs::-webkit-scrollbar{display:none}
+.adk{display:flex;flex-direction:column;gap:3px;min-width:0}
+.adk .v{font-size:17px;font-weight:800;letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.adk .s{font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.adkv{display:flex;justify-content:space-between;gap:12px;font-size:11.5px;color:var(--mut);padding-bottom:7px;border-bottom:1px solid var(--line)}
+.adkv:last-child{border-bottom:0;padding-bottom:0}
+.adkv b{color:var(--fg);text-align:right}
+@media (max-width:760px){.adhero{grid-template-columns:minmax(0,1fr);gap:14px}.adbal{font-size:28px}}
+.admb>*{flex-shrink:0}
+.drw .mh .status{white-space:nowrap;flex:0 0 auto}
+
 @media (min-width:761px) and (not (pointer:coarse)){body{padding-top:env(safe-area-inset-top,0px)}}

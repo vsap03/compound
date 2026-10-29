@@ -1,6 +1,6 @@
 // Compound service worker: app shell offline, network-first so updates land fast
-const V='compound-e2d7fd80df';
-const SHELL=['./','index.html','app.js?v=e2d7fd80df','app.css?v=e2d7fd80df','config.js?v=e2d7fd80df','htm-preact.js','lightweight-charts.js','supabase.js','manifest.webmanifest','icon-192.png','apple-touch-icon.png'];
+const V='compound-0b9d3b7480';
+const SHELL=['./','index.html','app.js?v=0b9d3b7480','app.css?v=0b9d3b7480','config.js?v=0b9d3b7480','htm-preact.js','lightweight-charts.js','supabase.js','manifest.webmanifest','icon-192.png','apple-touch-icon.png'];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(V).then(c=>c.addAll(SHELL)).then(()=>self.skipWaiting()))});
 self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==V).map(k=>caches.delete(k)))).then(()=>self.clients.claim()))});
 self.addEventListener('fetch',e=>{const u=new URL(e.request.url);if(e.request.method!=='GET'||u.origin!==location.origin)return;

@@ -936,11 +936,12 @@ function askDelete(ids, after) {
     onYes: () => { removeTrades(ids); after && after() }
   });
 }
-function initialCopy(S, ex) {
+function initialCopy(S, ex, force) {
   if (ex) { const lead = leadOf(S, ex); const sib = groupOf(S, ex).filter(x => x.id !== lead.id); return { main: lead.account || '', copies: sib.map(x => x.account).filter(Boolean), sizes: Object.fromEntries(sib.map(x => [x.account, x.qty])), lead } }
   const last = S.settings.copySet || {}; const live = id => S.accounts[id] && S.accounts[id].status === 'active';
   const def = Object.values(S.accounts).find(a => a.status === 'active' && a.def)?.id || '';
-  const main = live(last.main) ? last.main : def;
+  const main = force && S.accounts[force] ? force : live(last.main) ? last.main : def;
+  if (force) return { main, copies: [], sizes: {}, lead: null };
   return { main, copies: (last.on ? (last.copies || []) : []).filter(c => live(c) && c !== main), sizes: {}, lead: null };
 }
 /* Saves a trade idea to its main account and every copy; on edit, keeps the whole group in step */
@@ -984,7 +985,7 @@ function CopyPicker({ S, cp, setCp, qty, symbol, base }) {
 
 function TradeForm({ id, onClose, preset = {}, mode }) {
   const S = store.s; const st = S.settings; const ex = id ? S.trades[id] : null;
-  const [cp, setCp] = useState(() => initialCopy(S, ex));
+  const [cp, setCp] = useState(() => initialCopy(S, ex, preset.account));
   const [t, setT] = useState(() => ex ? { ...(leadOf(S, ex)) } : {
     symbol: st.defaultSymbol || 'MNQ', side: 'long', qty: st.defaultQty || 1, t: localISO(), tx: '', entry: '', exit: '', stop: '', target: '', pnl: '', pnlManual: false,
     mode: mode || 'live', grade: '', setups: [], emoBefore: [], emoAfter: [], mistakes: [], rules: null, notes: '', lessons: '', shots: [], tv: '', strategy: '', conf: 3, mae: '', mfe: '', ...preset,
@@ -2411,11 +2412,13 @@ function PropCard({ a, st, S }) {
   const range = (st.target ? st.start + st.target : st.peak + (+a.mll || 1000)) - st.floor; const pos = clamp((st.bal - st.floor) / (range || 1) * 100);
   const z = clamp((st.start - st.floor) / (range || 1) * 100);
   const danger = st.left < (+a.mll || 1) * .3;
-  return html`<div class="card pac" style=${{ borderColor: danger && a.status === 'active' ? 'rgba(255,90,110,.35)' : undefined }}>
+  const openDetail = e => { if (e.target.closest('button,input,textarea,select,a,.menu')) return; UI.open('acct', { id: a.id }) };
+  return html`<div class="card pac click" role="button" tabindex="0" title="Open account details" onClick=${openDetail} onKeyDown=${e => e.key === 'Enter' && e.target === e.currentTarget && UI.open('acct', { id: a.id })} style=${{ borderColor: danger && a.status === 'active' ? 'rgba(255,90,110,.35)' : undefined }}>
     <div class="row" style=${{ flexWrap: 'nowrap', gap: '10px' }}><${FirmLogo} id=${a.firm} s=${38}/><div style=${{ minWidth: 0, flex: 1 }}><div class="row" style=${{ gap: '8px', flexWrap: 'nowrap' }}><b style=${{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>${f.name} ${(+a.size / 1000)}K ${a.plan ? '· ' + a.plan : ''}</b></div>
       <div class="row" style=${{ gap: '6px', marginTop: '3px' }}><span class=${'status st-' + (a.status === 'active' ? (a.type === 'funded' ? 'funded' : 'active') : a.status)}>${a.status === 'active' ? (a.type === 'eval' ? 'Eval' : a.type === 'funded' ? 'Funded' : 'Live') : a.status}</span><span class="chip">${a.label}</span>${acctMarket(a) === 'cfd' && html`<span class="chip">CFD · ${firmById(a.firm).platform || 'MT5'}</span>`}${tradingNow && html`<span class="chip pos">● Trading today</span>`}${a.mode === 'paper' && html`<span class="chip">Paper</span>`}</div></div>
       <div style=${{ position: 'relative' }}><button class="ib" onClick=${() => setMenu(!menu)} aria-label="Account menu"><${I} n="menu"/></button>
         <${Menu} open=${menu} onClose=${() => setMenu(false)} style=${{ right: 0, top: '36px' }}>
+          <button onClick=${() => { setMenu(false); UI.open('acct', { id: a.id }) }}><${I} n="eye"/>All details</button>
           <button onClick=${() => { setMenu(false); UI.open('account', { id: a.id }) }}><${I} n="edit"/>Edit rules</button>
           <button onClick=${() => { setMenu(false); UI.open('payout', { account: a.id }) }}><${I} n="wallet"/>Record payout</button>
           <button onClick=${() => { setMenu(false); setMc(true) }}><${I} n="layers"/>Pass probability</button>
@@ -2896,6 +2899,142 @@ function Flex({ C }) {
   </div>`;
 }
 
+/* ---------------- Account detail: everything about one prop account ---------------- */
+const DD_L = { eod: 'End of day trailing', intraday: 'Intraday trailing', static: 'Static' };
+const TYPE_L = { eval: 'Evaluation', funded: 'Funded', live: 'Live / personal' };
+
+function AccountDetail({ id, onClose }) {
+  const S = useStore(); const a = S.accounts[id];
+  const [tab, setTab] = useState(LS.get('compound.acctab', 'overview')); const setT = v => { setTab(v); LS.set('compound.acctab', v) };
+  const [mc, setMc] = useState(false); const [menu, setMenu] = useState(false);
+  const { all } = useMemo(() => computeTrades(S, { mode: 'all', dedupe: false }), [store.v]);
+  if (!a) return html`<${Drawer} onClose=${onClose}><div class="mb"><${Empty} title="Account deleted"/></div><//>`;
+  const adj = Object.values(S.adjust).filter(x => x.account === a.id);
+  const st = acctState(a, all, adj); const f = firmById(a.firm); const cfd = acctMarket(a) === 'cfd';
+  const ts = [...st.trades].sort((x, y) => tTime(y) - tTime(x));
+  const s = stats(ts);
+  const pays = Object.values(S.payouts).filter(p => p.account === a.id).sort((x, y) => x.d < y.d ? 1 : -1);
+  const paid = sum(pays.filter(p => p.status === 'paid'), p => +p.amount || 0);
+  const cost = acctCost(a); const fees = sum(ts, t => +t.fees || 0);
+  const statusL = a.status === 'active' ? (a.type === 'eval' ? 'Eval · active' : a.type === 'funded' ? 'Funded' : 'Live') : a.status === 'passed' ? 'Passed' : a.status === 'blown' ? 'Blown' : a.status;
+  const range = (st.target ? st.start + st.target : st.peak + (+a.mll || 1000)) - st.floor; const pos = clamp((st.bal - st.floor) / (range || 1) * 100); const z = clamp((st.start - st.floor) / (range || 1) * 100);
+  const danger = a.status === 'active' && st.left < (+a.mll || 1) * .3;
+  const dayRows = Object.entries(st.days).sort((x, y) => x[0] < y[0] ? -1 : 1);
+  const green = dayRows.filter(d => d[1] > 0).length;
+  const bestDay = dayRows.reduce((m, d) => !m || d[1] > m[1] ? d : m, null), worstDay = dayRows.reduce((m, d) => !m || d[1] < m[1] ? d : m, null);
+  const series = useMemo(() => st.hist.slice(1).map(h => ({ t: h.d, v: h.b - st.start })), [store.v, id]);
+  const grp = (fn) => [...groupBy(ts, fn).entries()].map(([k, v]) => ({ k, ...stats(v) })).sort((x, y) => y.net - x.net);
+  const bySetup = grp(t => t.setups?.length ? t.setups : '(no setup)'), bySess = grp(t => sessionOf(t)), bySide = grp(t => t.side === 'short' ? 'Short' : 'Long'), bySym = grp(t => t.symbol);
+  const asMain = ts.filter(t => t.group && t.role !== 'copy').length, asCopy = ts.filter(t => t.role === 'copy').length;
+  const firstT = ts.length ? ts[ts.length - 1].t : null, lastT = ts.length ? ts[0].t : null;
+  const age = Math.max(0, Math.round((Date.now() - new Date(a.start || a.created || Date.now()).getTime()) / 864e5));
+  const setStatus = (status, extra = {}) => { store.put('accounts', { ...a, status, ...extra }); setMenu(false) };
+  const K = ({ k, v, c, sub }) => html`<div class="card tight adk"><div class="lbl">${k}</div><div class=${'tn v ' + (c || '')}>${v}</div>${sub && html`<div class="dim s">${sub}</div>`}</div>`;
+  const KV = ({ k, v, c }) => html`<div class="adkv"><span>${k}</span><b class=${'tn ' + (c || '')}>${v ?? '—'}</b></div>`;
+  const GT = ({ title, rows }) => rows.length ? html`<div class="card" style=${{ padding: 0 }}><div class="ch" style=${{ padding: '14px 18px 0' }}><span class="lbl">${title}</span></div><div class="scroll-x"><table class="tbl"><thead><tr><th></th><th class="r">Trades</th><th class="r">Win</th><th class="r">PF</th><th class="r">Net</th></tr></thead><tbody>${rows.slice(0, 8).map(r => html`<tr key=${r.k}><td><b>${r.k}</b></td><td class="r tn">${r.n}</td><td class="r tn">${pct(r.wr, 0)}</td><td class="r tn">${r.pf === Infinity ? '∞' : r.pf.toFixed(2)}</td><td class=${'r tn ' + cls(r.net)} style=${{ fontWeight: 700 }}>${money(r.net, { sign: true, dec: 0 })}</td></tr>`)}</tbody></table></div></div>` : null;
+  return html`<${Drawer} onClose=${onClose} head=${html`<div class="row" style=${{ gap: '10px', flexWrap: 'nowrap', minWidth: 0 }}><${FirmLogo} id=${a.firm} s=${34}/><div style=${{ minWidth: 0 }}><b style=${{ fontSize: '15px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block' }}>${a.label || f.name}</b><span class="dim" style=${{ fontSize: '11px' }}>${f.name}${a.plan ? ' · ' + a.plan : ''} · ${money(+a.size || 0, { dec: 0, show: true })}</span></div><span class=${'status st-' + (a.status === 'active' ? (a.type === 'funded' ? 'funded' : 'active') : a.status)}>${statusL}</span></div>`}>
+    <div class="mb admb" style=${{ gap: '16px' }}>
+      <div class="row" style=${{ gap: '8px' }}>
+        <button class="btn btn-w sm" onClick=${() => UI.open('trade', { preset: { account: a.id } })}><${I} n="plus"/>Log trade</button>
+        <button class="btn btn-g sm" onClick=${() => UI.open('account', { id: a.id })}><${I} n="edit"/>Edit rules</button>
+        <button class="btn btn-g sm" onClick=${() => UI.open('payout', { account: a.id })}><${I} n="wallet"/>Record payout</button>
+        ${a.status === 'active' && st.target ? html`<button class="btn btn-g sm" onClick=${() => setMc(true)}><${I} n="layers"/>Pass probability</button>` : null}
+        <span class="sp"></span>
+        <div style=${{ position: 'relative' }}><button class="ib" onClick=${() => setMenu(!menu)} aria-label="More actions"><${I} n="menu"/></button>
+          <${Menu} open=${menu} onClose=${() => setMenu(false)} style=${{ right: 0, top: '36px' }}>
+            <button onClick=${() => { setMenu(false); UI.open('assign', { account: a.id }) }}><${I} n="plus"/>Assign trades</button>
+            <button onClick=${() => { setMenu(false); UI.open('balance', { id: a.id }) }}><${I} n="refresh"/>Sync balance</button>
+            <hr/>${a.type === 'eval' && a.status === 'active' && html`<button onClick=${() => { setStatus('passed', { passedAt: todayKey() }); toast('Congrats. Eval marked passed.') }}><${I} n="check"/>Mark passed</button>`}
+            ${a.status === 'active' && html`<button onClick=${() => setStatus('blown', { blownAt: todayKey() })}><${I} n="x"/>Mark blown</button>`}
+            ${a.status !== 'active' && html`<button onClick=${() => setStatus('active')}><${I} n="rotate"/>Reactivate</button>`}
+            <hr/><button style=${{ color: 'var(--neg)' }} onClick=${() => { setMenu(false); onClose(); UI.open('delacct', { id: a.id }) }}><${I} n="trash"/>Delete account</button>
+          <//></div>
+      </div>
+
+      <div class="adhero">
+        <div><div class="lbl">Balance</div><div class="tn adbal">${money(st.bal, { dec: 0 })}</div><div class=${'tn ' + cls(st.profit)} style=${{ fontWeight: 700 }}>${money(st.profit, { sign: true, dec: 0 })} <span class="dim" style=${{ fontWeight: 500 }}>since start · ${pct(st.start ? st.profit / st.start : 0, 2)}</span></div></div>
+        <div class="adgauge"><div class="row" style=${{ justifyContent: 'space-between', marginBottom: '8px' }}><span class="lbl" style=${{ color: danger ? 'var(--neg)' : undefined }}>${money(st.left, { dec: 0 })} to the floor</span>${st.toGo != null && html`<span class="lbl">${st.toGo > 0 ? money(st.toGo, { dec: 0 }) + ' to target' : 'Target hit'}</span>`}</div>
+          <div class="gauge"><span class="z" style=${{ left: z + '%' }}></span><span class="mk" style=${{ left: `calc(${pos}% - 1.5px)` }}></span></div>
+          <div class="row dim mono" style=${{ justifyContent: 'space-between', fontSize: '9px', marginTop: '6px' }}><span>Floor ${money(st.floor, { dec: 0 })}</span><span>${st.target ? 'Target ' + money(st.start + st.target, { dec: 0 }) : 'Peak ' + money(st.peak, { dec: 0 })}</span></div></div>
+      </div>
+
+      <div class="seg adtabs">${[['overview', 'Overview'], ['perf', 'Performance'], ['trades', 'Trades · ' + ts.length], ['rules', 'Rules'], ['money', 'Money'], ['notes', 'Notes']].map(([k, l]) => html`<button key=${k} class=${tab === k ? 'on' : ''} onClick=${() => setT(k)}>${l}</button>`)}</div>
+
+      ${tab === 'overview' && html`
+        <div class="grid g4 keep2" style=${{ gap: '8px' }}>
+          <${K} k="Today" v=${money(st.today, { sign: true, dec: 0 })} c=${cls(st.today)} sub=${st.dll ? money(st.dllLeft, { dec: 0 }) + ' daily room left' : 'no daily limit'}/>
+          <${K} k="Distance to floor" v=${money(st.left, { dec: 0 })} c=${danger ? 'neg' : ''} sub=${a.mll ? pct(st.left / (+a.mll || 1), 0) + ' of max loss' : ''}/>
+          <${K} k=${st.target ? 'Target progress' : 'Peak balance'} v=${st.target ? pct((st.prog || 0) / 100, 0) : money(st.peak, { dec: 0 })} c=${st.target && st.prog >= 100 ? 'pos' : ''} sub=${st.target ? money(Math.max(0, st.profit), { dec: 0 }) + ' of ' + money(st.target, { dec: 0 }) : ''}/>
+          <${K} k="Trading days" v=${st.tradingDays + (a.minDays ? ' / ' + a.minDays : '')} sub=${a.minDays ? (st.tradingDays >= +a.minDays ? 'minimum met' : (+a.minDays - st.tradingDays) + ' more needed') : 'no minimum'}/>
+          <${K} k="Consistency" v=${st.consLimit ? pct(st.consUsed, 0) : '—'} c=${st.consLimit ? (st.consOk ? 'pos' : 'neg') : ''} sub=${st.consLimit ? (st.consOk ? 'best day under ' + pct(st.consLimit, 0) : 'need +' + money(st.consNeed, { dec: 0 })) : 'no rule'}/>
+          <${K} k="Best day" v=${bestDay ? money(bestDay[1], { sign: true, dec: 0 }) : '—'} c="pos" sub=${bestDay ? fmtDate(parseDay(bestDay[0])) : ''}/>
+          <${K} k="Worst day" v=${worstDay ? money(worstDay[1], { sign: true, dec: 0 }) : '—'} c=${worstDay && worstDay[1] < 0 ? 'neg' : ''} sub=${worstDay ? fmtDate(parseDay(worstDay[0])) : ''}/>
+          <${K} k="Green days" v=${dayRows.length ? pct(green / dayRows.length, 0) : '—'} sub=${green + ' of ' + dayRows.length}/>
+        </div>
+        <div class="card"><div class="ch"><span class="lbl">P&L since start</span><span class="sp"></span><b class=${'tn ' + cls(st.profit)}>${money(st.profit, { sign: true, dec: 0 })}</b></div>${series.length > 1 ? html`<${EquityChart} series=${series} h=${230}/>` : html`<div class="dim" style=${{ fontSize: '11.5px', padding: '20px 0' }}>Log trades on this account and its equity curve shows here.</div>`}</div>
+        ${dayRows.length > 0 && html`<div class="card"><div class="ch"><span class="lbl">Daily P&L</span><span class="sp"></span><span class="dim" style=${{ fontSize: '10.5px' }}>last ${Math.min(30, dayRows.length)} trading days</span></div><${Bars} h=${170} data=${dayRows.slice(-30).map(([k, v]) => ({ l: fmtDate(parseDay(k)), v, k }))} onPick=${d => { onClose(); UI.go('journal', { day: d.k }) }}/></div>`}`}
+
+      ${tab === 'perf' && html`
+        <div class="grid g4 keep2" style=${{ gap: '8px' }}>
+          <${K} k="Net P&L" v=${money(s.net, { sign: true, dec: 0 })} c=${cls(s.net)} sub=${s.n + ' trades'}/>
+          <${K} k="Win rate" v=${pct(s.wr, 0)} sub=${s.w + 'W · ' + s.l + 'L' + (s.be ? ' · ' + s.be + ' BE' : '')}/>
+          <${K} k="Profit factor" v=${s.pf === Infinity ? '∞' : s.pf.toFixed(2)}/>
+          <${K} k="Expectancy" v=${s.expR != null ? rfmt(s.expR) : money(s.exp, { dec: 0 })} sub=${money(s.exp, { sign: true, dec: 0 }) + ' per trade'}/>
+          <${K} k="Avg win" v=${money(s.avgW, { dec: 0 })} c="pos" sub=${s.avgWR != null ? rfmt(s.avgWR) : ''}/>
+          <${K} k="Avg loss" v=${money(-s.avgL, { dec: 0 })} c="neg" sub=${s.avgLR != null ? rfmt(s.avgLR) : ''}/>
+          <${K} k="Payoff ratio" v=${s.payoff != null ? s.payoff.toFixed(2) : '—'}/>
+          <${K} k="Max drawdown" v=${money(-s.mdd, { dec: 0 })} c=${s.mdd ? 'neg' : ''} sub="closed trades"/>
+          <${K} k="Best trade" v=${s.best ? money(s.best.pnl, { sign: true, dec: 0 }) : '—'} c="pos" sub=${s.best ? s.best.symbol + ' · ' + fmtDate(s.best.t) : ''}/>
+          <${K} k="Worst trade" v=${s.worst ? money(s.worst.pnl, { sign: true, dec: 0 }) : '—'} c="neg" sub=${s.worst ? s.worst.symbol + ' · ' + fmtDate(s.worst.t) : ''}/>
+          <${K} k="Streaks" v=${s.mcw + 'W / ' + s.mcl + 'L'} sub=${'now ' + (s.cur > 0 ? s.cur + ' wins' : s.cur < 0 ? -s.cur + ' losses' : '—')}/>
+          <${K} k="Avg hold" v=${s.holdW != null ? fmtDur(s.holdW) : '—'} sub=${'losers ' + (s.holdL != null ? fmtDur(s.holdL) : '—')}/>
+        </div>
+        <div class="grid g2">
+          <${GT} title="Long vs short" rows=${bySide}/>
+          <${GT} title="By session" rows=${bySess}/>
+          <${GT} title="By setup" rows=${bySetup}/>
+          <${GT} title="By symbol" rows=${bySym}/>
+        </div>
+        ${(asMain || asCopy) ? html`<div class="card tight row" style=${{ gap: '10px' }}><${I} n="layers"/><span class="mut" style=${{ fontSize: '11.5px' }}>Copy trading: <b style=${{ color: 'var(--fg)' }}>${asMain}</b> trades placed here as the main account, <b style=${{ color: 'var(--fg)' }}>${asCopy}</b> copied in from another account.</span></div>` : null}`}
+
+      ${tab === 'trades' && html`${ts.length ? html`<div class="card" style=${{ padding: 0 }}><${TradeTable} ts=${ts} S=${S} showAcct=${false}/></div>` : html`<${Empty} title="No trades on this account yet" body="Log one, or assign trades you already logged."><button class="btn btn-w" onClick=${() => UI.open('trade', { preset: { account: a.id } })}>Log trade</button><button class="btn btn-t" onClick=${() => UI.open('assign', { account: a.id })}>Assign trades</button><//>`}`}
+
+      ${tab === 'rules' && html`<div class="grid g2">
+        <div class="card"><div class="ch"><span class="lbl">Account</span></div><div class="col" style=${{ gap: '8px' }}>
+          <${KV} k="Prop firm" v=${f.name}/><${KV} k="Plan" v=${a.plan}/><${KV} k="Account ID / name" v=${a.label}/><${KV} k="Type" v=${TYPE_L[a.type] || a.type}/><${KV} k="Status" v=${statusL}/>
+          <${KV} k="Market" v=${cfd ? 'CFD · lots' + (f.platform ? ' (' + f.platform + ')' : '') : 'Futures · contracts'}/><${KV} k="Money" v=${a.mode === 'paper' ? 'Paper' : 'Live'}/>
+          <${KV} k="Started" v=${a.start ? fmtDate(parseDay(String(a.start).slice(0, 10)), { year: true }) : '—'}/><${KV} k="Account age" v=${age + ' days'}/>
+          ${a.passedAt && html`<${KV} k="Passed on" v=${fmtDate(parseDay(String(a.passedAt).slice(0, 10)), { year: true })} c="pos"/>`}${a.blownAt && html`<${KV} k="Blown on" v=${fmtDate(parseDay(String(a.blownAt).slice(0, 10)), { year: true })} c="neg"/>`}
+          <${KV} k="First trade" v=${firstT ? fmtDate(firstT, { year: true }) : '—'}/><${KV} k="Last trade" v=${lastT ? fmtDate(lastT, { year: true }) : '—'}/>
+          <${KV} k="Default account" v=${a.def ? 'Yes' : 'No'}/></div></div>
+        <div class="card"><div class="ch"><span class="lbl">Rules</span><span class="sp"></span><button class="lnk" onClick=${() => UI.open('account', { id: a.id })}>Edit</button></div><div class="col" style=${{ gap: '8px' }}>
+          <${KV} k="Starting balance" v=${money(st.start, { dec: 0, show: true })}/><${KV} k="Profit target" v=${st.target ? money(st.target, { dec: 0, show: true }) + ' → ' + money(st.start + st.target, { dec: 0, show: true }) : 'None'}/>
+          <${KV} k="Max loss" v=${a.mll ? money(+a.mll, { dec: 0, show: true }) : 'None'}/><${KV} k="Drawdown" v=${DD_L[a.dd] || a.dd}/>
+          ${a.dd !== 'static' && html`<${KV} k="Trailing stops at" v=${money(st.start + (a.lock != null && a.lock !== '' ? +a.lock : 100), { dec: 0, show: true })}/>`}
+          <${KV} k="Current floor" v=${money(st.floor, { dec: 0, show: true })}/>
+          <${KV} k="Daily loss limit" v=${a.dll ? money(+a.dll, { dec: 0, show: true }) : 'None'}/><${KV} k="Consistency rule" v=${a.cons ? a.cons + '% max per day' : 'None'}/>
+          <${KV} k="Minimum trading days" v=${a.minDays || 'None'}/>
+          ${cfd && html`<${KV} k="$ per point, per lot" v=${'$' + (num(a.ppl) ?? CFD_PPL)}/><${KV} k="1 pip" v=${(num(a.pip) ?? 1) + ' point'}/><${KV} k="Commission per lot" v=${money(+a.lotCom || 0, { dec: 2, show: true })}/><${KV} k="Default symbol / lots" v=${(a.defSym || 'NAS100') + ' · ' + (a.defLots ?? 1)}/>`}
+        </div></div></div>`}
+
+      ${tab === 'money' && html`
+        <div class="grid g4 keep2" style=${{ gap: '8px' }}>
+          <${K} k="Paid for this account" v=${money(cost, { dec: 0 })} c="neg" sub=${[a.cost && 'eval ' + money(+a.cost, { dec: 0 }), a.activation && 'activation ' + money(+a.activation, { dec: 0 }), a.resets && 'resets ' + money(+a.resets, { dec: 0 })].filter(Boolean).join(' · ') || 'add fees in Edit rules'}/>
+          <${K} k="Payouts received" v=${money(paid, { dec: 0 })} c="pos" sub=${pays.length + ' payout' + (pays.length === 1 ? '' : 's')}/>
+          <${K} k="Net from this account" v=${money(paid - cost, { sign: true, dec: 0 })} c=${cls(paid - cost)} sub=${cost ? 'ROI ' + pct((paid - cost) / cost, 0) : ''}/>
+          <${K} k="Trading fees" v=${money(fees, { dec: 0 })} sub="commissions on trades"/>
+        </div>
+        <div class="card" style=${{ padding: 0 }}><div class="ch" style=${{ padding: '14px 18px 0' }}><span class="lbl">Payouts</span><span class="sp"></span><button class="btn btn-t xs" onClick=${() => UI.open('payout', { account: a.id })}><${I} n="plus" s=${13}/>Record</button></div>
+          ${pays.length ? html`<div class="scroll-x"><table class="tbl"><thead><tr><th>Date</th><th>Status</th><th>Note</th><th class="r">Amount</th><th class="ract"></th></tr></thead><tbody>${pays.map(p => html`<tr key=${p.id} class="click" onClick=${() => UI.open('payout', { id: p.id })}><td class="tn">${fmtDate(parseDay(p.d), { year: true })}</td><td><span class=${'status ' + (p.status === 'paid' ? 'st-passed' : 'st-active')}>${p.status}</span></td><td class="mut">${p.note || ''}</td><td class="r tn pos" style=${{ fontWeight: 700 }}>${money(p.amount)}</td><${RowAct} what="payout" onEdit=${() => UI.open('payout', { id: p.id })} onDel=${() => UI.confirm({ title: 'Delete this payout?', body: money(p.amount, { show: true }) + ' comes off your totals.', onYes: () => delPayout(p) })}/></tr>`)}</tbody></table></div>` : html`<div class="dim" style=${{ fontSize: '11.5px', padding: '12px 18px 16px' }}>No payouts from this account yet.</div>`}</div>
+        <div class="card" style=${{ padding: 0 }}><div class="ch" style=${{ padding: '14px 18px 0' }}><span class="lbl">Balance adjustments</span><span class="sp"></span><button class="btn btn-t xs" onClick=${() => UI.open('balance', { id: a.id })}><${I} n="refresh" s=${13}/>Sync balance</button></div>
+          ${adj.length ? html`<div class="scroll-x"><table class="tbl"><thead><tr><th>Date</th><th>Reason</th><th class="r">Change</th><th class="ract"></th></tr></thead><tbody>${[...adj].sort((x, y) => x.d < y.d ? 1 : -1).map(x => html`<tr key=${x.id}><td class="tn">${fmtDate(new Date(x.d), { year: true })}</td><td class="mut">${x.note || (x.payout ? 'Payout withdrawn' : 'Balance sync')}</td><td class=${'r tn ' + cls(x.v)} style=${{ fontWeight: 700 }}>${money(x.v, { sign: true })}</td><${RowAct} what="adjustment" onEdit=${() => UI.open('balance', { id: a.id })} onDel=${() => UI.confirm({ title: 'Remove this adjustment?', body: 'The account balance is recalculated without it.', onYes: () => { store.del('adjust', x.id); toast('Adjustment removed', { label: 'Undo', fn: () => store.put('adjust', x) }) } })}/></tr>`)}</tbody></table></div>` : html`<div class="dim" style=${{ fontSize: '11.5px', padding: '12px 18px 16px' }}>No manual changes. The balance comes from your trades.</div>`}</div>`}
+
+      ${tab === 'notes' && html`<div class="col" style=${{ gap: '8px' }}><textarea class="ta" rows="10" placeholder="Login, server, rules to remember, what this account is for…" value=${a.notes || ''} onInput=${e => store.put('accounts', { ...store.s.accounts[a.id], notes: e.target.value }, 700)}></textarea><span class="dim" style=${{ fontSize: '10.5px' }}>Saves as you type. Synced with your other devices.</span></div>`}
+    </div>
+    ${mc && html`<${MonteModal} a=${a} st=${st} S=${S} onClose=${() => setMc(false)}/>`}
+  <//>`;
+}
+
 /* ================= Compound · shell ================= */
 const VIEWS = [
   ['dashboard', 'Dashboard', 'grid'], ['journal', 'Journal', 'book'], ['showcase', 'Showcase', 'star'], ['strategy', 'Strategy', 'target'], ['study', 'Study', 'column'],
@@ -3029,7 +3168,7 @@ function App() {
       case 'detail': return html`<${TradeDetail} ...${p}/>`; case 'account': return html`<${AccountForm} ...${p}/>`; case 'payout': return html`<${PayoutForm} ...${p}/>`;
       case 'strategy': return html`<${StrategyForm} ...${p}/>`; case 'plan': return html`<${PlanForm} ...${p}/>`; case 'review': return html`<${ReviewForm} ...${p}/>`;
       case 'import': return html`<${ImportTrades} ...${p} mode=${p.mode || mode}/>`; case 'settings': return html`<${SettingsWrap} ...${p}/>`; case 'confirm': return html`<${Confirm} ...${p}/>`;
-      case 'assign': return html`<${AssignTrades} ...${p}/>`; case 'delacct': return html`<${DeleteAccount} ...${p}/>`; case 'balance': return html`<${BalanceSync} ...${p}/>`; case 'blown': return html`<${BlownForm} ...${p}/>`; case 'day': return html`<${DaySheet} ...${p} C=${C} days=${byDay(D.ts)}/>`; default: return null;
+      case 'assign': return html`<${AssignTrades} ...${p}/>`; case 'delacct': return html`<${DeleteAccount} ...${p}/>`; case 'balance': return html`<${BalanceSync} ...${p}/>`; case 'blown': return html`<${BlownForm} ...${p}/>`; case 'acct': return html`<${AccountDetail} ...${p}/>`; case 'day': return html`<${DaySheet} ...${p} C=${C} days=${byDay(D.ts)}/>`; default: return null;
     } })}
   <${Toasts}/><${Tip}/>`;
 }
