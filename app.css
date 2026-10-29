@@ -802,5 +802,25 @@ button.ntbox:hover{border-color:var(--acc)}
 .cdlg .mb{overflow:auto;flex:1;min-height:0}
 .cdlg .mh .status{white-space:nowrap;flex:0 0 auto}
 @media (max-width:760px){.cov{padding:max(10px,env(safe-area-inset-top,0px)) 8px max(10px,env(safe-area-inset-bottom,0px))}.cdlg{max-height:calc(100dvh - 20px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));border-radius:20px}}
+.acgrid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr)) minmax(0,.9fr);gap:5px}
+.acgrid .dh{font-family:var(--mono);font-size:8.5px;letter-spacing:.14em;color:var(--dim);text-align:center;padding-bottom:2px}
+.acc{min-height:66px;border-radius:10px;background:var(--card2);border:1px solid var(--line);padding:6px 7px;display:flex;flex-direction:column;justify-content:space-between;text-align:left;min-width:0;transition:border-color .15s,transform .2s}
+.acc.empty{background:none;border:0}
+.acc.wkend:not(.has){opacity:.4}
+.acc.has{border-color:transparent;cursor:pointer}
+.acc.has:hover{border-color:var(--line3)}
+.acc.on{outline:2px solid var(--acc);outline-offset:-1px}
+.acc.today{border-color:var(--acc)}
+.acc .dn{font-size:10px;color:var(--mut);font-weight:600}
+.acc.has .dn{color:var(--fg2)}
+.acc b{font-size:12px;font-weight:800;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.acc .cnt,.acw .cnt{font-size:9px;color:var(--fg2);opacity:.8}
+.acw{border-radius:10px;border:1px dashed var(--line2);display:flex;flex-direction:column;justify-content:center;align-items:flex-end;padding:6px 8px;gap:2px;min-width:0}
+.acw b{font-size:12px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.acw.none{opacity:.4}
+@media (max-width:760px){.acgrid{gap:3px}.acc{min-height:48px;padding:4px;border-radius:7px}.acc b{font-size:9px}.acc .cnt{display:none}.acw{padding:4px;border-radius:7px}.acw b{font-size:9px}.acal .djstats{width:100%;justify-content:space-between}}
+.acgrid .short{display:none}
+@media (max-width:760px){.acgrid .full{display:none}.acgrid .short{display:inline}.acc b,.acw b{font-size:10px}}
+@media (max-width:760px){.acc{padding:4px 3px}.acc b,.acw b{font-size:9.5px;letter-spacing:-.02em;overflow:visible}}
 
 @media (min-width:761px) and (not (pointer:coarse)){body{padding-top:env(safe-area-inset-top,0px)}}

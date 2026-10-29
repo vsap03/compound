@@ -2999,7 +2999,7 @@ function AccountDetail({ id, onClose }) {
         </div>
         ${(asMain || asCopy) ? html`<div class="card tight row" style=${{ gap: '10px' }}><${I} n="layers"/><span class="mut" style=${{ fontSize: '11.5px' }}>Copy trading: <b style=${{ color: 'var(--fg)' }}>${asMain}</b> trades placed here as the main account, <b style=${{ color: 'var(--fg)' }}>${asCopy}</b> copied in from another account.</span></div>` : null}`}
 
-      ${tab === 'trades' && html`${ts.length ? html`<div class="card" style=${{ padding: 0 }}><${TradeTable} ts=${ts} S=${S} showAcct=${false}/></div>` : html`<${Empty} title="No trades on this account yet" body="Log one, or assign trades you already logged."><button class="btn btn-w" onClick=${() => UI.open('trade', { preset: { account: a.id } })}>Log trade</button><button class="btn btn-t" onClick=${() => UI.open('assign', { account: a.id })}>Assign trades</button><//>`}`}
+      ${tab === 'trades' && html`<${AcctTrades} a=${a} ts=${ts} S=${S}/>`}
 
       ${tab === 'rules' && html`<div class="grid g2">
         <div class="card"><div class="ch"><span class="lbl">Account</span></div><div class="col" style=${{ gap: '8px' }}>
@@ -3035,6 +3035,38 @@ function AccountDetail({ id, onClose }) {
     </div>
     ${mc && html`<${MonteModal} a=${a} st=${st} S=${S} onClose=${() => setMc(false)}/>`}
   <//>`;
+}
+
+const shortPL = v => UIS.hide ? '•••' : (v < 0 ? '-' : '') + (Math.abs(v) >= 1000 ? (Math.abs(v) / 1000).toFixed(Math.abs(v) >= 10000 ? 0 : 1) + 'k' : Math.round(Math.abs(v)));
+/* trades tab: month calendar of this account's P&L with weekly totals; tap a day to filter the list */
+function AcctTrades({ a, ts, S }) {
+  const days = useMemo(() => byDay(ts), [ts]);
+  const [m, setM] = useState(() => { const d = ts.length ? new Date(ts[0].t) : new Date(); return new Date(d.getFullYear(), d.getMonth(), 1) });
+  const [pick, setPick] = useState(null);
+  if (!ts.length) return html`<${Empty} title="No trades on this account yet" body="Log one, or assign trades you already logged."><button class="btn btn-w" onClick=${() => UI.open('trade', { preset: { account: a.id } })}>Log trade</button><button class="btn btn-t" onClick=${() => UI.open('assign', { account: a.id })}>Assign trades</button><//>`;
+  const first = (m.getDay() + 6) % 7; const n = new Date(m.getFullYear(), m.getMonth() + 1, 0).getDate();
+  const cells = []; for (let i = 0; i < first; i++) cells.push(null); for (let i = 1; i <= n; i++) cells.push(new Date(m.getFullYear(), m.getMonth(), i)); while (cells.length % 7) cells.push(null);
+  const weeks = []; for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
+  const pre = `${m.getFullYear()}-${pad(m.getMonth() + 1)}`;
+  const mo = Object.entries(days).filter(([k]) => k.startsWith(pre)); const net = sum(mo, x => x[1].pnl); const mx = Math.max(1, ...mo.map(x => Math.abs(x[1].pnl)));
+  const mN = sum(mo, x => x[1].n), mG = mo.filter(x => x[1].pnl > 0).length;
+  const months = [...new Set(Object.keys(days).map(k => k.slice(0, 7)))].sort();
+  const step = d => { setPick(null); setM(new Date(m.getFullYear(), m.getMonth() + d, 1)) };
+  const shown = pick ? ts.filter(t => dayKey(t.t) === pick) : ts.filter(t => dayKey(t.t).startsWith(pre));
+  const tk = todayKey();
+  return html`<div class="card acal">
+      <div class="ch" style=${{ flexWrap: 'wrap', gap: '10px' }}><button class="ib" onClick=${() => step(-1)} aria-label="Previous month" disabled=${months.length && pre <= months[0]}><${I} n="left"/></button><h3 style=${{ minWidth: '130px', textAlign: 'center' }}>${MON[m.getMonth()]} ${m.getFullYear()}</h3><button class="ib" onClick=${() => step(1)} aria-label="Next month" disabled=${pre >= tk.slice(0, 7)}><${I} n="right"/></button>
+        <span class="sp"></span><div class="djstats"><div><b class=${'tn ' + cls(net)}>${mo.length ? money(net, { sign: true, dec: 0 }) : '$0'}</b><span>month</span></div><div><b class="tn">${mo.length}</b><span>days traded</span></div><div><b class="tn">${mo.length ? pct(mG / mo.length, 0) : '—'}</b><span>green days</span></div><div><b class="tn">${mN}</b><span>trades</span></div></div></div>
+      <div class="acgrid">${[...DOW.slice(0, 7)].map(d => html`<div class="dh" key=${d}>${d.toUpperCase()}</div>`)}<div class="dh">WEEK</div>
+        ${weeks.map((w, wi) => { const wk = w.filter(Boolean).map(d => days[dayKey(d)]).filter(Boolean); const wn = sum(wk, x => x.pnl);
+          return [...w.map((d, i) => { if (!d) return html`<div key=${wi + '-' + i} class="acc empty"></div>`; const k = dayKey(d); const x = days[k]; const al = x ? .16 + .45 * Math.abs(x.pnl) / mx : 0;
+            const bg = x ? `color-mix(in srgb,${x.pnl >= 0 ? 'var(--pos)' : 'var(--neg)'} ${Math.round(al * 100)}%,var(--card2))` : undefined;
+            return html`<button key=${k} class=${'acc' + (x ? ' has' : '') + (pick === k ? ' on' : '') + (k === tk ? ' today' : '') + (d.getDay() % 6 ? '' : ' wkend')} style=${{ background: bg }} disabled=${!x} onClick=${() => setPick(pick === k ? null : k)}>
+              <span class="dn tn">${d.getDate()}</span>${x && html`<b class="tn"><span class="full">${money(x.pnl, { sign: true, dec: 0 })}</span><span class="short">${shortPL(x.pnl)}</span></b><span class="cnt tn">${x.n} trade${x.n > 1 ? 's' : ''}</span>`}</button>` }),
+            html`<div key=${'w' + wi} class=${'acw' + (wk.length ? '' : ' none')}><b class=${'tn ' + cls(wn)}>${wk.length ? html`<span class="full">${money(wn, { sign: true, dec: 0 })}</span><span class="short">${shortPL(wn)}</span>` : '—'}</b><span class="cnt tn">${wk.length ? wk.length + 'd' : ''}</span></div>`] })}
+      </div></div>
+    <div class="row"><span class="lbl">${pick ? fmtDate(parseDay(pick), { wd: true }) : MON[m.getMonth()] + ' ' + m.getFullYear()} · ${shown.length} trade${shown.length === 1 ? '' : 's'}</span><span class="sp"></span>${pick && html`<button class="btn btn-t xs" onClick=${() => setPick(null)}>Show whole month</button>`}</div>
+    ${shown.length ? html`<div class="card" style=${{ padding: 0 }}><${TradeTable} ts=${shown} S=${S} showAcct=${false}/></div>` : html`<div class="card dim" style=${{ textAlign: 'center', fontSize: '11.5px' }}>No trades in this month.</div>`}`;
 }
 
 /* ================= Compound · shell ================= */
