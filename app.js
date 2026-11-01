@@ -1577,7 +1577,7 @@ function Dashboard({ C }) {
 
     <div class="grid g2">
       <div class="card"><${MonthCal} C=${C}/></div>
-      <${PsychCard} C=${C}/>
+      <${DashInsights} C=${C}/>
     </div>
 
     <div class="card" style=${{ padding: '6px 0 0' }}><div class="ch" style=${{ padding: '12px 20px 0' }}><span class="lbl">Recent trades</span><span class="sp"></span><button class="lnk" onClick=${() => C.go('journal')}>Journal →</button></div>
@@ -1607,6 +1607,20 @@ function TradeTable({ ts, S, showAcct = true, sel, setSel }) {
       <td><span class="tn">${fmtDate(t.t)}</span> <span class="dim tn">${fmtTime(t.t)}</span></td><td><b>${t.symbol}</b></td><td><${Side} s=${t.side}/></td><td class="r">${t.qty}</td><td class="r">${t.entry || '—'}</td><td class="r">${t.exit || '—'}</td>
       <td class="mut">${(t.setups || []).slice(0, 2).join(', ') || (S.strategies[t.strategy]?.name || '—')}</td><td><${Grade} g=${t.grade}/></td>${showAcct && html`<td class="mut">${S.accounts[t.account]?.label || '—'}</td>`}
       <td class=${'r ' + cls(tR(t))}>${tR(t) != null ? rfmt(tR(t)) : '—'}</td><td class="r" style=${{ fontWeight: 700 }}><${Money} v=${t.pnl}/></td><td class="r tdel"><button class="ib xs" aria-label="Delete trade" title="Delete trade" onClick=${e => { e.stopPropagation(); askDelete([t.id]) }}><${I} n="trash" s=${14}/></button></td></tr>`)}</tbody></table></div>`;
+}
+
+function DashInsights({ C }) {
+  const { S, D } = C; const ins = useMemo(() => insightsOf(D.ts, S), [D]);
+  const open = () => { LS.set('compound.atab', 'insights'); C.go('analytics') };
+  const col = t => t === 'pos' ? 'var(--pos)' : t === 'neg' ? 'var(--neg)' : 'var(--acc)';
+  return html`<div class="card dins">
+    <div class="ch"><span class="lbl">Insights</span><span class="sp"></span><button class="lnk" onClick=${open}>All insights →</button></div>
+    ${D.ts.length < 8 ? html`<div class="mut" style=${{ fontSize: '12px' }}>Insights unlock at 8 trades. You have ${D.ts.length}. Keep logging: Compound will show your best hours, setups and leaks here.</div>`
+      : !ins.length ? html`<div class="mut" style=${{ fontSize: '12px' }}>No strong patterns yet. Tag setups, mistakes and rules on your trades to sharpen these.</div>`
+      : html`<div class="col" style=${{ gap: '8px' }}>${ins.slice(0, 5).map((x, i) => html`<button key=${i} class="dinsrow" style=${{ '--tc': col(x.tone) }} onClick=${open}>
+          <span class="dinsic"><${I} n=${x.ic || 'spark'} s=${14}/></span>
+          <span class="col" style=${{ gap: '2px', minWidth: 0, textAlign: 'left' }}><b>${x.title}</b><span class="mut">${x.body}</span></span></button>`)}</div>`}
+  </div>`;
 }
 
 function PsychCard({ C }) {
