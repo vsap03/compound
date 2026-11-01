@@ -1000,5 +1000,18 @@ button.ntbox:hover{border-color:var(--acc)}
 :root.glass:not(.lt) .lbl{color:#CFCFD6}
 :root.glass:not(.lt) .main .mut,:root.glass:not(.lt) .main .dim,:root.glass:not(.lt) .main .lbl,:root.glass:not(.lt) .main .sub{text-shadow:0 1px 6px rgba(0,0,0,.55)}
 :root.glass.lt{--mut:#4B505B;--dim:#646a76}
+/* menus that open from the top bar must sit above the side panels and get their own blur:
+   the frosting moves to a pseudo-layer so the bar is not a backdrop root for its dropdowns */
+:root.glass .top,:root.glass .desk,:root.glass .rail,:root.glass .foot{-webkit-backdrop-filter:none;backdrop-filter:none;background:transparent;position:relative}
+:root.glass .top{z-index:30}
+:root.glass .top::before,:root.glass .desk::before,:root.glass .rail::before,:root.glass .foot::before{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;
+  background:rgba(8,8,10,calc(.25 + var(--gA) * .55));-webkit-backdrop-filter:blur(calc(var(--gB) + 6px)) saturate(160%);backdrop-filter:blur(calc(var(--gB) + 6px)) saturate(160%)}
+:root.glass.lt .top::before,:root.glass.lt .desk::before,:root.glass.lt .rail::before,:root.glass.lt .foot::before{background:rgba(246,247,250,calc(.55 + var(--gA) * .4))}
+:root.glass .desk,:root.glass .rail,:root.glass .foot{z-index:2}
+:root.glass .top .menu{z-index:60;background:linear-gradient(180deg,rgba(28,28,34,.94),rgba(14,14,18,.96))}
+:root.glass.lt .top .menu{background:rgba(250,251,253,.97)}
+@media (max-width:760px){:root.glass .desk::before,:root.glass .rail::before{display:none}:root.glass .top::before{background:rgba(8,8,10,calc(.35 + var(--gA) * .5))}}
+@media (min-width:761px){:root.glass.tablet .desk::before,:root.glass.tablet .rail::before{display:none}}
+:root.glass .shell.ldo .desk::before,:root.glass .shell.rdo .rail::before{display:none}
 
 @media (min-width:761px) and (not (pointer:coarse)){body{padding-top:env(safe-area-inset-top,0px)}}
