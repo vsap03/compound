@@ -994,5 +994,9 @@ button.ntbox:hover{border-color:var(--acc)}
 .dinsrow .mut{font-size:11px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .dinsic{width:28px;height:28px;flex:0 0 28px;border-radius:9px;display:grid;place-items:center;color:var(--tc);background:color-mix(in srgb,var(--tc) 14%,transparent)}
 :root.lt .dinsrow{background:rgba(255,255,255,.5)}
+/* text over glass: lift the greys so they read on top of the photo */
+:root.glass:not(.lt){--fg:#F7F7F9;--fg2:#E2E2E7;--mut:#BDBDC5;--dim:#A2A2AB}
+:root.glass:not(.lt) .main .mut,:root.glass:not(.lt) .main .dim,:root.glass:not(.lt) .main .lbl,:root.glass:not(.lt) .main .sub{text-shadow:0 1px 6px rgba(0,0,0,.55)}
+:root.glass.lt{--mut:#4B505B;--dim:#646a76}
 
 @media (min-width:761px) and (not (pointer:coarse)){body{padding-top:env(safe-area-inset-top,0px)}}
