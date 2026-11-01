@@ -96,7 +96,7 @@ const DEFAULT_SETTINGS = {
   emotions: ['Calm', 'Confident', 'Patient', 'Focused', 'Anxious', 'FOMO', 'Greedy', 'Frustrated', 'Bored', 'Fearful', 'Euphoric', 'Tilted'],
   maxDailyLoss: 1200, maxTrades: 4, maxConsecLosses: 3, dailyGoal: 500,
   defaultSymbol: 'MNQ', defaultQty: 2, commissions: {}, dedupeCopies: true,
-  theme: 'dark', accent: 'cobalt', themeV: 3, firmLogos: {}, onboarded: false,
+  theme: 'dark', accent: 'cobalt', themeV: 3, glass: true, glassT: 50, bgImg: true, firmLogos: {}, onboarded: false,
 };
 const POS_EMO = new Set(['Calm', 'Confident', 'Patient', 'Focused']);
 const QUOTES = [
@@ -849,6 +849,14 @@ function Scatter({ pts, h = 240, xFmt = v => v, yFmt = v => moneyK(v), xLabel = 
 
 /* ---------- TradingView Lightweight Charts wrapper ---------- */
 const cssv = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+/* liquid glass: transparency 0..100 → tint alpha and blur radius; applied live while the slider moves */
+function applyGlass(st, tOverride) {
+  const r = document.documentElement; const on = st.glass !== false;
+  r.classList.toggle('glass', on); r.classList.toggle('bgon', on && st.bgImg !== false);
+  const t = clamp((tOverride ?? st.glassT ?? 50), 0, 100) / 100;
+  r.style.setProperty('--gA', (0.9 - 0.62 * t).toFixed(3));
+  r.style.setProperty('--gB', Math.round(34 - 20 * t) + 'px');
+}
 function lwTheme() { return { layout: { background: { type: 'solid', color: 'transparent' }, textColor: cssv('--mut'), fontFamily: 'Geist Mono, ui-monospace, monospace', fontSize: 11 }, grid: { vertLines: { color: cssv('--line') }, horzLines: { color: cssv('--line') } }, rightPriceScale: { borderColor: cssv('--line2') }, timeScale: { borderColor: cssv('--line2'), timeVisible: true, secondsVisible: false }, crosshair: { mode: 1 } } }
 function EquityChart({ series, h = 260, area = true }) {
   const el = useRef();
@@ -1157,6 +1165,12 @@ function FirmPick({ v, set }) {
   </div>`;
 }
 
+function GlassSlider({ st, set }) {
+  const [v, setV] = useState(st.glassT ?? 50);
+  useEffect(() => setV(st.glassT ?? 50), [st.glassT]);
+  return html`<${Field} label=${'Glass transparency · ' + v + '%'} hint="Left: more frosted and solid. Right: clearer, more of the background shows through."><div class="row" style=${{ gap: '10px', flexWrap: 'nowrap' }}><span class="dim" style=${{ fontSize: '10.5px' }}>Frosted</span><input type="range" min="0" max="100" step="1" value=${v} style=${{ flex: 1 }} onInput=${e => { const n = +e.target.value; setV(n); applyGlass(st, n) }} onChange=${e => set({ glassT: +e.target.value })}/><span class="dim" style=${{ fontSize: '10.5px' }}>Clear</span></div><//>`;
+}
+
 function PayoutForm({ id, account, onClose }) {
   const S = store.s; const ex = id ? S.payouts[id] : null;
   const init = () => { if (ex) return { ...ex, firm: payoutFirm(S, ex) }; const a = account ? S.accounts[account] : null; return { account: account || '', firm: a?.firm || '', acctLabel: '', amount: '', d: todayKey(), status: 'paid', note: '', deduct: true } };
@@ -1405,6 +1419,9 @@ function Settings({ onClose, tab: tab0 }) {
       <${Field} label="Your name"><input class="in" value=${st.name} onInput=${e => set({ name: e.target.value })}/><//>
       <${Field} label="Appearance"><${Seg} v=${st.theme} set=${v => set({ theme: v })} opts=${[['dark', 'Dark', 'moon'], ['light', 'Light', 'sun']]}/><//>
       <${Field} label="Accent"><div class="row" style=${{ gap: '8px' }}>${[['cobalt', '#5B8CFF'], ['violet', '#9D7BFF'], ['ember', '#FF8A4C'], ['ice', '#6FD3FF'], ['gold', '#F3B43F'], ['mono', '#E9EAEE']].map(([k, c]) => html`<button key=${k} onClick=${() => set({ accent: k })} title=${k} style=${{ width: '30px', height: '30px', borderRadius: '9px', background: c, outline: st.accent === k ? '2px solid var(--fg)' : 'none', outlineOffset: '2px' }}></button>`)}</div><//>
+      <${Field} label="Liquid glass" hint="Frosted, see-through surfaces across the app"><${Seg} v=${st.glass === false ? 'off' : 'on'} set=${v => set({ glass: v === 'on' })} opts=${[['on', 'On'], ['off', 'Off']]}/><//>
+      ${st.glass !== false && html`<${GlassSlider} st=${st} set=${set}/>`}
+      ${st.glass !== false && html`<${Field} label="Background image"><${Seg} v=${st.bgImg === false ? 'off' : 'on'} set=${v => set({ bgImg: v === 'on' })} opts=${[['on', 'Leopard'], ['off', 'Plain black']]}/><//>`}
       <${Field} label="Default symbol & size"><div class="row" style=${{ flexWrap: 'nowrap' }}><input class="in" list="syms" value=${st.defaultSymbol} onInput=${e => set({ defaultSymbol: e.target.value.toUpperCase() })}/><input class="in tn" style=${{ width: '90px' }} value=${st.defaultQty} onInput=${e => set({ defaultQty: +e.target.value || 1 })}/></div><//>
       <label class="row" style=${{ gap: '8px', fontSize: '12px', cursor: 'pointer' }}><input type="checkbox" checked=${st.dedupeCopies} onChange=${e => set({ dedupeCopies: e.target.checked })}/>Count copy-traded ideas once in analytics (when viewing all accounts)</label></div>`}
     ${tab === 'journal' && html`<div class="grid g2" style=${{ gap: '18px' }}>
@@ -3059,9 +3076,9 @@ function AcctTrades({ a, ts, S }) {
         <span class="sp"></span><div class="djstats"><div><b class=${'tn ' + cls(net)}>${mo.length ? money(net, { sign: true, dec: 0 }) : '$0'}</b><span>month</span></div><div><b class="tn">${mo.length}</b><span>days traded</span></div><div><b class="tn">${mo.length ? pct(mG / mo.length, 0) : '—'}</b><span>green days</span></div><div><b class="tn">${mN}</b><span>trades</span></div></div></div>
       <div class="acgrid">${[...DOW.slice(0, 7)].map(d => html`<div class="dh" key=${d}>${d.toUpperCase()}</div>`)}<div class="dh">WEEK</div>
         ${weeks.map((w, wi) => { const wk = w.filter(Boolean).map(d => days[dayKey(d)]).filter(Boolean); const wn = sum(wk, x => x.pnl);
-          return [...w.map((d, i) => { if (!d) return html`<div key=${wi + '-' + i} class="acc empty"></div>`; const k = dayKey(d); const x = days[k]; const al = x ? .16 + .45 * Math.abs(x.pnl) / mx : 0;
+          return [...w.map((d, i) => { if (!d) return html`<div key=${wi + '-' + i} class="acd empty"></div>`; const k = dayKey(d); const x = days[k]; const al = x ? .16 + .45 * Math.abs(x.pnl) / mx : 0;
             const bg = x ? `color-mix(in srgb,${x.pnl >= 0 ? 'var(--pos)' : 'var(--neg)'} ${Math.round(al * 100)}%,var(--card2))` : undefined;
-            return html`<button key=${k} class=${'acc' + (x ? ' has' : '') + (pick === k ? ' on' : '') + (k === tk ? ' today' : '') + (d.getDay() % 6 ? '' : ' wkend')} style=${{ background: bg }} disabled=${!x} onClick=${() => setPick(pick === k ? null : k)}>
+            return html`<button key=${k} class=${'acd' + (x ? ' has' : '') + (pick === k ? ' on' : '') + (k === tk ? ' today' : '') + (d.getDay() % 6 ? '' : ' wkend')} style=${{ background: bg }} disabled=${!x} onClick=${() => setPick(pick === k ? null : k)}>
               <span class="dn tn">${d.getDate()}</span>${x && html`<b class="tn"><span class="full">${money(x.pnl, { sign: true, dec: 0 })}</span><span class="short">${shortPL(x.pnl)}</span></b><span class="cnt tn">${x.n} trade${x.n > 1 ? 's' : ''}</span>`}</button>` }),
             html`<div key=${'w' + wi} class=${'acw' + (wk.length ? '' : ' none')}><b class=${'tn ' + cls(wn)}>${wk.length ? html`<span class="full">${money(wn, { sign: true, dec: 0 })}</span><span class="short">${shortPL(wn)}</span>` : '—'}</b><span class="cnt tn">${wk.length ? wk.length + 'd' : ''}</span></div>`] })}
       </div></div>
@@ -3146,6 +3163,7 @@ function App() {
   const [lo, setLo] = useState(false); const [ro, setRo] = useState(false);
   const mainRef = useRef();
   useLayoutEffect(() => { const r = document.documentElement; r.classList.toggle('lt', S.settings.theme === 'light'); r.dataset.acc = S.settings.accent || 'cobalt' }, [S.settings.theme, S.settings.accent]);
+  useLayoutEffect(() => applyGlass(S.settings), [S.settings.glass, S.settings.glassT, S.settings.bgImg]);
   useEffect(() => { if (store.mode !== 'cloud' && store.mode !== 'local') return; if ((S.settings.themeV || 0) < 3) store.setSettings({ themeV: 3, accent: 'cobalt' }) }, [store.mode, S.settings.themeV]);
   useEffect(() => { if (store.mode !== 'cloud' && store.mode !== 'local') return; if (store.mode === 'cloud' && !(store.ready.root && store.ready.accounts && store.ready.trades)) return; if ((S.settings.cfdV || 0) < 2 && Object.keys(S.accounts).length) { const n = migrateCfdPV(S); if (n) toast(`Fixed NAS100 P&L on ${n} CFD trade${n > 1 ? 's' : ''} ($10 per point per lot)`) } }, [store.mode, S.settings.cfdV, Object.keys(S.accounts).length, store.ready.trades]);
   const go = (v, p) => { setView(v); setParams(p ? { ...p, _: Date.now() } : null); LS.set('compound.view', v); setModals([]); setLo(false); setRo(false); if (mainRef.current) mainRef.current.scrollTop = 0 };
@@ -3172,7 +3190,7 @@ function App() {
   const full = view === 'ai'; const wide = view === 'chart' && LIVE_OK && LS.get('compound.chartmode', 'live') === 'live';
   if (store.mode === 'login') return html`<${Login}/><${Toasts}/>`;
   if (store.mode === 'setup') return html`<${Setup}/><${Toasts}/>`;
-  return html`<div class=${'shell' + (lc ? ' ldc' : '') + (rc || full || wide ? ' rdc' : '') + (lo ? ' ldo' : '') + (ro ? ' rdo' : '') + (full || wide ? ' ldc' : '')}>
+  return html`${S.settings.glass !== false && html`<div class="bgimg" aria-hidden="true"></div><div class="gframe" aria-hidden="true"></div>`}<div class=${'shell' + (lc ? ' ldc' : '') + (rc || full || wide ? ' rdc' : '') + (lo ? ' ldo' : '') + (ro ? ' rdo' : '') + (full || wide ? ' ldc' : '')}>
     <header class="top">
       <div class="l"><button class="ib" style=${{ display: lc || deskNarrow() || full ? 'grid' : 'none' }} onClick=${() => { if (deskNarrow()) setLo(!lo); else { setLc(false); LS.set('compound.ldc', false) } }} aria-label="Accounts"><${I} n="dright" s=${14}/></button>
         <button class="mark" onClick=${() => go('dashboard')} aria-label="Compound home"><${Mark} s=${26}/><span class="wm mob-only" style=${{ fontSize: '15px' }}>Compound</span></button>
