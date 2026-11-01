@@ -326,7 +326,7 @@ const moneyParse = s => { if (s == null) return null; s = String(s).trim(); if (
 function parseDateLoose(s) { if (s == null || s === '') return null; s = String(s).trim(); if (/^\d{9,10}$/.test(s)) return new Date(+s * 1000); if (/^\d{12,13}$/.test(s)) return new Date(+s); let d = new Date(s); if (!isNaN(d)) return d; const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})[ T]?(\d{1,2})?:?(\d{2})?:?(\d{2})?\s*(AM|PM)?/i); if (m) { let y = +m[3]; if (y < 100) y += 2000; let h = +(m[4] || 0); if (m[7]) { if (/pm/i.test(m[7]) && h < 12) h += 12; if (/am/i.test(m[7]) && h === 12) h = 0 } return new Date(y, +m[1] - 1, +m[2], h, +(m[5] || 0), +(m[6] || 0)) } return null }
 
 /* ---------- STORE: cloud (db capability, private to you) with local fallback ---------- */
-const COLLS = ['trades', 'accounts', 'payouts', 'strategies', 'notes', 'days', 'chats', 'charts', 'boards', 'adjust', 'blown'];
+const COLLS = ['trades', 'accounts', 'payouts', 'strategies', 'notes', 'days', 'chats', 'charts', 'boards', 'adjust', 'blown', 'media'];
 const emptyState = () => { const s = { settings: { ...DEFAULT_SETTINGS }, report: null }; COLLS.forEach(c => s[c] = {}); return s };
 const store = {
   s: emptyState(), v: 0, subs: new Set(), mode: 'boot', root: null, uid: null, q: new Map(), timers: {}, ready: {}, localPending: null, caps: {},
@@ -1751,7 +1751,7 @@ function TradeDetail({ id, list, onClose }) {
         <span class="sp"></span>
         <button class=${'btn sm ' + (t.pin ? 'btn-a' : 'btn-g')} onClick=${() => store.patch('trades', t.id, { pin: !t.pin })}><${I} n="pin"/>${t.pin ? 'Pinned' : 'Pin'}</button>
         <button class="btn btn-g sm" onClick=${() => UI.open('trade', { id: t.id })}><${I} n="edit"/>Edit</button><button class="btn btn-g sm dangerh" onClick=${() => askDelete([t.id], onClose)} aria-label="Delete trade"><${I} n="trash"/><span class="hide-m">Delete</span></button>
-        <button class="btn btn-ai sm" onClick=${review} disabled=${ai}><${I} n="spark"/>${ai ? 'Reviewing…' : 'AI review'}</button>
+        <button class="btn btn-w sm" onClick=${() => UI.open('tcard', { id: t.id })}><${I} n="send"/>Share</button><button class="btn btn-ai sm" onClick=${review} disabled=${ai}><${I} n="spark"/>${ai ? 'Reviewing…' : 'AI review'}</button>
       </div>
       <div class="card" style=${{ padding: '14px' }}><div class="ch"><span class="lbl">Price action</span>${LIVE_OK && html`<${Seg} sm v=${pa} set=${v => { setPa(v); LS.set('compound.pa', v) }} opts=${[['replay', 'Replay'], ['live', 'Live']]}/>`}<span class="sp"></span><a class="btn btn-t xs" href=${tvURL(t.symbol)} target="_blank" rel="noopener"><${I} n="ext" s=${13}/>Open ${t.symbol} in TradingView</a>${t.tv && html`<a class="btn btn-t xs" href=${t.tv} target="_blank" rel="noopener"><${I} n="link" s=${13}/>Snapshot</a>`}</div>
         ${pa === 'live' && LIVE_OK ? html`<div class="row" style=${{ marginBottom: '8px' }}><${TVSymPicker} sym=${tsym} setSym=${setTsym} fam=${instr(t.symbol).fam}/></div><${TVLive} symbol=${tsym} interval="1" h=${460}/><div class="dim" style=${{ fontSize: '10.5px', marginTop: '6px' }}>Live chart. Scroll back to ${fmtDate(t.t)} ${fmtTime(t.t)} to see this entry. The Replay tab marks it on the candles automatically.</div>`
@@ -3260,6 +3260,129 @@ function DreamMeter({ S, paid, spent }) {
   </div>`;
 }
 
+/* ================= Trade cards: every trade as a shareable image, each on a different 918 shot ================= */
+/* Built-in "shots" are different crops of the 918 photo with different colour grades; photos you add join the rotation. */
+const SHOTS = [
+  { n: 'Hero', x: .5, y: .52, z: 1.0, grade: 'none' },
+  { n: 'Front three-quarter', x: .3, y: .55, z: 1.7, grade: 'steel' },
+  { n: 'Rear wheel', x: .78, y: .6, z: 3.0, grade: 'gold' },
+  { n: 'Front wheel', x: .46, y: .62, z: 2.8, grade: 'none' },
+  { n: 'Cockpit', x: .62, y: .47, z: 2.6, grade: 'night' },
+  { n: 'Headlight', x: .2, y: .53, z: 3.2, grade: 'steel' },
+  { n: 'Side profile', x: .58, y: .55, z: 1.45, grade: 'mono' },
+  { n: 'Rear wing', x: .82, y: .46, z: 2.4, grade: 'gold' },
+  { n: 'Nose', x: .14, y: .58, z: 2.2, grade: 'night' },
+  { n: 'Door line', x: .66, y: .58, z: 2.1, grade: 'mono' },
+];
+const hashStr = s => { let h = 7; for (const ch of String(s)) h = (h * 31 + ch.charCodeAt(0)) | 0; return Math.abs(h) };
+function shotPool(S) { const mine = Object.values(S.media || {}).filter(m => m.kind === '918' && m.url).sort((a, b) => (a.created || 0) - (b.created || 0)).map(m => ({ n: 'Your photo', src: m.url, x: .5, y: .5, z: 1, grade: 'none', mine: true, id: m.id })); return [...mine, ...SHOTS] }
+
+async function drawShot(g, shot, W, H) {
+  const im = shot.src ? await loadImg(shot.src) : await certBg();
+  g.fillStyle = '#000'; g.fillRect(0, 0, W, H); if (!im) return;
+  const base = Math.max(W / im.width, H / im.height) * (shot.z || 1);
+  const dw = im.width * base, dh = im.height * base;
+  let x = W / 2 - shot.x * dw, y = H / 2 - shot.y * dh; x = Math.min(0, Math.max(W - dw, x)); y = Math.min(0, Math.max(H - dh, y));
+  g.drawImage(im, x, y, dw, dh);
+  const tint = (op, col, a) => { g.save(); g.globalCompositeOperation = op; g.globalAlpha = a; g.fillStyle = col; g.fillRect(0, 0, W, H); g.restore() };
+  if (shot.grade === 'mono') tint('saturation', '#808080', 1);
+  if (shot.grade === 'steel') { tint('saturation', '#808080', .6); tint('soft-light', '#3A6EA5', .55) }
+  if (shot.grade === 'gold') tint('soft-light', '#E9A23B', .6);
+  if (shot.grade === 'night') { tint('multiply', '#3B4A66', .5); tint('soft-light', '#C8102E', .25) }
+}
+
+async function drawTradeCard(cv, t, S, fmt, shot) {
+  const L = fmt !== 'story'; const W = L ? 1600 : 1080, H = L ? 1000 : 1920;
+  cv.width = W; cv.height = H; const g = cv.getContext('2d');
+  const SANS = 'Satoshi, -apple-system, Segoe UI, sans-serif', MONO = '"Geist Mono", ui-monospace, Menlo, monospace';
+  await drawShot(g, shot, W, H);
+  const win = t.pnl >= 0; const pos = '#35D49A', neg = '#FF5A6E', gold = '#E9C46A', white = '#F5F5F7';
+  let gr = g.createLinearGradient(0, 0, 0, H); gr.addColorStop(0, 'rgba(0,0,0,.78)'); gr.addColorStop(.35, 'rgba(0,0,0,.25)'); gr.addColorStop(.6, 'rgba(0,0,0,.35)'); gr.addColorStop(1, 'rgba(0,0,0,.92)'); g.fillStyle = gr; g.fillRect(0, 0, W, H);
+  if (L) { gr = g.createLinearGradient(0, 0, W, 0); gr.addColorStop(0, 'rgba(0,0,0,.7)'); gr.addColorStop(.55, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.fillRect(0, 0, W, H) }
+  const rr = (x, y, w, h, r) => { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath() };
+  const m = L ? 64 : 64;
+  g.textBaseline = 'alphabetic'; g.textAlign = 'left';
+  const spaced = (txt, x, y, font, color, sp) => { g.font = font; g.fillStyle = color; let px = x; for (const ch of txt) { g.fillText(ch, px, y); px += g.measureText(ch).width + sp } return px - x };
+  // header
+  spaced('COMPOUND', m, m + 26, `600 20px ${MONO}`, 'rgba(245,245,247,.8)', 9);
+  g.font = `500 18px ${MONO}`; g.fillStyle = gold; g.textAlign = 'right'; g.fillText(win ? 'WINNING TRADE' : 'TRADE RECAP', W - m, m + 26); g.textAlign = 'left';
+  // symbol + side
+  const sy = L ? 190 : 250;
+  g.font = `900 ${L ? 92 : 104}px ${SANS}`; g.fillStyle = white; g.fillText(t.symbol, m, sy); const sw = g.measureText(t.symbol).width;
+  const side = t.side === 'short' ? 'SHORT' : 'LONG'; g.font = `700 22px ${MONO}`; const pw = g.measureText(side).width + 36;
+  rr(m + sw + 24, sy - 52, pw, 44, 22); g.fillStyle = t.side === 'short' ? 'rgba(255,90,110,.2)' : 'rgba(53,212,154,.2)'; g.fill(); g.strokeStyle = t.side === 'short' ? neg : pos; g.lineWidth = 1.5; g.stroke();
+  g.fillStyle = t.side === 'short' ? neg : pos; g.fillText(side, m + sw + 42, sy - 22);
+  const dt = new Date(t.t);
+  g.font = `500 ${L ? 22 : 26}px ${MONO}`; g.fillStyle = 'rgba(245,245,247,.7)';
+  g.fillText(dt.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }).toUpperCase() + ' · ' + fmtTime(t.t) + ' · ' + sessionOf(t).toUpperCase(), m, sy + 48);
+  // P&L hero
+  const py = L ? 430 : 620; const amt = (t.pnl > 0 ? '+' : t.pnl < 0 ? '-' : '') + money(Math.abs(t.pnl), { dec: 2, show: true });
+  let fs = L ? 176 : 178; g.font = `900 ${fs}px ${SANS}`; while (g.measureText(amt).width > (L ? 820 : W - 2 * m) && fs > 80) { fs -= 6; g.font = `900 ${fs}px ${SANS}` }
+  const ag = g.createLinearGradient(0, py - fs * .8, 0, py); if (win) { ag.addColorStop(0, '#E8FFF4'); ag.addColorStop(.55, pos); ag.addColorStop(1, '#1E9E6E') } else { ag.addColorStop(0, '#FFE6EA'); ag.addColorStop(.55, neg); ag.addColorStop(1, '#C23149') }
+  g.save(); g.shadowColor = 'rgba(0,0,0,.8)'; g.shadowBlur = 36; g.shadowOffsetY = 6; g.fillStyle = ag; g.fillText(amt, m - 6, py); g.restore();
+  const r = tR(t); const sub = [r != null ? rfmt(r) : null, t.pts != null ? (t.pts > 0 ? '+' : '') + t.pts.toFixed(2) + ' pts' : null, t.grade ? 'Grade ' + t.grade : null].filter(Boolean).join('   ·   ');
+  g.font = `700 ${L ? 30 : 34}px ${SANS}`; g.fillStyle = white; g.fillText(sub, m, py + 56);
+  // glass panel with the line graph: your equity over the trades leading into this one, this trade highlighted
+  const { all } = computeTrades(S, { mode: 'all', dedupe: true }); const acct = t.account;
+  const pool = all.filter(x => x.pnl != null && (!acct || x.account === acct)).sort((a, b) => tExit(a) - tExit(b));
+  let idx = pool.findIndex(x => x.id === t.id); if (idx < 0) { pool.push(t); idx = pool.length - 1 }
+  const seq = pool.slice(Math.max(0, idx - 29), idx + 1); let eq = 0; const pts = [0, ...seq.map(x => (eq += x.pnl))];
+  const gx = m, gw = W - 2 * m, gh = L ? 250 : 420, gy = L ? H - m - gh - 120 : H - m - gh - 300;
+  rr(gx, gy, gw, gh, 28); g.fillStyle = 'rgba(14,14,18,.5)'; g.fill(); g.strokeStyle = 'rgba(255,255,255,.16)'; g.lineWidth = 1.5; g.stroke();
+  g.save(); rr(gx, gy, gw, gh, 28); g.clip(); const sh = g.createLinearGradient(0, gy, 0, gy + gh * .5); sh.addColorStop(0, 'rgba(255,255,255,.1)'); sh.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = sh; g.fillRect(gx, gy, gw, gh * .5); g.restore();
+  g.font = `500 16px ${MONO}`; g.fillStyle = 'rgba(245,245,247,.6)'; g.fillText((seq.length > 1 ? 'EQUITY · LAST ' + seq.length + ' TRADES' : 'EQUITY') + (acct && S.accounts[acct] ? ' · ' + (S.accounts[acct].label || '').toUpperCase() : ''), gx + 28, gy + 38);
+  const ix = gx + 28, iw = gw - 56, iy = gy + 64, ih = gh - 96;
+  const mn = Math.min(...pts), mx = Math.max(...pts); const rg = (mx - mn) || 1;
+  const X = i => ix + (pts.length > 1 ? i / (pts.length - 1) : 1) * iw, Y = v => iy + ih - (v - mn) / rg * ih;
+  if (mn < 0 && mx > 0) { g.setLineDash([6, 8]); g.strokeStyle = 'rgba(255,255,255,.18)'; g.lineWidth = 1; g.beginPath(); g.moveTo(ix, Y(0)); g.lineTo(ix + iw, Y(0)); g.stroke(); g.setLineDash([]) }
+  const lineCol = pts[pts.length - 1] >= 0 ? pos : neg;
+  const fill = g.createLinearGradient(0, iy, 0, iy + ih); fill.addColorStop(0, lineCol + '55'); fill.addColorStop(1, lineCol + '00');
+  g.beginPath(); pts.forEach((v, i) => i ? g.lineTo(X(i), Y(v)) : g.moveTo(X(i), Y(v))); g.lineTo(X(pts.length - 1), iy + ih); g.lineTo(X(0), iy + ih); g.closePath(); g.fillStyle = fill; g.fill();
+  g.save(); g.shadowColor = lineCol; g.shadowBlur = 18; g.beginPath(); pts.forEach((v, i) => i ? g.lineTo(X(i), Y(v)) : g.moveTo(X(i), Y(v))); g.strokeStyle = lineCol; g.lineWidth = 4; g.lineJoin = 'round'; g.stroke(); g.restore();
+  // this trade: the last segment in gold with a glowing dot
+  if (pts.length > 1) { const a = pts.length - 2, b = pts.length - 1; g.beginPath(); g.moveTo(X(a), Y(pts[a])); g.lineTo(X(b), Y(pts[b])); g.strokeStyle = gold; g.lineWidth = 5; g.stroke(); g.beginPath(); g.arc(X(b), Y(pts[b]), 9, 0, Math.PI * 2); g.fillStyle = gold; g.shadowColor = gold; g.shadowBlur = 20; g.fill(); g.shadowBlur = 0 }
+  // stats row
+  const unit = t.unit === 'lot' ? 'Lots' : 'Contracts';
+  const stats = [['Entry', t.entry || '—'], ['Exit', t.exit || '—'], [unit, String(t.qty)], ['Hold', fmtDur(holdMin(t))], ['Setup', (t.setups || [])[0] || (S.strategies[t.strategy]?.name) || '—']];
+  const cols = L ? 5 : 3; const cw = (W - 2 * m) / cols; const ry = L ? H - m - 40 : H - m - 210;
+  stats.forEach(([k, v], i) => { const c = i % cols, row = Math.floor(i / cols); const x = m + c * cw, y = ry + row * 110;
+    g.font = `500 16px ${MONO}`; g.fillStyle = 'rgba(245,245,247,.55)'; g.fillText(k.toUpperCase(), x, y - 34);
+    let f2 = 30; g.font = `800 ${f2}px ${SANS}`; let s2 = String(v); while (g.measureText(s2).width > cw - 20 && s2.length > 4) s2 = s2.slice(0, -2) + '…'; g.fillStyle = white; g.fillText(s2, x, y) });
+  // footer: firm + trader
+  const a = S.accounts[t.account]; const f = a ? firmById(a.firm) : null;
+  g.font = `500 16px ${MONO}`; g.fillStyle = 'rgba(245,245,247,.5)'; g.textAlign = 'right';
+  g.fillText(((S.settings.name || '').toUpperCase() + (f ? '  ·  ' + f.name.toUpperCase() : '')).trim(), W - m, m + 60);
+  g.fillText('918 · ' + (shot.n || '').toUpperCase(), W - m, H - 22); g.textAlign = 'left';
+}
+
+function TradeCardModal({ id, onClose }) {
+  const S = useStore(); const raw = S.trades[id]; const cv = useRef();
+  const [fmt, setFmt] = useState(() => LS.get('compound.tcfmt', innerWidth < 760 ? 'story' : 'landscape'));
+  const [off, setOff] = useState(0); const [busy, setBusy] = useState(false); const fileRef = useRef();
+  const pool = shotPool(S); const t = raw ? { ...raw, ...tradeCalc(raw, S.settings) } : null;
+  const shot = t ? pool[(hashStr(t.id) + off) % pool.length] : null;
+  useEffect(() => { if (!t) return; let live = true; const go = () => live && cv.current && drawTradeCard(cv.current, t, S, fmt, shot); Promise.all([document.fonts?.load?.('900 100px Satoshi'), document.fonts?.load?.('500 20px "Geist Mono"')].filter(Boolean)).then(go, go); go(); return () => { live = false } }, [id, fmt, off, pool.length, store.v]);
+  if (!t) return html`<${Modal} title="Trade card" onClose=${onClose}><${Empty} title="Trade deleted"/><//>`;
+  const blob = () => new Promise(r => cv.current.toBlob(r, 'image/png'));
+  const fname = () => `compound-${t.symbol.toLowerCase()}-${dayKey(t.t)}-${t.pnl >= 0 ? 'win' : 'loss'}.png`;
+  const download = async b => { b = b || await blob(); const dl = store.caps.downloads || fileDownloads; try { await dl.save({ filename: fname(), data: b }); toast('Trade card saved') } catch (e) { toast('Could not save the image here') } };
+  const share = async () => { setBusy(true); try { const b = await blob(); const file = new File([b], fname(), { type: 'image/png' }); if (navigator.canShare && navigator.canShare({ files: [file] })) await navigator.share({ files: [file], title: t.symbol + ' trade' }); else await download(b) } catch (e) { if (e?.name !== 'AbortError') toast('Sharing was not available. Try Save.') } setBusy(false) };
+  const copy = async () => { try { const b = await blob(); await navigator.clipboard.write([new ClipboardItem({ 'image/png': b })]); toast('Trade card copied') } catch (e) { toast('Copy is not supported here. Use Save.') } };
+  const addPhotos = async files => { let n = 0; for (const f of [...files].slice(0, 12)) { try { const r = await saveImage(f); store.put('media', { id: r.id || uid(), kind: '918', url: r.url, created: Date.now() }); n++ } catch (e) { } } if (n) toast(`${n} photo${n > 1 ? 's' : ''} added to your 918 rotation`) };
+  const mine = pool.filter(p => p.mine).length;
+  return html`<${Modal} title=${t.symbol + ' trade card'} size="wide" icon=${html`<${I} n="send"/>`} onClose=${onClose} foot=${html`<${Seg} sm v=${fmt} set=${v => { setFmt(v); LS.set('compound.tcfmt', v) }} opts=${[['landscape', 'Landscape'], ['story', 'Story']]}/><span class="sp"></span><button class="btn btn-g sm" onClick=${copy}><${I} n="copy"/>Copy</button><button class="btn btn-g sm" onClick=${() => download()}><${I} n="download"/>Save</button><button class="btn btn-w" disabled=${busy} onClick=${share}><${I} n="send"/>Share</button>`}>
+    <div class=${'certwrap ' + fmt}><canvas ref=${cv} class="certcv" aria-label="Trade card image"></canvas></div>
+    <div class="row" style=${{ gap: '8px', marginTop: '12px' }}>
+      <button class="btn btn-g sm" onClick=${() => setOff(o => o + 1)}><${I} n="refresh" s=${14}/>Another 918 shot</button>
+      <span class="dim" style=${{ fontSize: '11px' }}>${shot.n}${shot.mine ? '' : ' · ' + SHOTS.length + ' built-in shots'}${mine ? ' · ' + mine + ' of your photos' : ''}</span>
+      <span class="sp"></span>
+      <input type="file" accept="image/*" multiple hidden ref=${fileRef} onChange=${e => { addPhotos(e.target.files); e.target.value = '' }}/>
+      <button class="btn btn-t sm" onClick=${() => fileRef.current.click()}><${I} n="plus" s=${14}/>Add 918 photos</button>
+      ${shot.mine && html`<button class="btn btn-t sm" onClick=${() => UI.confirm({ title: 'Remove this photo from the rotation?', onYes: () => store.del('media', shot.id) })}><${I} n="trash" s=${14}/></button>`}
+    </div>
+  <//>`;
+}
+
 /* ================= Compound · shell ================= */
 const VIEWS = [
   ['dashboard', 'Dashboard', 'grid'], ['journal', 'Journal', 'book'], ['showcase', 'Showcase', 'star'], ['strategy', 'Strategy', 'target'], ['study', 'Study', 'column'],
@@ -3394,7 +3517,7 @@ function App() {
       case 'detail': return html`<${TradeDetail} ...${p}/>`; case 'account': return html`<${AccountForm} ...${p}/>`; case 'payout': return html`<${PayoutForm} ...${p}/>`;
       case 'strategy': return html`<${StrategyForm} ...${p}/>`; case 'plan': return html`<${PlanForm} ...${p}/>`; case 'review': return html`<${ReviewForm} ...${p}/>`;
       case 'import': return html`<${ImportTrades} ...${p} mode=${p.mode || mode}/>`; case 'settings': return html`<${SettingsWrap} ...${p}/>`; case 'confirm': return html`<${Confirm} ...${p}/>`;
-      case 'assign': return html`<${AssignTrades} ...${p}/>`; case 'delacct': return html`<${DeleteAccount} ...${p}/>`; case 'balance': return html`<${BalanceSync} ...${p}/>`; case 'blown': return html`<${BlownForm} ...${p}/>`; case 'acct': return html`<${AccountDetail} ...${p}/>`; case 'cert': return html`<${CertModal} ...${p}/>`; case 'day': return html`<${DaySheet} ...${p} C=${C} days=${byDay(D.ts)}/>`; default: return null;
+      case 'assign': return html`<${AssignTrades} ...${p}/>`; case 'delacct': return html`<${DeleteAccount} ...${p}/>`; case 'balance': return html`<${BalanceSync} ...${p}/>`; case 'blown': return html`<${BlownForm} ...${p}/>`; case 'acct': return html`<${AccountDetail} ...${p}/>`; case 'cert': return html`<${CertModal} ...${p}/>`; case 'tcard': return html`<${TradeCardModal} ...${p}/>`; case 'day': return html`<${DaySheet} ...${p} C=${C} days=${byDay(D.ts)}/>`; default: return null;
     } })}
   <${Toasts}/><${Tip}/>`;
 }
