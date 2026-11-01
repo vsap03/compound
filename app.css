@@ -832,7 +832,7 @@ button.ntbox:hover{border-color:var(--acc)}
 :root.glass .bgimg{display:block;position:fixed;inset:0;z-index:0;background:#000;pointer-events:none}
 :root.glass .bgimg i{display:none}
 /* the photo is its own layer sized to its 4:5 frame, with feathered edges so it melts into the black around it */
-:root.glass.bgon .bgimg i{display:block;position:absolute;left:50%;top:58%;height:128vh;aspect-ratio:4/5;transform:translate(-50%,-50%);background:url(bg.jpg) center/cover no-repeat;
+:root.glass.bgon .bgimg i{display:block;position:absolute;left:50%;top:58%;height:128vh;aspect-ratio:4/5;transform:translate(-50%,-50%);background:url(bg-bw.jpg) center/cover no-repeat;
   -webkit-mask-image:linear-gradient(90deg,transparent 0,#000 16%,#000 84%,transparent 100%),linear-gradient(180deg,transparent 0,#000 12%,#000 82%,transparent 100%);-webkit-mask-composite:source-in;mask-image:linear-gradient(90deg,transparent 0,#000 16%,#000 84%,transparent 100%),linear-gradient(180deg,transparent 0,#000 12%,#000 82%,transparent 100%);mask-composite:intersect}
 :root.glass.bgon .bgimg::after{z-index:1;content:"";position:absolute;inset:0;background:radial-gradient(120% 90% at 50% 55%,transparent 45%,rgba(0,0,0,.55) 100%)}
 @media (orientation:portrait){:root.glass.bgon .bgimg i{height:auto;width:max(100vw,calc(100vh * .8));top:56%;-webkit-mask-image:linear-gradient(180deg,transparent 0,#000 10%,#000 86%,transparent 100%);mask-image:linear-gradient(180deg,transparent 0,#000 10%,#000 86%,transparent 100%)}}
@@ -953,7 +953,7 @@ button.ntbox:hover{border-color:var(--acc)}
 :root.glass.lt .motto{color:var(--mut);text-shadow:none}
 @media (max-width:760px){.motto{font-size:8.5px;letter-spacing:.18em;padding:0 12px}}
 /* certificates */
-.cert{background:linear-gradient(180deg,rgba(0,0,0,.55),rgba(0,0,0,.25) 45%,rgba(0,0,0,.8)),url(bg.jpg) center 62%/cover no-repeat,#000;border-color:rgba(233,196,106,.35)}
+.cert{background:linear-gradient(180deg,rgba(0,0,0,.55),rgba(0,0,0,.25) 45%,rgba(0,0,0,.8)),url(bg-bw.jpg) center 62%/cover no-repeat,#000;border-color:rgba(233,196,106,.35)}
 .certb{text-align:left;color:var(--fg);cursor:pointer;transition:transform .4s cubic-bezier(.2,1.2,.3,1),border-color .2s,box-shadow .3s}
 .certb:hover{transform:translateY(-3px);border-color:rgba(233,196,106,.7);box-shadow:0 24px 50px -24px rgba(0,0,0,.9),0 0 0 1px rgba(233,196,106,.2)}
 .certb .amt{background:linear-gradient(180deg,#FFF6DA,#E9C46A 55%,#B8892B);-webkit-background-clip:text;background-clip:text;color:transparent;text-shadow:none}
@@ -962,24 +962,30 @@ button.ntbox:hover{border-color:var(--acc)}
 .certwrap{display:flex;justify-content:center;background:#000;border-radius:14px;overflow:hidden}
 .certcv{display:block;width:100%;height:auto}
 .certwrap.story .certcv{width:auto;max-width:100%;max-height:68vh}
-/* the 918 meter */
-.dream{position:relative;overflow:hidden;padding:22px 24px;border-color:rgba(233,196,106,.28)!important;background:#050505}
-.dreamcar{position:absolute;inset:0;background:url(bg.jpg) 70% 64%/cover no-repeat;opacity:.55;pointer-events:none}
-.dreamcar::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(0,0,0,.92) 0,rgba(0,0,0,.55) 45%,rgba(0,0,0,.75) 100%)}
-.dreamin{position:relative;display:grid;grid-template-columns:minmax(0,1fr) minmax(220px,300px) minmax(0,1fr);gap:20px;align-items:center;color:#F5F5F7}
-.dreamh{font-size:24px;font-weight:900;letter-spacing:-.02em;margin:0;color:#fff}
-.dream .lnk{color:rgba(245,245,247,.75);display:inline-flex;align-items:center;gap:5px}
-.dreamstats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:10px}
-.dreamstats div{display:flex;flex-direction:column;gap:2px;padding:8px 10px;border-radius:10px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08)}
-.dreamstats span{font-family:var(--mono);font-size:8.5px;letter-spacing:.12em;text-transform:uppercase;color:rgba(245,245,247,.55)}
-.dreamstats b{font-size:14px;font-weight:800}
-.dreamdial svg{width:100%;height:auto;display:block}
-.dreamright{text-align:right}
-.dreambig{font-size:34px;font-weight:900;letter-spacing:-.03em;background:linear-gradient(180deg,#FFF6DA,#E9C46A 60%,#B8892B);-webkit-background-clip:text;background-clip:text;color:transparent}
-.dreamunits{font-size:15px;color:rgba(245,245,247,.85)}
-.dreamunits b{font-size:28px;font-weight:900;color:#fff;letter-spacing:-.02em}
-.dream .lbl{color:rgba(245,245,247,.6)}
-@media (max-width:1100px){.dreamin{grid-template-columns:minmax(0,1fr) minmax(200px,260px)}.dreamright{grid-column:1/-1;text-align:left;display:grid;grid-template-columns:1fr 1fr;align-items:end}}
-@media (max-width:760px){.dream{padding:18px 16px}.dreamin{grid-template-columns:minmax(0,1fr);gap:12px}.dreamdial{max-width:280px;margin:0 auto;width:100%}.dreamright{grid-template-columns:minmax(0,1fr);text-align:center}.dreamstats b{font-size:12.5px}.dreambig{font-size:30px}}
+/* the 918 meter: a glass instrument */
+.dream{display:flex;flex-direction:column;gap:14px;padding:20px 22px}
+.dreamhead{display:flex;align-items:center;gap:12px}
+.dream .dreamh{font-size:22px;font-weight:800;letter-spacing:-.02em;margin:0}
+.dreamtarget{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 12px;border-radius:999px;font-size:11.5px;font-weight:700;color:var(--fg2);background:rgba(255,255,255,.06);border:1px solid var(--line2);box-shadow:inset 0 1px 0 rgba(255,255,255,.12)}
+.dreamtarget:hover{color:var(--fg);border-color:var(--line3)}
+.dreambody{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:18px;align-items:center}
+.dreamdial svg{width:100%;height:auto;display:block;overflow:visible}
+.dmtrack{stroke:rgba(0,0,0,.35)}
+:root.lt .dmtrack{stroke:rgba(255,255,255,.4)}
+.dmpct{font-family:Satoshi,sans-serif;font-size:38px;font-weight:900;fill:#fff;letter-spacing:-1px}
+.dreamside{display:flex;flex-direction:column;gap:10px}
+.dreamglass{padding:14px 16px;border-radius:16px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);box-shadow:inset 0 1px 0 rgba(255,255,255,.12);background-image:radial-gradient(120% 80% at 0% 0%,rgba(255,255,255,.08),transparent 60%)}
+.dreambig{font-size:30px;font-weight:900;letter-spacing:-.03em;background:linear-gradient(180deg,#fff,rgba(255,255,255,.65));-webkit-background-clip:text;background-clip:text;color:transparent;margin-top:2px}
+:root.lt .dreambig{background:none;color:var(--fg)}
+.dreamunits{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-top:2px}
+.dreamunits b{font-size:26px;font-weight:900;letter-spacing:-.02em}
+.dreamunits span{font-size:12px;color:var(--fg2)}
+.dreamstats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.dreamstats div{display:flex;flex-direction:column;gap:3px;padding:10px 12px;border-radius:14px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);box-shadow:inset 0 1px 0 rgba(255,255,255,.08)}
+.dreamstats span{font-family:var(--mono);font-size:8.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.dreamstats b{font-size:15px;font-weight:800}
+:root.lt .dreamglass,:root.lt .dreamstats div{background:rgba(255,255,255,.55);border-color:rgba(255,255,255,.8);box-shadow:inset 0 1px 0 #fff}
+:root.lt .dreamdial svg{filter:invert(1)}
+@media (max-width:760px){.dream{padding:16px}.dreambody{grid-template-columns:minmax(0,1fr)}.dreamdial{max-width:340px;margin:0 auto;width:100%}.dreamstats b{font-size:12.5px}.dreambig{font-size:26px}}
 
 @media (min-width:761px) and (not (pointer:coarse)){body{padding-top:env(safe-area-inset-top,0px)}}

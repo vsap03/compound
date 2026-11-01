@@ -3098,7 +3098,7 @@ function AcctTrades({ a, ts, S }) {
 
 /* ================= Certificates: rendered to an image (Porsche backdrop) so they can be saved and shared ================= */
 let _certBg = null;
-const certBg = () => _certBg || (_certBg = new Promise(res => { const im = new Image(); im.onload = () => res(im); im.onerror = () => res(null); im.src = 'bg.jpg' }));
+const certBg = () => _certBg || (_certBg = new Promise(res => { const im = new Image(); im.onload = () => res(im); im.onerror = () => res(null); im.src = 'bg-bw.jpg' }));
 const loadImg = src => new Promise(res => { if (!src) return res(null); const im = new Image(); im.onload = () => res(im); im.onerror = () => res(null); im.src = src });
 
 function certList(S) {
@@ -3213,49 +3213,53 @@ function DreamMeter({ S, paid, spent }) {
   const net = paid - spent; const prog = clamp(net / price * 100, 0, 100); const toGo = Math.max(0, price - net);
   const units = net / price;
   const [anim, setAnim] = useState(0); const [edit, setEdit] = useState(false); const [pv, setPv] = useState(String(price));
-  useEffect(() => { let raf, t0; const step = t => { t0 ??= t; const k = Math.min(1, (t - t0) / 1400); setAnim(prog * (1 - Math.pow(1 - k, 3))); if (k < 1) raf = requestAnimationFrame(step) }; raf = requestAnimationFrame(step); return () => cancelAnimationFrame(raf) }, [prog]);
-  // 240° speedometer
-  const R = 118, cx = 150, cy = 150, a0 = 150, sweep = 240;
-  const pt = (deg, r) => { const a = (deg) * Math.PI / 180; return [cx + r * Math.cos(a), cy + r * Math.sin(a)] };
-  const arc = (from, to, r) => { const [x1, y1] = pt(from, r), [x2, y2] = pt(to, r); return `M${x1} ${y1} A${r} ${r} 0 ${to - from > 180 ? 1 : 0} 1 ${x2} ${y2}` };
-  // log-ish dial so early progress is visible: needle uses sqrt of progress
-  const vis = p => Math.sqrt(p / 100) * 100;
-  const nd = a0 + sweep * vis(anim) / 100;
-  const ticks = [0, 1, 5, 10, 25, 50, 75, 100];
+  useEffect(() => { let raf, t0; const step = t => { t0 ??= t; const k = Math.min(1, (t - t0) / 1600); setAnim(prog * (1 - Math.pow(1 - k, 4))); if (k < 1) raf = requestAnimationFrame(step) }; raf = requestAnimationFrame(step); return () => cancelAnimationFrame(raf) }, [prog]);
+  // 180° glass gauge; square-root scale so the first few percent are visible
+  const vis = p => Math.sqrt(clamp(p, 0, 100) / 100);
+  const R = 120, cx = 160, cy = 150; const pt = (f, r) => { const a = Math.PI * (1 - f); return [cx + r * Math.cos(a), cy - r * Math.sin(a)] };
+  const arc = (f0, f1, r) => { const [x1, y1] = pt(f0, r), [x2, y2] = pt(f1, r); return `M${x1} ${y1} A${r} ${r} 0 0 1 ${x2} ${y2}` };
+  const fv = vis(anim); const [nx, ny] = pt(fv, R - 30); const [kx, ky] = pt(fv, R);
   const fmtU = u => Math.abs(u) >= 1 ? u.toFixed(2) : Math.abs(u) >= .01 ? u.toFixed(3) : u.toFixed(4);
   const parts = [[1, 'the whole car'], [.25, 'the hybrid battery pack'], [.06, 'a set of magnesium wheels'], [.02, 'the carbon-ceramic brakes'], [.004, 'a year of fuel'], [0, 'the first tank of fuel']];
   const part = net <= 0 ? null : parts.find(([f]) => units >= f) || parts[parts.length - 1];
   const savePrice = () => { const v = Math.round(+String(pv).replace(/[^0-9.]/g, '')); if (v > 1000) store.setSettings({ dreamPrice: v }); setEdit(false) };
+  const marks = [0, 1, 5, 10, 25, 50, 100];
   return html`<div class="card dream">
-    <div class="dreamcar" aria-hidden="true"></div>
-    <div class="dreamin">
-      <div class="col" style=${{ gap: '6px', minWidth: 0 }}>
-        <span class="lbl" style=${{ color: '#E9C46A' }}>The 918 meter</span>
-        <h3 class="dreamh">Porsche 918 Spyder</h3>
-        <div class="row" style=${{ gap: '6px' }}>${edit ? html`<div class="inwrap" style=${{ width: '170px' }}><span class="pre">$</span><input class="in tn sm" autofocus inputmode="numeric" value=${pv} onInput=${e => setPv(e.target.value)} onKeyDown=${e => e.key === 'Enter' && savePrice()} onBlur=${savePrice}/></div>` : html`<button class="lnk tn" onClick=${() => { setPv(String(price)); setEdit(true) }} title="Change the price">Target ${money(price, { dec: 0, show: true })} <${I} n="edit" s=${11}/></button>`}</div>
-        <div class="dreamstats">
-          <div><span>Payouts</span><b class="tn pos">${money(paid, { dec: 0 })}</b></div>
-          <div><span>Spent on firms</span><b class="tn neg">${money(-spent, { dec: 0 })}</b></div>
-          <div><span>Net so far</span><b class=${'tn ' + cls(net)}>${money(net, { sign: true, dec: 0 })}</b></div>
-        </div>
-      </div>
+    <div class="dreamhead">
+      <div class="col" style=${{ gap: '4px', minWidth: 0 }}><span class="lbl">The 918 meter</span><h3 class="dreamh">Porsche 918 Spyder</h3></div>
+      <span class="sp"></span>
+      ${edit ? html`<div class="inwrap" style=${{ width: '170px' }}><span class="pre">$</span><input class="in tn sm" autofocus inputmode="numeric" value=${pv} onInput=${e => setPv(e.target.value)} onKeyDown=${e => e.key === 'Enter' && savePrice()} onBlur=${savePrice}/></div>`
+        : html`<button class="dreamtarget tn" onClick=${() => { setPv(String(price)); setEdit(true) }} title="Change the price">${money(price, { dec: 0, show: true })}<${I} n="edit" s=${11}/></button>`}
+    </div>
+    <div class="dreambody">
       <div class="dreamdial">
-        <svg viewBox="0 0 300 250" role="img" aria-label=${pct(prog / 100, 2) + ' of the way to a Porsche 918 Spyder'}>
-          <defs><linearGradient id="dg" x1="0" x2="1"><stop offset="0" stop-color="#B8892B"/><stop offset=".6" stop-color="#E9C46A"/><stop offset="1" stop-color="#FFF1C9"/></linearGradient>
-            <filter id="dglow"><feGaussianBlur stdDeviation="4"/></filter></defs>
-          <path d=${arc(a0, a0 + sweep, R)} stroke="rgba(255,255,255,.1)" stroke-width="14" fill="none" stroke-linecap="round"/>
-          ${anim > 0 && html`<path d=${arc(a0, Math.max(a0 + .5, nd), R)} stroke="url(#dg)" stroke-width="14" fill="none" stroke-linecap="round" filter="url(#dglow)" opacity=".6"/><path d=${arc(a0, Math.max(a0 + .5, nd), R)} stroke="url(#dg)" stroke-width="14" fill="none" stroke-linecap="round"/>`}
-          ${ticks.map(t => { const d = a0 + sweep * vis(t) / 100; const [x1, y1] = pt(d, R - 16), [x2, y2] = pt(d, R - 26), [tx, ty] = pt(d, R - 42); return html`<g key=${t}><line x1=${x1} y1=${y1} x2=${x2} y2=${y2} stroke="rgba(255,255,255,.45)" stroke-width="2"/><text x=${tx} y=${ty + 4} text-anchor="middle" font-size="10" fill="rgba(255,255,255,.55)" font-family="Geist Mono, monospace">${t}%</text></g>` })}
-          ${(() => { const [x, y] = pt(nd, R - 8); const [bx1, by1] = pt(nd + 90, 6), [bx2, by2] = pt(nd - 90, 6); return html`<polygon points=${`${x},${y} ${bx1},${by1} ${bx2},${by2}`} fill="#FF3B30"/><circle cx=${cx} cy=${cy} r="11" fill="#111" stroke="#E9C46A" stroke-width="2"/>` })()}
-          <text x=${cx} y=${cy + 52} text-anchor="middle" font-size="30" font-weight="900" fill="#fff" font-family="Satoshi, sans-serif">${pct(prog / 100, prog < 10 ? 2 : 1)}</text>
-          <text x=${cx} y=${cy + 72} text-anchor="middle" font-size="10" letter-spacing="2" fill="rgba(255,255,255,.55)" font-family="Geist Mono, monospace">OF THE WAY THERE</text>
+        <svg viewBox="0 0 320 190" role="img" aria-label=${pct(prog / 100, 2) + ' of the way to a Porsche 918 Spyder'}>
+          <defs>
+            <linearGradient id="dmg" x1="0" x2="1"><stop offset="0" stop-color="rgba(255,255,255,.35)"/><stop offset=".7" stop-color="rgba(255,255,255,.85)"/><stop offset="1" stop-color="#fff"/></linearGradient>
+            <filter id="dmglow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="6"/></filter>
+            <radialGradient id="dmknob" cx=".35" cy=".3" r=".8"><stop offset="0" stop-color="#fff"/><stop offset=".55" stop-color="rgba(255,255,255,.55)"/><stop offset="1" stop-color="rgba(255,255,255,.15)"/></radialGradient>
+          </defs>
+          ${Array.from({ length: 61 }, (_, i) => { const f = i / 60; const big = i % 10 === 0; const [x1, y1] = pt(f, R + 14), [x2, y2] = pt(f, R + (big ? 24 : 19)); return html`<line key=${i} x1=${x1} y1=${y1} x2=${x2} y2=${y2} stroke=${f <= fv ? 'rgba(255,255,255,.7)' : 'rgba(255,255,255,.18)'} stroke-width=${big ? 1.6 : 1} stroke-linecap="round"/>` })}
+          <path d=${arc(0, 1, R)} class="dmtrack" stroke-width="16" fill="none" stroke-linecap="round"/>
+          <path d=${arc(0, 1, R)} stroke="rgba(255,255,255,.06)" stroke-width="1" fill="none" transform="translate(0,-7)"/>
+          ${anim > 0 && html`<path d=${arc(0, Math.max(.004, fv), R)} stroke="#fff" stroke-width="16" fill="none" stroke-linecap="round" filter="url(#dmglow)" opacity=".35"/><path d=${arc(0, Math.max(.004, fv), R)} stroke="url(#dmg)" stroke-width="16" fill="none" stroke-linecap="round"/>`}
+          ${marks.map(mk => { const [tx, ty] = pt(vis(mk), R - 30); return html`<text key=${mk} x=${tx} y=${ty + 3} text-anchor="middle" font-size="9" fill="rgba(255,255,255,.42)" font-family="Geist Mono, monospace">${mk}</text>` })}
+          <circle cx=${kx} cy=${ky} r="13" fill="url(#dmknob)" stroke="rgba(255,255,255,.7)" stroke-width="1"/>
+          <circle cx=${kx} cy=${ky} r="13" fill="none" stroke="rgba(0,0,0,.25)" stroke-width="1" transform="translate(0,1)"/>
+          <text x=${cx} y=${cy - 22} text-anchor="middle" class="dmpct">${pct(prog / 100, prog < 10 ? 2 : 1)}</text>
+          <text x=${cx} y=${cy + 2} text-anchor="middle" font-size="9" letter-spacing="2.5" fill="rgba(255,255,255,.5)" font-family="Geist Mono, monospace">OF THE WAY THERE</text>
         </svg>
       </div>
-      <div class="col dreamright" style=${{ gap: '10px' }}>
-        <div><span class="lbl">Still to make</span><div class="tn dreambig">${money(toGo, { dec: 0 })}</div></div>
-        <div><span class="lbl">You've earned</span><div class="tn dreamunits"><b>${fmtU(units)}</b> Porsche 918 Spyders</div>
-          <div class="dim" style=${{ fontSize: '11px', marginTop: '3px' }}>${net <= 0 ? 'Payouts have not covered your fees yet. Every payout moves the needle.' : `That's ${part[1]}${toGo > 0 ? ' so far' : '. Go get it.'}`}</div></div>
+      <div class="dreamside">
+        <div class="dreamglass"><span class="lbl">Still to make</span><div class="tn dreambig">${money(toGo, { dec: 0 })}</div></div>
+        <div class="dreamglass"><span class="lbl">You've earned</span><div class="dreamunits"><b class="tn">${fmtU(units)}</b><span>Porsche 918 Spyders</span></div>
+          <div class="dim" style=${{ fontSize: '10.5px', marginTop: '4px' }}>${net <= 0 ? 'Payouts have not covered your fees yet. The next one moves the needle.' : `That's ${part[1]}${toGo > 0 ? ' so far.' : '. Go get it.'}`}</div></div>
       </div>
+    </div>
+    <div class="dreamstats">
+      <div><span>Payouts</span><b class="tn pos">${money(paid, { dec: 0 })}</b></div>
+      <div><span>Spent on firms</span><b class="tn neg">${money(-spent, { dec: 0 })}</b></div>
+      <div><span>Net so far</span><b class=${'tn ' + cls(net)}>${money(net, { sign: true, dec: 0 })}</b></div>
     </div>
   </div>`;
 }
@@ -3285,10 +3289,11 @@ async function drawShot(g, shot, W, H) {
   let x = W / 2 - shot.x * dw, y = H / 2 - shot.y * dh; x = Math.min(0, Math.max(W - dw, x)); y = Math.min(0, Math.max(H - dh, y));
   g.drawImage(im, x, y, dw, dh);
   const tint = (op, col, a) => { g.save(); g.globalCompositeOperation = op; g.globalAlpha = a; g.fillStyle = col; g.fillRect(0, 0, W, H); g.restore() };
-  if (shot.grade === 'mono') tint('saturation', '#808080', 1);
-  if (shot.grade === 'steel') { tint('saturation', '#808080', .6); tint('soft-light', '#3A6EA5', .55) }
-  if (shot.grade === 'gold') tint('soft-light', '#E9A23B', .6);
-  if (shot.grade === 'night') { tint('multiply', '#3B4A66', .5); tint('soft-light', '#C8102E', .25) }
+  tint('saturation', '#808080', 1); /* everything in black and white, your photos included */
+  if (shot.grade === 'steel') tint('soft-light', '#FFFFFF', .28);            /* bright, silvery */
+  if (shot.grade === 'gold') { tint('overlay', '#000000', .25); tint('soft-light', '#FFFFFF', .2) } /* deep contrast */
+  if (shot.grade === 'night') tint('multiply', '#555555', .55);              /* low key */
+  if (shot.grade === 'mono') tint('screen', '#1A1A1A', .6);                 /* soft matte */
 }
 
 async function drawTradeCard(cv, t, S, fmt, shot) {
