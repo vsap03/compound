@@ -854,8 +854,8 @@ function applyGlass(st, tOverride) {
   const r = document.documentElement; const on = st.glass !== false;
   r.classList.toggle('glass', on); r.classList.toggle('bgon', on && st.bgImg !== false);
   const t = clamp((tOverride ?? st.glassT ?? 50), 0, 100) / 100;
-  r.style.setProperty('--gA', (0.9 - 0.62 * t).toFixed(3));
-  r.style.setProperty('--gB', Math.round(34 - 20 * t) + 'px');
+  r.style.setProperty('--gA', (0.78 - 0.6 * t).toFixed(3));
+  r.style.setProperty('--gB', Math.round((innerWidth <= 760 ? 22 : 30) - 14 * t) + 'px');
 }
 function lwTheme() { return { layout: { background: { type: 'solid', color: 'transparent' }, textColor: cssv('--mut'), fontFamily: 'Geist Mono, ui-monospace, monospace', fontSize: 11 }, grid: { vertLines: { color: cssv('--line') }, horzLines: { color: cssv('--line') } }, rightPriceScale: { borderColor: cssv('--line2') }, timeScale: { borderColor: cssv('--line2'), timeVisible: true, secondsVisible: false }, crosshair: { mode: 1 } } }
 function EquityChart({ series, h = 260, area = true }) {
@@ -1530,6 +1530,8 @@ function Kpi({ k, v, s, c, info, small }) { return html`<div class=${'card kpi' 
 function Empty({ icon = 'book', title, body, children }) { return html`<div class="empty"><div class="ico"><${I} n=${icon}/></div><h4>${title}</h4>${body && html`<p>${body}</p>`}${children && html`<div class="row">${children}</div>`}</div>` }
 
 /* ---------------- Dashboard ---------------- */
+const MOTTOS = ['Discipline is the edge. Execution is the payout.', 'Trade the plan. Let the money compound.', 'Patience pays more than prediction.', 'Protect the account. The upside takes care of itself.', 'One clean setup beats ten forced trades.', 'Small edges, repeated, become a fortune.', 'Funded traders are made in the boring days.', 'Sit on your hands until the A+ shows up.', 'Every rule kept is a deposit in your future.', 'Win the day by not losing it.', 'The market pays the ones who wait.', 'Consistency is the luxury. Everything else follows.'];
+const dailyMotto = () => { const d = new Date(); return MOTTOS[(d.getFullYear() * 400 + d.getMonth() * 31 + d.getDate()) % MOTTOS.length] };
 function Dashboard({ C }) {
   const { S, D } = C; const [range, setRange] = useState(LS.get('compound.range', 'all')); const [rm, setRm] = useState(false);
   const ts = useMemo(() => D.ts.filter(t => inRange(t, range)), [D, range]);
@@ -1551,7 +1553,8 @@ function Dashboard({ C }) {
         <${Menu} open=${rm} onClose=${() => setRm(false)} style=${{ top: '22px', left: '50%', transform: 'translateX(-50%)' }}>${RANGES.map(([k, l]) => html`<button key=${k} class=${range === k ? 'on' : ''} onClick=${e => { e.stopPropagation(); setR(k) }}>${l}</button>`)}<//></div>
       <div class=${'big ' + (s.net < 0 ? 'neg' : '')} style=${{ marginTop: '14px' }}><${CountUp} v=${s.net} fmt=${v => money(v, { dec: 0 })}/></div>
       <div class="meta"><span class="mut tn" style=${{ fontWeight: 600 }}>${s.w}W / ${s.l}L${s.be ? ' / ' + s.be + 'BE' : ''}</span>
-        ${today?.plan ? html`<button class="chip on" onClick=${() => UI.open('plan', { day: todayKey() })}><${I} n="check" s=${12}/>Plan set${today.plan.bias ? ' · ' + ({ bull: 'Bullish', bear: 'Bearish', neutral: 'Neutral', wait: 'Waiting' })[today.plan.bias] : ''}</button>` : html`<button class="lnk" style=${{ fontSize: '12.5px' }} onClick=${() => UI.open('plan', { day: todayKey() })}>Start pre-market plan →</button>`}</div></div>
+        ${today?.plan ? html`<button class="chip on" onClick=${() => UI.open('plan', { day: todayKey() })}><${I} n="check" s=${12}/>Plan set${today.plan.bias ? ' · ' + ({ bull: 'Bullish', bear: 'Bearish', neutral: 'Neutral', wait: 'Waiting' })[today.plan.bias] : ''}</button>` : html`<button class="lnk" style=${{ fontSize: '12.5px' }} onClick=${() => UI.open('plan', { day: todayKey() })}>Start pre-market plan →</button>`}</div>
+      <div class="motto">${dailyMotto()}</div></div>
 
     <div class="row"><span class="lbl">Performance</span><span class="sp"></span><button class="lnk" onClick=${() => C.go('analytics')}>Full analytics →</button><button class="btn btn-t xs" onClick=${C.toggleHide}><${I} n=${UIS.hide ? 'eye' : 'eyeoff'} s=${14}/>${UIS.hide ? 'Show' : 'Hide'} P&L</button></div>
     <div class="grid g4 keep2">
@@ -3190,7 +3193,7 @@ function App() {
   const full = view === 'ai'; const wide = view === 'chart' && LIVE_OK && LS.get('compound.chartmode', 'live') === 'live';
   if (store.mode === 'login') return html`<${Login}/><${Toasts}/>`;
   if (store.mode === 'setup') return html`<${Setup}/><${Toasts}/>`;
-  return html`${S.settings.glass !== false && html`<div class="bgimg" aria-hidden="true"></div><div class="gframe" aria-hidden="true"></div>`}<div class=${'shell' + (lc ? ' ldc' : '') + (rc || full || wide ? ' rdc' : '') + (lo ? ' ldo' : '') + (ro ? ' rdo' : '') + (full || wide ? ' ldc' : '')}>
+  return html`${S.settings.glass !== false && html`<div class="bgimg" aria-hidden="true"><i></i></div>`}<div class=${'shell' + (lc ? ' ldc' : '') + (rc || full || wide ? ' rdc' : '') + (lo ? ' ldo' : '') + (ro ? ' rdo' : '') + (full || wide ? ' ldc' : '')}>
     <header class="top">
       <div class="l"><button class="ib" style=${{ display: lc || deskNarrow() || full ? 'grid' : 'none' }} onClick=${() => { if (deskNarrow()) setLo(!lo); else { setLc(false); LS.set('compound.ldc', false) } }} aria-label="Accounts"><${I} n="dright" s=${14}/></button>
         <button class="mark" onClick=${() => go('dashboard')} aria-label="Compound home"><${Mark} s=${26}/><span class="wm mob-only" style=${{ fontSize: '15px' }}>Compound</span></button>

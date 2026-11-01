@@ -824,74 +824,132 @@ button.ntbox:hover{border-color:var(--acc)}
 @media (max-width:760px){.acd{padding:4px 3px}.acd b,.acw b{font-size:9.5px;letter-spacing:-.02em;overflow:visible}}
 
 /* ================= LIQUID GLASS =================
-   One background image, one frosted "frame" behind the whole UI, one stronger pane for the main panel.
-   Cards only tint (no extra blur) so it stays smooth on iPhone. --gA = tint alpha, --gB = blur, set from Settings. */
-:root{--gA:.6;--gB:24px}
-.bgimg,.gframe{display:none}
+   Background photo → glass chrome (top bar, side panels, pill) → a nearly clear main stage → floating glass tiles.
+   In dark mode the main stage does not blur, so the car stays crisp in the middle and each card is its own lens.
+   --gA = tint alpha, --gB = blur radius, both driven by the transparency slider in Settings. */
+:root{--gA:.5;--gB:22px}
+.bgimg{display:none}
 :root.glass .bgimg{display:block;position:fixed;inset:0;z-index:0;background:#000;pointer-events:none}
-:root.glass.bgon .bgimg{background:#000 url(bg.jpg) no-repeat right bottom / auto 100%}
-@media (orientation:portrait){:root.glass.bgon .bgimg{background-size:cover;background-position:70% 42%}}
-@media (orientation:landscape) and (max-aspect-ratio:4/3){:root.glass.bgon .bgimg{background-size:auto 112%;background-position:right 30%}}
-:root.glass .gframe{display:block;position:fixed;inset:0;z-index:0;pointer-events:none;
-  background:rgba(4,4,6,calc(var(--gA) * .72));-webkit-backdrop-filter:blur(var(--gB)) saturate(150%);backdrop-filter:blur(var(--gB)) saturate(150%)}
+:root.glass .bgimg i{display:none}
+/* the photo is its own layer sized to its 4:5 frame, with feathered edges so it melts into the black around it */
+:root.glass.bgon .bgimg i{display:block;position:absolute;left:50%;top:58%;height:128vh;aspect-ratio:4/5;transform:translate(-50%,-50%);background:url(bg.jpg) center/cover no-repeat;
+  -webkit-mask-image:linear-gradient(90deg,transparent 0,#000 16%,#000 84%,transparent 100%),linear-gradient(180deg,transparent 0,#000 12%,#000 82%,transparent 100%);-webkit-mask-composite:source-in;mask-image:linear-gradient(90deg,transparent 0,#000 16%,#000 84%,transparent 100%),linear-gradient(180deg,transparent 0,#000 12%,#000 82%,transparent 100%);mask-composite:intersect}
+:root.glass.bgon .bgimg::after{z-index:1;content:"";position:absolute;inset:0;background:radial-gradient(120% 90% at 50% 55%,transparent 45%,rgba(0,0,0,.55) 100%)}
+@media (orientation:portrait){:root.glass.bgon .bgimg i{height:auto;width:max(100vw,calc(100vh * .8));top:56%;-webkit-mask-image:linear-gradient(180deg,transparent 0,#000 10%,#000 86%,transparent 100%);mask-image:linear-gradient(180deg,transparent 0,#000 10%,#000 86%,transparent 100%)}}
+@media (min-aspect-ratio:21/10){:root.glass.bgon .bgimg i{height:150vh;top:60%}}
 :root.glass .shell{position:relative;z-index:1}
 :root.glass,:root.glass body{background:#000}
 :root.glass body::before{background:transparent}
 :root.glass{
-  --panel:rgba(12,12,15,var(--gA));
-  --card:rgba(255,255,255,.045);
-  --card2:rgba(255,255,255,.075);
+  --panel:rgba(14,14,18,calc(var(--gA) * .9));
+  --card:rgba(22,22,28,var(--gA));
+  --card2:rgba(255,255,255,.07);
   --hover:rgba(255,255,255,.1);
-  --bg:rgba(0,0,0,calc(var(--gA) * .55));
+  --bg:rgba(0,0,0,calc(.18 + var(--gA) * .4));
   --line:rgba(255,255,255,.1);
-  --line2:rgba(255,255,255,.15);
+  --line2:rgba(255,255,255,.16);
+  --rim:rgba(255,255,255,.2);
+  --sheen:rgba(255,255,255,.1);
 }
 :root.glass.lt{
-  --panel:rgba(250,251,253,var(--gA));
-  --card:rgba(255,255,255,.5);
-  --card2:rgba(255,255,255,.62);
+  --panel:rgba(248,249,252,calc(.35 + var(--gA) * .6));
+  --card:rgba(255,255,255,calc(.4 + var(--gA) * .5));
+  --card2:rgba(255,255,255,.55);
   --hover:rgba(255,255,255,.8);
-  --bg:rgba(255,255,255,calc(.35 + var(--gA) * .4));
-  --line:rgba(255,255,255,.55);
+  --bg:rgba(255,255,255,calc(.45 + var(--gA) * .4));
+  --line:rgba(255,255,255,.6);
   --line2:rgba(10,14,30,.12);
+  --rim:rgba(255,255,255,.95);
+  --sheen:rgba(255,255,255,.6);
 }
-:root.glass.lt .gframe{background:rgba(236,238,242,calc(var(--gA) * .8))}
-/* main pane: the clearest piece of glass, with a specular rim */
-:root.glass .main{background:var(--panel);-webkit-backdrop-filter:blur(var(--gB)) saturate(170%);backdrop-filter:blur(var(--gB)) saturate(170%);
-  border-color:rgba(255,255,255,.12);box-shadow:inset 0 1px 0 rgba(255,255,255,.12),inset 0 0 0 1px rgba(255,255,255,.03),0 30px 80px -40px rgba(0,0,0,.9)}
-:root.glass.lt .main{border-color:rgba(255,255,255,.7);box-shadow:inset 0 1px 0 rgba(255,255,255,.9),0 30px 80px -40px rgba(10,14,30,.35)}
-/* cards: tinted glass with a soft top sheen, no extra blur */
-:root.glass .card,:root.glass .tc,:root.glass .kpi{background-image:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,0) 60%);box-shadow:inset 0 1px 0 rgba(255,255,255,.07)}
-:root.glass.lt .card,:root.glass.lt .tc,:root.glass.lt .kpi{background-image:linear-gradient(180deg,rgba(255,255,255,.55),rgba(255,255,255,.15) 60%);box-shadow:inset 0 1px 0 rgba(255,255,255,.9),0 6px 18px -12px rgba(10,14,30,.25)}
-/* floating surfaces get their own blur */
+/* chrome: top bar, desk, rail, footer are frosted strips */
+:root.glass .top,:root.glass .desk,:root.glass .rail,:root.glass .foot{background:rgba(8,8,10,calc(.25 + var(--gA) * .55));-webkit-backdrop-filter:blur(calc(var(--gB) + 6px)) saturate(160%);backdrop-filter:blur(calc(var(--gB) + 6px)) saturate(160%)}
+:root.glass .top{box-shadow:inset 0 -1px 0 rgba(255,255,255,.06)}
+:root.glass .desk{box-shadow:inset -1px 0 0 rgba(255,255,255,.05)}
+:root.glass .rail{box-shadow:inset 1px 0 0 rgba(255,255,255,.05)}
+:root.glass.lt .top,:root.glass.lt .desk,:root.glass.lt .rail,:root.glass.lt .foot{background:rgba(246,247,250,calc(.55 + var(--gA) * .4))}
+/* main stage: dark mode is nearly clear (no blur) so the photo reads; light mode frosts it for legibility */
+:root.glass .main{background:linear-gradient(180deg,rgba(0,0,0,calc(var(--gA) * .3)),rgba(0,0,0,calc(var(--gA) * .5)));border-color:rgba(255,255,255,.1);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.14),inset 0 0 0 1px rgba(255,255,255,.03),0 40px 100px -40px rgba(0,0,0,.9)}
+:root.glass .main .ph h1,:root.glass .main .ph .sub,:root.glass .main .lbl{text-shadow:0 1px 8px rgba(0,0,0,.8)}
+:root.glass.lt .main{background:rgba(244,245,249,calc(.3 + var(--gA) * .55));-webkit-backdrop-filter:blur(var(--gB)) saturate(150%);backdrop-filter:blur(var(--gB)) saturate(150%);border-color:rgba(255,255,255,.8);box-shadow:inset 0 1px 0 #fff,0 30px 80px -40px rgba(10,14,30,.4)}
+:root.glass.lt .main .ph h1,:root.glass.lt .main .ph .sub,:root.glass.lt .main .lbl{text-shadow:none}
+/* glass tiles: each card bends the light behind it. Rim light on top, a curved specular sheen, a soft inner glow at the bottom */
+:root.glass .card,:root.glass .tc,:root.glass .kpi,:root.glass .pac,:root.glass .djc,:root.glass .acd.has,:root.glass .djstep,:root.glass .ntbox,:root.glass .djsay{
+  -webkit-backdrop-filter:blur(var(--gB)) saturate(185%) brightness(1.05);backdrop-filter:blur(var(--gB)) saturate(185%) brightness(1.05);
+  border-color:rgba(255,255,255,.11);
+  background-image:radial-gradient(140% 70% at 10% -20%,var(--sheen),transparent 55%),linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,0) 40%,rgba(255,255,255,.025));
+  box-shadow:inset 0 1px 0 var(--rim),inset 0 -1px 0 rgba(255,255,255,.05),inset 1px 0 0 rgba(255,255,255,.04),inset -1px 0 0 rgba(255,255,255,.04),0 18px 40px -22px rgba(0,0,0,.85)}
+:root.glass.lt .card,:root.glass.lt .tc,:root.glass.lt .kpi,:root.glass.lt .pac,:root.glass.lt .djstep,:root.glass.lt .ntbox,:root.glass.lt .djsay{border-color:rgba(255,255,255,.75);box-shadow:inset 0 1px 0 #fff,0 14px 34px -20px rgba(10,14,30,.35)}
+/* cards inside cards stay flat so the glass doesn't stack into mud */
+:root.glass .card .card,:root.glass .card .kpi,:root.glass .modal .card,:root.glass .cdlg .card,:root.glass .sheet .card,:root.glass .card .djc,:root.glass .card .acd.has,:root.glass .card .djsay,:root.glass .card .ntbox{-webkit-backdrop-filter:none;backdrop-filter:none;background-color:rgba(255,255,255,.05);box-shadow:inset 0 1px 0 rgba(255,255,255,.08)}
+:root.glass.lt .card .card,:root.glass.lt .modal .card,:root.glass.lt .cdlg .card,:root.glass.lt .sheet .card{background-color:rgba(255,255,255,.55)}
+/* hover: the tile lifts and the sheen follows the pointer, like light sliding over a curved surface */
+@media (hover:hover) and (pointer:fine){
+  :root.glass .card,:root.glass .tc,:root.glass .kpi,:root.glass .pac{transition:transform .5s cubic-bezier(.2,1.2,.3,1),box-shadow .4s,border-color .3s}
+  :root.glass .main .card:hover,:root.glass .tc:hover,:root.glass .kpi:hover,:root.glass .pac:hover{transform:translateY(-2px);border-color:rgba(255,255,255,.2);
+    background-image:radial-gradient(420px circle at var(--mx,30%) var(--my,0%),rgba(255,255,255,.12),transparent 55%),radial-gradient(140% 70% at 10% -20%,var(--sheen),transparent 55%);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.28),0 26px 50px -24px rgba(0,0,0,.95)}
+  :root.glass .modal .card:hover,:root.glass .cdlg .card:hover{transform:none}
+}
+/* floating layers: modals, windows, menus, sheets */
 :root.glass .modal,:root.glass .cdlg,:root.glass .drw,:root.glass .sheet,:root.glass .menu,:root.glass .moresheet,:root.glass .shell.ldo .desk,:root.glass .shell.rdo .rail{
-  background:rgba(14,14,18,calc(var(--gA) * .9 + .08));-webkit-backdrop-filter:blur(calc(var(--gB) + 8px)) saturate(170%);backdrop-filter:blur(calc(var(--gB) + 8px)) saturate(170%);
-  border-color:rgba(255,255,255,.14);box-shadow:inset 0 1px 0 rgba(255,255,255,.14),0 40px 90px -30px rgba(0,0,0,.9)}
+  background:linear-gradient(180deg,rgba(26,26,32,calc(.45 + var(--gA) * .45)),rgba(12,12,16,calc(.55 + var(--gA) * .4)));-webkit-backdrop-filter:blur(calc(var(--gB) + 14px)) saturate(180%);backdrop-filter:blur(calc(var(--gB) + 14px)) saturate(180%);
+  border-color:rgba(255,255,255,.14);box-shadow:inset 0 1px 0 rgba(255,255,255,.2),inset 0 0 0 1px rgba(255,255,255,.03),0 50px 100px -30px rgba(0,0,0,.95)}
 :root.glass.lt .modal,:root.glass.lt .cdlg,:root.glass.lt .drw,:root.glass.lt .sheet,:root.glass.lt .menu,:root.glass.lt .moresheet,:root.glass.lt .shell.ldo .desk,:root.glass.lt .shell.rdo .rail{
-  background:rgba(248,249,252,calc(var(--gA) * .8 + .15));border-color:rgba(255,255,255,.8);box-shadow:inset 0 1px 0 #fff,0 40px 90px -30px rgba(10,14,30,.4)}
-:root.glass .ov{background:rgba(0,0,0,.4)}
-:root.glass.lt .ov{background:rgba(20,24,34,.25)}
-:root.glass .seg{background:rgba(0,0,0,.25)}
+  background:rgba(248,249,252,calc(.6 + var(--gA) * .35));border-color:rgba(255,255,255,.85);box-shadow:inset 0 1px 0 #fff,0 40px 90px -30px rgba(10,14,30,.4)}
+:root.glass .ov{background:rgba(0,0,0,.35);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}
+:root.glass.lt .ov{background:rgba(20,24,34,.2)}
+/* controls: liquid capsules */
+:root.glass .seg{background:rgba(0,0,0,.28);border-color:rgba(255,255,255,.1);box-shadow:inset 0 1px 2px rgba(0,0,0,.35)}
 :root.glass.lt .seg{background:rgba(255,255,255,.45)}
-:root.glass .seg button.on{background:rgba(255,255,255,.12);box-shadow:inset 0 1px 0 rgba(255,255,255,.18),0 0 0 1px rgba(255,255,255,.06)}
-:root.glass.lt .seg button.on{background:#fff;box-shadow:0 1px 3px rgba(10,14,30,.12)}
-:root.glass .gpill{background:linear-gradient(180deg,rgba(40,40,46,calc(var(--gA) * .7)),rgba(14,14,18,calc(var(--gA) * .85)))}
-:root.glass .djc:not(.has):not(.ntd),:root.glass .acd:not(.has){background:rgba(255,255,255,.035)}
-:root.glass .pillbar{z-index:66}
-/* text stays readable on clear settings */
-:root.glass .main{text-shadow:none}
-@media (max-width:760px){
-  /* phone: the main pane is the whole screen, so the frame does the blur and main only tints (one blur layer + the pill) */
-  :root.glass .gframe{background:rgba(4,4,6,var(--gA))}
-  :root.glass.lt .gframe{background:rgba(240,242,246,calc(var(--gA) + .05))}
-  :root.glass .main{background:transparent;-webkit-backdrop-filter:none;backdrop-filter:none;box-shadow:none;border-color:transparent}
-}
-@media (min-width:761px){:root.glass.tablet .main{border-radius:22px 22px 0 0}}
-@media (prefers-reduced-transparency:reduce){:root.glass{--gA:.92}}
-:root.glass.lt .gframe{background:rgba(238,240,244,calc(.5 + var(--gA) * .45))}
-:root.glass.lt .gpill{background:linear-gradient(180deg,rgba(255,255,255,calc(.55 + var(--gA) * .35)),rgba(244,245,248,calc(.6 + var(--gA) * .35)));border-color:rgba(255,255,255,.8);box-shadow:0 18px 40px -14px rgba(10,14,30,.35),inset 0 1px 0 #fff}
+:root.glass .seg button{transition:color .25s,background .35s cubic-bezier(.2,1.3,.4,1),box-shadow .35s,transform .35s cubic-bezier(.3,1.6,.5,1)}
+:root.glass .seg button:active{transform:scale(.95)}
+:root.glass .seg button.on{background:linear-gradient(180deg,rgba(255,255,255,.2),rgba(255,255,255,.08));box-shadow:inset 0 1px 0 rgba(255,255,255,.3),inset 0 -1px 0 rgba(0,0,0,.2),0 4px 12px -4px rgba(0,0,0,.6)}
+:root.glass.lt .seg button.on{background:#fff;box-shadow:0 1px 3px rgba(10,14,30,.15),inset 0 1px 0 #fff}
+:root.glass .btn-g,:root.glass .btn-t{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.12);box-shadow:inset 0 1px 0 rgba(255,255,255,.12);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+:root.glass .btn-w{box-shadow:inset 0 1px 0 #fff,0 8px 24px -8px rgba(255,255,255,.35)}
+:root.glass .btn{transition:transform .35s cubic-bezier(.3,1.6,.5,1),box-shadow .3s,background .2s}
+:root.glass .btn:active{transform:scale(.96)}
+:root.glass .in,:root.glass .sel,:root.glass .ta,:root.glass .search{box-shadow:inset 0 1px 2px rgba(0,0,0,.3)}
+:root.glass .chip{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.12)}
+:root.glass.lt .chip{background:rgba(255,255,255,.6);border-color:rgba(10,14,30,.08)}
+:root.glass .chip.on{background:var(--accs);border-color:var(--accg);box-shadow:0 0 16px -6px var(--acc)}
+/* the pill */
+:root.glass .gpill{background:linear-gradient(180deg,rgba(40,40,48,calc(.3 + var(--gA) * .5)),rgba(14,14,18,calc(.4 + var(--gA) * .5)));border-color:rgba(255,255,255,.14)}
+:root.glass .lens{background:linear-gradient(180deg,rgba(255,255,255,.24),rgba(255,255,255,.08));box-shadow:inset 0 1px 0 rgba(255,255,255,.35),inset 0 -1px 1px rgba(0,0,0,.25),0 6px 18px -6px rgba(0,0,0,.7)}
+:root.glass.lt .gpill{background:linear-gradient(180deg,rgba(255,255,255,calc(.55 + var(--gA) * .35)),rgba(244,245,248,calc(.6 + var(--gA) * .35)));border-color:rgba(255,255,255,.85);box-shadow:0 18px 40px -14px rgba(10,14,30,.35),inset 0 1px 0 #fff}
+:root.glass.lt .lens{background:rgba(10,14,30,.08);box-shadow:inset 0 1px 0 rgba(255,255,255,.8)}
 :root.glass.lt .gpill button{color:#5a6070}
 :root.glass.lt .gpill button.on{color:#101217}
-@media (max-width:760px){:root.glass.lt .gframe{background:rgba(240,242,246,calc(.55 + var(--gA) * .42))}}
+:root.glass .djc:not(.has):not(.ntd),:root.glass .acd:not(.has):not(.empty){background:rgba(0,0,0,.18)}
+/* a slow light that drifts across the hero number, for a little life on open */
+:root.glass .big,:root.glass .hero .v{background-size:200% 100%}
+@keyframes gshine{0%{background-position:150% 0}100%{background-position:-50% 0}}
+/* phones: the main stage is the whole screen; keep blur to the cards + chrome so it scrolls smoothly */
+@media (max-width:760px){
+  :root{--gB:16px}
+  :root.glass .main{background:linear-gradient(180deg,rgba(0,0,0,calc(var(--gA) * .2)),rgba(0,0,0,calc(var(--gA) * .45)));border-color:transparent;box-shadow:none}
+  :root.glass .desk,:root.glass .rail{background:transparent;-webkit-backdrop-filter:none;backdrop-filter:none}
+  :root.glass .top{background:rgba(8,8,10,calc(.35 + var(--gA) * .5))}
+  :root.glass.lt .main{-webkit-backdrop-filter:blur(14px) saturate(150%);backdrop-filter:blur(14px) saturate(150%)}
+}
+@media (min-width:761px){:root.glass.tablet .main{border-radius:24px 24px 0 0}:root.glass.tablet .desk,:root.glass.tablet .rail{background:transparent;-webkit-backdrop-filter:none;backdrop-filter:none}}
+@media (prefers-reduced-transparency:reduce){:root.glass{--gA:.9}}
+/* an opacity animation on the page wrapper would cut the cards off from the photo (it becomes their backdrop root), so glass pages slide in with transform only */
+@keyframes gpage{from{transform:translateY(6px)}to{transform:none}}
+:root.glass .page{animation:gpage .35s cubic-bezier(.2,.8,.2,1) both}
+:root.glass .ov,:root.glass .moreov{-webkit-backdrop-filter:none;backdrop-filter:none;animation:none}
+:root.glass .ov{background:rgba(0,0,0,.42)}
+:root.glass.lt .ov{background:rgba(20,24,34,.22)}
+/* many-tile grids (trade cards, calendar cells) tint instead of blurring: dozens of live blurs would stutter on iPhone/iPad */
+:root.glass .tc,:root.glass .djc,:root.glass .acd.has,:root.glass .tgrid .card{-webkit-backdrop-filter:none;backdrop-filter:none}
+:root.glass .tc{background-color:rgba(18,18,22,calc(.55 + var(--gA) * .4))}
+:root.glass.lt .tc{background-color:rgba(255,255,255,calc(.7 + var(--gA) * .25))}
+:root.glass .tgrid,:root.glass .djcal,:root.glass .acgrid{-webkit-backdrop-filter:blur(var(--gB)) saturate(170%);backdrop-filter:blur(var(--gB)) saturate(170%);border-radius:16px}
+.motto{margin-top:18px;font-family:var(--mono);font-size:9.5px;letter-spacing:.24em;text-transform:uppercase;color:var(--dim);text-align:center}
+:root.glass .motto{color:rgba(255,255,255,.62);text-shadow:0 1px 10px rgba(0,0,0,.9)}
+:root.glass.lt .motto{color:var(--mut);text-shadow:none}
+@media (max-width:760px){.motto{font-size:8.5px;letter-spacing:.18em;padding:0 12px}}
 
 @media (min-width:761px) and (not (pointer:coarse)){body{padding-top:env(safe-area-inset-top,0px)}}
