@@ -995,7 +995,9 @@ button.ntbox:hover{border-color:var(--acc)}
 .dinsic{width:28px;height:28px;flex:0 0 28px;border-radius:9px;display:grid;place-items:center;color:var(--tc);background:color-mix(in srgb,var(--tc) 14%,transparent)}
 :root.lt .dinsrow{background:rgba(255,255,255,.5)}
 /* text over glass: lift the greys so they read on top of the photo */
-:root.glass:not(.lt){--fg:#F7F7F9;--fg2:#E2E2E7;--mut:#BDBDC5;--dim:#A2A2AB}
+:root.glass:not(.lt){--fg:#FAFAFC;--fg2:#EDEDF1;--mut:#D6D6DC;--dim:#C4C4CC}
+:root.glass:not(.lt) .in::placeholder,:root.glass:not(.lt) .ta::placeholder,:root.glass:not(.lt) .search input::placeholder{color:rgba(255,255,255,.55)}
+:root.glass:not(.lt) .lbl{color:#CFCFD6}
 :root.glass:not(.lt) .main .mut,:root.glass:not(.lt) .main .dim,:root.glass:not(.lt) .main .lbl,:root.glass:not(.lt) .main .sub{text-shadow:0 1px 6px rgba(0,0,0,.55)}
 :root.glass.lt{--mut:#4B505B;--dim:#646a76}
 

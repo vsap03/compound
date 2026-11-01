@@ -3257,11 +3257,11 @@ function DreamMeter({ S, paid, spent }) {
           <path d=${arc(0, 1, R)} class="dmtrack" stroke-width="16" fill="none" stroke-linecap="round"/>
           <path d=${arc(0, 1, R)} stroke="rgba(255,255,255,.06)" stroke-width="1" fill="none" transform="translate(0,-7)"/>
           ${anim > 0 && html`<path d=${arc(0, Math.max(.004, fv), R)} stroke="#fff" stroke-width="16" fill="none" stroke-linecap="round" filter="url(#dmglow)" opacity=".35"/><path d=${arc(0, Math.max(.004, fv), R)} stroke="url(#dmg)" stroke-width="16" fill="none" stroke-linecap="round"/>`}
-          ${marks.map(mk => { const [tx, ty] = pt(vis(mk), R - 30); return html`<text key=${mk} x=${tx} y=${ty + 3} text-anchor="middle" font-size="9" fill="rgba(255,255,255,.42)" font-family="Geist Mono, monospace">${mk}</text>` })}
+          ${marks.map(mk => { const [tx, ty] = pt(vis(mk), R - 30); return html`<text key=${mk} x=${tx} y=${ty + 3} text-anchor="middle" font-size="9" fill="rgba(255,255,255,.75)" font-family="Geist Mono, monospace">${mk}</text>` })}
           <circle cx=${kx} cy=${ky} r="13" fill="url(#dmknob)" stroke="rgba(255,255,255,.7)" stroke-width="1"/>
           <circle cx=${kx} cy=${ky} r="13" fill="none" stroke="rgba(0,0,0,.25)" stroke-width="1" transform="translate(0,1)"/>
           <text x=${cx} y=${cy - 22} text-anchor="middle" class="dmpct">${pct(prog / 100, prog < 10 ? 2 : 1)}</text>
-          <text x=${cx} y=${cy + 2} text-anchor="middle" font-size="9" letter-spacing="2.5" fill="rgba(255,255,255,.5)" font-family="Geist Mono, monospace">OF THE WAY THERE</text>
+          <text x=${cx} y=${cy + 2} text-anchor="middle" font-size="9" letter-spacing="2.5" fill="rgba(255,255,255,.8)" font-family="Geist Mono, monospace">OF THE WAY THERE</text>
         </svg>
       </div>
       <div class="dreamside">
