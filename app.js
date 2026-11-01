@@ -3310,7 +3310,7 @@ async function drawShot(g, shot, W, H) {
   if (shot.grade === 'mono') tint('screen', '#1A1A1A', .6);                 /* soft matte */
 }
 
-async function drawTradeCard(cv, t, S, fmt, shot) {
+async function drawTradeCard(cv, t, S, fmt, shot, bars) {
   const L = fmt !== 'story'; const W = L ? 1600 : 1080, H = L ? 1000 : 1920;
   cv.width = W; cv.height = H; const g = cv.getContext('2d');
   const SANS = 'Satoshi, -apple-system, Segoe UI, sans-serif', MONO = '"Geist Mono", ui-monospace, Menlo, monospace';
@@ -3341,25 +3341,49 @@ async function drawTradeCard(cv, t, S, fmt, shot) {
   g.save(); g.shadowColor = 'rgba(0,0,0,.8)'; g.shadowBlur = 36; g.shadowOffsetY = 6; g.fillStyle = ag; g.fillText(amt, m - 6, py); g.restore();
   const r = tR(t); const sub = [r != null ? rfmt(r) : null, t.pts != null ? (t.pts > 0 ? '+' : '') + t.pts.toFixed(2) + ' pts' : null, t.grade ? 'Grade ' + t.grade : null].filter(Boolean).join('   ·   ');
   g.font = `700 ${L ? 30 : 34}px ${SANS}`; g.fillStyle = white; g.fillText(sub, m, py + 56);
-  // glass panel with the line graph: your equity over the trades leading into this one, this trade highlighted
-  const { all } = computeTrades(S, { mode: 'all', dedupe: true }); const acct = t.account;
-  const pool = all.filter(x => x.pnl != null && (!acct || x.account === acct)).sort((a, b) => tExit(a) - tExit(b));
-  let idx = pool.findIndex(x => x.id === t.id); if (idx < 0) { pool.push(t); idx = pool.length - 1 }
-  const seq = pool.slice(Math.max(0, idx - 29), idx + 1); let eq = 0; const pts = [0, ...seq.map(x => (eq += x.pnl))];
+  // glass panel with the instrument's price: entry to exit, with stop and target levels
   const gx = m, gw = W - 2 * m, gh = L ? 250 : 420, gy = L ? H - m - gh - 120 : H - m - gh - 300;
-  rr(gx, gy, gw, gh, 28); g.fillStyle = 'rgba(14,14,18,.5)'; g.fill(); g.strokeStyle = 'rgba(255,255,255,.16)'; g.lineWidth = 1.5; g.stroke();
+  rr(gx, gy, gw, gh, 28); g.fillStyle = 'rgba(14,14,18,.55)'; g.fill(); g.strokeStyle = 'rgba(255,255,255,.16)'; g.lineWidth = 1.5; g.stroke();
   g.save(); rr(gx, gy, gw, gh, 28); g.clip(); const sh = g.createLinearGradient(0, gy, 0, gy + gh * .5); sh.addColorStop(0, 'rgba(255,255,255,.1)'); sh.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = sh; g.fillRect(gx, gy, gw, gh * .5); g.restore();
-  g.font = `500 16px ${MONO}`; g.fillStyle = 'rgba(245,245,247,.6)'; g.fillText((seq.length > 1 ? 'EQUITY · LAST ' + seq.length + ' TRADES' : 'EQUITY') + (acct && S.accounts[acct] ? ' · ' + (S.accounts[acct].label || '').toUpperCase() : ''), gx + 28, gy + 38);
-  const ix = gx + 28, iw = gw - 56, iy = gy + 64, ih = gh - 96;
-  const mn = Math.min(...pts), mx = Math.max(...pts); const rg = (mx - mn) || 1;
-  const X = i => ix + (pts.length > 1 ? i / (pts.length - 1) : 1) * iw, Y = v => iy + ih - (v - mn) / rg * ih;
-  if (mn < 0 && mx > 0) { g.setLineDash([6, 8]); g.strokeStyle = 'rgba(255,255,255,.18)'; g.lineWidth = 1; g.beginPath(); g.moveTo(ix, Y(0)); g.lineTo(ix + iw, Y(0)); g.stroke(); g.setLineDash([]) }
-  const lineCol = pts[pts.length - 1] >= 0 ? pos : neg;
-  const fill = g.createLinearGradient(0, iy, 0, iy + ih); fill.addColorStop(0, lineCol + '55'); fill.addColorStop(1, lineCol + '00');
-  g.beginPath(); pts.forEach((v, i) => i ? g.lineTo(X(i), Y(v)) : g.moveTo(X(i), Y(v))); g.lineTo(X(pts.length - 1), iy + ih); g.lineTo(X(0), iy + ih); g.closePath(); g.fillStyle = fill; g.fill();
-  g.save(); g.shadowColor = lineCol; g.shadowBlur = 18; g.beginPath(); pts.forEach((v, i) => i ? g.lineTo(X(i), Y(v)) : g.moveTo(X(i), Y(v))); g.strokeStyle = lineCol; g.lineWidth = 4; g.lineJoin = 'round'; g.stroke(); g.restore();
-  // this trade: the last segment in gold with a glowing dot
-  if (pts.length > 1) { const a = pts.length - 2, b = pts.length - 1; g.beginPath(); g.moveTo(X(a), Y(pts[a])); g.lineTo(X(b), Y(pts[b])); g.strokeStyle = gold; g.lineWidth = 5; g.stroke(); g.beginPath(); g.arc(X(b), Y(pts[b]), 9, 0, Math.PI * 2); g.fillStyle = gold; g.shadowColor = gold; g.shadowBlur = 20; g.fill(); g.shadowBlur = 0 }
+  const ent = num(t.entry), ex = num(t.exit), stp = num(t.stop), tgt = num(t.target);
+  const t0 = tTime(t) / 1000, t1 = Math.max(t0 + 60, (tExit(t) || tTime(t)) / 1000);
+  let ser = null;
+  if (bars && bars.length && ent != null && ex != null) {
+    const dur = t1 - t0, padL = Math.max(dur * .8, 20 * 60), padR = Math.max(dur * .5, 10 * 60);
+    const win = bars.filter(b => b.time >= t0 - padL && b.time <= t1 + padR);
+    if (win.length >= 3) ser = win.map(b => ({ x: b.time, y: b.close }));
+  }
+  const xs0 = ser ? ser[0].x : t0, xs1 = ser ? ser[ser.length - 1].x : t1;
+  const lv = [ent, ex, stp, tgt, ...(ser ? ser.map(p => p.y) : [])].filter(v => v != null && isFinite(v));
+  const lo = Math.min(...lv), hi = Math.max(...lv); const padv = (hi - lo || Math.abs(ent || 1) * .001) * .12;
+  const ix = gx + 28, iw = gw - 56 - 120, iy = gy + 60, ih = gh - 92;
+  const X = x => ix + (xs1 > xs0 ? (x - xs0) / (xs1 - xs0) : .5) * iw, Y = v => iy + ih - (v - (lo - padv)) / ((hi + padv) - (lo - padv)) * ih;
+  const dec = Math.abs(ent || 0) >= 1000 ? 2 : Math.abs(ent || 0) >= 10 ? 2 : 4;
+  g.font = `500 16px ${MONO}`; g.fillStyle = 'rgba(245,245,247,.7)'; g.textAlign = 'left';
+  g.fillText((ser ? 'PRICE · ' + t.symbol : 'ENTRY → EXIT · ' + t.symbol) + ' · ' + fmtTime(t.t) + (tExit(t) ? '–' + fmtTime(new Date(tExit(t))) : ''), gx + 28, gy + 38);
+  const level = (v, col, name, dash) => { if (v == null) return; const y = Y(v); g.save(); g.setLineDash(dash ? [8, 8] : []); g.strokeStyle = col; g.globalAlpha = .75; g.lineWidth = 1.5; g.beginPath(); g.moveTo(ix, y); g.lineTo(ix + iw, y); g.stroke(); g.restore();
+    labs.push({ y, col, txt: name + ' ' + v.toFixed(dec) }) };
+  const labs = [];
+  level(tgt, pos, 'TP', true); level(stp, neg, 'SL', true); level(ent, 'rgba(245,245,247,.9)', 'IN', true);
+  const outCol = win ? pos : neg;
+  if (ex != null && Math.abs(Y(ex) - Y(ent ?? ex)) > 14) level(ex, outCol, 'OUT', false);
+  labs.sort((a, b) => a.y - b.y); for (let i = 1; i < labs.length; i++) if (labs[i].y - labs[i - 1].y < 20) labs[i].y = labs[i - 1].y + 20;
+  const over = labs.length ? labs[labs.length - 1].y - (gy + gh - 14) : 0; if (over > 0) labs.forEach(l => l.y -= over);
+  g.font = `600 14px ${MONO}`; g.textAlign = 'left'; labs.forEach(l => { g.fillStyle = l.col; g.fillText(l.txt, ix + iw + 14, l.y + 5) });
+  if (ser) {
+    g.save(); g.shadowColor = 'rgba(255,255,255,.5)'; g.shadowBlur = 10; g.beginPath(); ser.forEach((p, i) => i ? g.lineTo(X(p.x), Y(p.y)) : g.moveTo(X(p.x), Y(p.y))); g.strokeStyle = 'rgba(235,235,240,.85)'; g.lineWidth = 3; g.lineJoin = 'round'; g.stroke(); g.restore();
+    // the part of the move you held, in your result colour
+    const held = ser.filter(p => p.x >= t0 - 60 && p.x <= t1 + 60);
+    if (held.length > 1) { g.save(); g.shadowColor = outCol; g.shadowBlur = 16; g.beginPath(); held.forEach((p, i) => i ? g.lineTo(X(p.x), Y(p.y)) : g.moveTo(X(p.x), Y(p.y))); g.strokeStyle = outCol; g.lineWidth = 5; g.stroke(); g.restore() }
+  } else if (ent != null && ex != null) {
+    const fillg = g.createLinearGradient(0, Math.min(Y(ent), Y(ex)), 0, Math.max(Y(ent), Y(ex))); fillg.addColorStop(0, outCol + '55'); fillg.addColorStop(1, outCol + '10');
+    g.beginPath(); g.moveTo(X(t0), Y(ent)); g.lineTo(X(t1), Y(ex)); g.lineTo(X(t1), Y(ent)); g.closePath(); g.fillStyle = fillg; g.fill();
+    g.save(); g.shadowColor = outCol; g.shadowBlur = 18; g.beginPath(); g.moveTo(X(t0), Y(ent)); g.lineTo(X(t1), Y(ex)); g.strokeStyle = outCol; g.lineWidth = 5; g.lineCap = 'round'; g.stroke(); g.restore();
+  }
+  const dot = (x, y, col, txt, up) => { g.beginPath(); g.arc(x, y, 9, 0, Math.PI * 2); g.fillStyle = col; g.shadowColor = col; g.shadowBlur = 18; g.fill(); g.shadowBlur = 0; g.strokeStyle = 'rgba(0,0,0,.6)'; g.lineWidth = 2; g.stroke();
+    g.font = `700 13px ${MONO}`; const tw = g.measureText(txt).width + 16; const bx = Math.min(Math.max(x - tw / 2, ix), ix + iw - tw), by = up ? y - 40 : y + 16; rr(bx, by, tw, 24, 12); g.fillStyle = 'rgba(0,0,0,.65)'; g.fill(); g.fillStyle = col; g.textAlign = 'center'; g.fillText(txt, bx + tw / 2, by + 17); g.textAlign = 'left' };
+  if (ent != null) { const ey = Y(ent), xy = ex != null ? Y(ex) : ey; dot(X(t0), ey, '#F5F5F7', (t.side === 'short' ? 'SELL ' : 'BUY ') + ent.toFixed(dec), ey > xy) }
+  if (ex != null) { const ey = ent != null ? Y(ent) : Y(ex); dot(X(t1), Y(ex), outCol, 'EXIT ' + ex.toFixed(dec), Y(ex) >= ey ? false : true) }
   // stats row
   const unit = t.unit === 'lot' ? 'Lots' : 'Contracts';
   const stats = [['Entry', t.entry || '—'], ['Exit', t.exit || '—'], [unit, String(t.qty)], ['Hold', fmtDur(holdMin(t))], ['Setup', (t.setups || [])[0] || (S.strategies[t.strategy]?.name) || '—']];
@@ -3378,9 +3402,9 @@ function TradeCardModal({ id, onClose }) {
   const S = useStore(); const raw = S.trades[id]; const cv = useRef();
   const [fmt, setFmt] = useState(() => LS.get('compound.tcfmt', innerWidth < 760 ? 'story' : 'landscape'));
   const [off, setOff] = useState(0); const [busy, setBusy] = useState(false); const fileRef = useRef();
-  const pool = shotPool(S); const t = raw ? { ...raw, ...tradeCalc(raw, S.settings) } : null;
+  const pool = shotPool(S); const t = raw ? { ...raw, ...tradeCalc(raw, S.settings) } : null; const bb = useChartFor(raw, S);
   const shot = t ? pool[(hashStr(t.id) + off) % pool.length] : null;
-  useEffect(() => { if (!t) return; let live = true; const go = () => live && cv.current && drawTradeCard(cv.current, t, S, fmt, shot); Promise.all([document.fonts?.load?.('900 100px Satoshi'), document.fonts?.load?.('500 20px "Geist Mono"')].filter(Boolean)).then(go, go); go(); return () => { live = false } }, [id, fmt, off, pool.length, store.v]);
+  useEffect(() => { if (!t) return; let live = true; const go = () => live && cv.current && drawTradeCard(cv.current, t, S, fmt, shot, bb?.bars); Promise.all([document.fonts?.load?.('900 100px Satoshi'), document.fonts?.load?.('500 20px "Geist Mono"')].filter(Boolean)).then(go, go); go(); return () => { live = false } }, [id, fmt, off, pool.length, store.v, bb]);
   if (!t) return html`<${Modal} title="Trade card" onClose=${onClose}><${Empty} title="Trade deleted"/><//>`;
   const blob = () => new Promise(r => cv.current.toBlob(r, 'image/png'));
   const fname = () => `compound-${t.symbol.toLowerCase()}-${dayKey(t.t)}-${t.pnl >= 0 ? 'win' : 'loss'}.png`;
