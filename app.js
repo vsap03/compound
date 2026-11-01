@@ -2331,6 +2331,17 @@ function delPayout(p) { const adj = Object.values(store.s.adjust).find(x => x.pa
 function delBlown(b) { store.del('blown', b.id); toast('Entry deleted', { label: 'Undo', fn: () => store.put('blown', b) }) }
 const RowAct = ({ onEdit, onDel, what }) => html`<td class="ract" onClick=${e => e.stopPropagation()}><span class="row" style=${{ gap: '2px', flexWrap: 'nowrap', justifyContent: 'flex-end' }}><button class="ib" title=${'Edit ' + what} aria-label=${'Edit ' + what} onClick=${onEdit}><${I} n="edit" s=${14}/></button>${onDel && html`<button class="ib del" title=${'Delete ' + what} aria-label=${'Delete ' + what} onClick=${onDel}><${I} n="trash" s=${14}/></button>`}</span></td>`;
 
+function CertWall({ S }) {
+  const list = certList(S);
+  if (!list.length) return html`<${Empty} icon="cert" title="Your wall is empty, for now" body="Passed evals and paid payouts turn into certificates here automatically. Each one saves as an image you can share."/>`;
+  return html`<div class="row" style=${{ marginBottom: '-6px' }}><span class="lbl">${list.length} certificate${list.length > 1 ? 's' : ''}</span><span class="sp"></span><span class="dim" style=${{ fontSize: '10.5px' }}>Tap one to save or share it</span></div>
+    <div class="grid g3">${list.map(c => html`<button class="cert certb" key=${c.id} onClick=${() => UI.open('cert', { c })}>
+      <div class="row"><${Mark} s=${22}/><span class="lbl">${c.k === 'pay' ? 'Payout certificate' : 'Evaluation passed'}</span><span class="sp"></span><span class="certshare"><${I} n="send" s=${14}/></span></div>
+      <div><div class="amt tn">${money(c.amount, { dec: 0 })}</div><div class="mut">${firmById(c.firm).name}${c.label ? ' · ' + c.label : ''}</div></div>
+      <div class="row"><span class="mono dim" style=${{ fontSize: '9.5px' }}>${(S.settings.name || '').toUpperCase()} · ${fmtDate(parseDay(c.d), { year: true }).toUpperCase()}</span></div>
+      <div class="seal">${c.firm && html`<${FirmLogo} id=${c.firm} s=${40}/>`}</div></button>`)}</div>`;
+}
+
 function PayoutsTab({ S }) {
   const [pf, setPf] = useState(() => LS.get('compound.payf', [])); const setF = v => { setPf(v); LS.set('compound.payf', v) };
   const all = Object.values(S.payouts); const firms = [...new Set(all.map(p => payoutFirm(S, p)).filter(Boolean))];
@@ -2416,12 +2427,7 @@ function Propfirm({ C }) {
       ${archived.length > 0 && html`<div><button class="sech" onClick=${() => setArch(!arch)} style=${{ width: '100%' }}><span class="lbl">Archive · ${archived.length}</span><${I} n="down" c="chev"/></button>${arch && html`<div class="grid" style=${{ gridTemplateColumns: 'repeat(auto-fill,minmax(330px,1fr))' }}>${archived.map(a => html`<${PropCard} key=${a.id} a=${a} st=${st(a)} S=${S}/>`)}</div>`}</div>`}`}
     ${tab === 'spend' && html`<${Spending} S=${S}/>`}
     ${tab === 'payouts' && html`<${PayoutsTab} S=${S}/>`}
-    ${tab === 'certs' && html`<div class="grid g3">${[...accs.filter(a => a.status === 'passed' || (a.type === 'funded')).map(a => ({ k: 'pass', a, d: a.passedAt || a.start })), ...payouts.map(p => ({ k: 'pay', p, a: S.accounts[p.account] || (p.firm ? { firm: p.firm, label: p.acctLabel || '' } : null), d: p.d }))].sort((x, y) => x.d < y.d ? 1 : -1).map((c, i) => html`<div class="cert" key=${i}>
-        <div class="row"><${Mark} s=${22}/><span class="lbl">${c.k === 'pay' ? 'Payout certificate' : 'Evaluation passed'}</span></div>
-        <div><div class="amt tn">${c.k === 'pay' ? money(c.p.amount, { dec: 0 }) : money(+c.a.size, { dec: 0 })}</div><div class="mut">${c.a ? firmById(c.a.firm).name + ' · ' + (c.a.label || '') : ''}</div></div>
-        <div class="row"><span class="mono dim" style=${{ fontSize: '9.5px' }}>${S.settings.name.toUpperCase()} · ${c.d ? fmtDate(parseDay(String(c.d).slice(0, 10)), { year: true }).toUpperCase() : ''}</span></div>
-        <div class="seal">${c.a && html`<${FirmLogo} id=${c.a.firm} s=${40}/>`}</div></div>`)}
-      ${!accs.some(a => a.status === 'passed' || a.type === 'funded') && !payouts.length && html`<div style=${{ gridColumn: '1/-1' }}><${Empty} icon="cert" title="Your wall is empty, for now" body="Passed evals and paid payouts turn into certificates here automatically."/></div>`}</div>`}
+    ${tab === 'certs' && html`<${CertWall} S=${S}/>`}
     ${tab === 'firms' && html`<div class="grid" style=${{ gridTemplateColumns: 'repeat(auto-fill,minmax(250px,1fr))' }}>${FIRMS.map(f => { const fa = accs.filter(a => a.firm === f.id); const fs = sum(fa, a => (+a.cost || 0) + (+a.activation || 0)); const fp = sum(payouts.filter(p => S.accounts[p.account]?.firm === f.id), p => p.amount);
       return html`<div class="card" key=${f.id}><div class="row" style=${{ flexWrap: 'nowrap' }}><${FirmLogo} id=${f.id} s=${42}/><div style=${{ minWidth: 0 }}><b>${f.name}</b><div class="dim" style=${{ fontSize: '10.5px' }}>${f.plans.join(' · ')}</div></div></div>
         <div class="grid g3" style=${{ marginTop: '14px', gap: '6px' }}><div><div class="lbl">Accts</div><b>${fa.length}</b></div><div><div class="lbl">Spent</div><b>${moneyK(fs)}</b></div><div><div class="lbl">Paid</div><b class="pos">${moneyK(fp)}</b></div></div>
@@ -3089,6 +3095,117 @@ function AcctTrades({ a, ts, S }) {
     ${shown.length ? html`<div class="card" style=${{ padding: 0 }}><${TradeTable} ts=${shown} S=${S} showAcct=${false}/></div>` : html`<div class="card dim" style=${{ textAlign: 'center', fontSize: '11.5px' }}>No trades in this month.</div>`}`;
 }
 
+/* ================= Certificates: rendered to an image (Porsche backdrop) so they can be saved and shared ================= */
+let _certBg = null;
+const certBg = () => _certBg || (_certBg = new Promise(res => { const im = new Image(); im.onload = () => res(im); im.onerror = () => res(null); im.src = 'bg.jpg' }));
+const loadImg = src => new Promise(res => { if (!src) return res(null); const im = new Image(); im.onload = () => res(im); im.onerror = () => res(null); im.src = src });
+
+function certList(S) {
+  const accs = Object.values(S.accounts);
+  const pays = Object.values(S.payouts).filter(p => p.status === 'paid');
+  return [...accs.filter(a => a.status === 'passed' || a.type === 'funded').map(a => ({ id: 'a-' + a.id, k: 'pass', amount: +a.size || 0, firm: a.firm, label: a.label || '', plan: a.plan || '', d: String(a.passedAt || a.start || todayKey()).slice(0, 10) })),
+    ...pays.map(p => { const a = S.accounts[p.account]; return { id: 'p-' + p.id, k: 'pay', amount: +p.amount || 0, firm: payoutFirm(S, p), label: a?.label || p.acctLabel || '', plan: a?.plan || '', d: String(p.d).slice(0, 10) } })]
+    .sort((x, y) => x.d < y.d ? 1 : -1);
+}
+
+async function drawCert(cv, c, fmt, name) {
+  const W = fmt === 'story' ? 1080 : 1600, H = fmt === 'story' ? 1920 : 1000;
+  cv.width = W; cv.height = H; const g = cv.getContext('2d');
+  const SANS = 'Satoshi, -apple-system, Segoe UI, sans-serif', MONO = '"Geist Mono", ui-monospace, Menlo, monospace';
+  const f = firmById(c.firm); const bg = await certBg(); const logo = await loadImg(store.s.settings.firmLogos?.[c.firm]);
+  const gold = '#E9C46A', gold2 = '#B8892B', white = '#F5F5F7';
+  // backdrop: the car, cover-fit, slightly lower so the headline sits over the dark sky
+  g.fillStyle = '#000'; g.fillRect(0, 0, W, H);
+  const L = fmt !== 'story';
+  if (bg) {
+    if (L) { const s = H * 1.25 / bg.height; const dw = bg.width * s, dh = bg.height * s; const ix = W - dw + 40; g.drawImage(bg, ix, -95, dw, dh); const eg = g.createLinearGradient(ix, 0, ix + 300, 0); eg.addColorStop(0, '#000'); eg.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = eg; g.fillRect(ix - 2, 0, 302, H); const bgr = g.createLinearGradient(0, H - 260, 0, H); bgr.addColorStop(0, 'rgba(0,0,0,0)'); bgr.addColorStop(1, 'rgba(0,0,0,.7)'); g.fillStyle = bgr; g.fillRect(0, H - 260, W, 260);
+      const hg = g.createLinearGradient(0, 0, W, 0); hg.addColorStop(0, 'rgba(0,0,0,1)'); hg.addColorStop(.36, 'rgba(0,0,0,.92)'); hg.addColorStop(.52, 'rgba(0,0,0,.25)'); hg.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = hg; g.fillRect(0, 0, W, H) }
+    else { const s = Math.max(W / bg.width, H / bg.height); const dw = bg.width * s, dh = bg.height * s; g.drawImage(bg, (W - dw) / 2, (H - dh) * .55, dw, dh) }
+  }
+  let gr = g.createLinearGradient(0, 0, 0, H); gr.addColorStop(0, 'rgba(0,0,0,.72)'); gr.addColorStop(.42, 'rgba(0,0,0,.15)'); gr.addColorStop(.7, 'rgba(0,0,0,.2)'); gr.addColorStop(1, 'rgba(0,0,0,.88)'); g.fillStyle = gr; g.fillRect(0, 0, W, H);
+  gr = g.createRadialGradient(W / 2, H * .5, Math.min(W, H) * .3, W / 2, H * .5, Math.max(W, H) * .75); gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(1, 'rgba(0,0,0,.6)'); g.fillStyle = gr; g.fillRect(0, 0, W, H);
+  // double gold frame
+  const rr = (x, y, w, h, r) => { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath() };
+  const m = fmt === 'story' ? 48 : 40;
+  const fg = g.createLinearGradient(0, 0, W, H); fg.addColorStop(0, gold); fg.addColorStop(.5, '#FFF1C9'); fg.addColorStop(1, gold2);
+  g.strokeStyle = fg; g.lineWidth = 3; rr(m, m, W - 2 * m, H - 2 * m, 26); g.stroke();
+  g.globalAlpha = .45; g.lineWidth = 1; rr(m + 12, m + 12, W - 2 * m - 24, H - 2 * m - 24, 18); g.stroke(); g.globalAlpha = 1;
+  // corner ornaments
+  g.fillStyle = gold; [[m + 12, m + 12], [W - m - 12, m + 12], [m + 12, H - m - 12], [W - m - 12, H - m - 12]].forEach(([x, y]) => { g.save(); g.translate(x, y); g.rotate(Math.PI / 4); g.fillRect(-5, -5, 10, 10); g.restore() });
+  g.textBaseline = 'alphabetic';
+  const spacedL = (t, x, y, font, color, sp, center) => { g.font = font; g.fillStyle = color; const chars = [...t]; const w = chars.reduce((q, ch) => q + g.measureText(ch).width, 0) + sp * (chars.length - 1); let px = center ? x - w / 2 : x; g.textAlign = 'left'; for (const ch of chars) { g.fillText(ch, px, y); px += g.measureText(ch).width + sp } };
+  const cx = W / 2; const S = L ? 1 : 1.05;
+  if (L) {
+    const x0 = m + 80;
+    spacedL('COMPOUND', x0, 160, `600 22px ${MONO}`, 'rgba(245,245,247,.75)', 10);
+    spacedL(c.k === 'pay' ? 'CERTIFICATE OF PAYOUT' : 'CERTIFICATE OF ACHIEVEMENT', x0, 214, `500 19px ${MONO}`, gold, 7);
+    g.textAlign = 'left'; g.font = `800 56px ${SANS}`; g.fillStyle = white; g.fillText(c.k === 'pay' ? 'Payout received' : 'Evaluation passed', x0, 296);
+    const amt = money(c.amount, { dec: 0, show: true }); let fs = 168; g.font = `900 ${fs}px ${SANS}`; while (g.measureText(amt).width > 640 && fs > 90) { fs -= 6; g.font = `900 ${fs}px ${SANS}` }
+    const ay = 486; const ag = g.createLinearGradient(0, ay - fs * .8, 0, ay); ag.addColorStop(0, '#FFF6DA'); ag.addColorStop(.5, gold); ag.addColorStop(1, gold2);
+    g.save(); g.shadowColor = 'rgba(0,0,0,.8)'; g.shadowBlur = 30; g.shadowOffsetY = 6; g.fillStyle = ag; g.fillText(amt, x0 - 6, ay); g.restore();
+    g.font = `500 21px ${MONO}`; g.fillStyle = 'rgba(245,245,247,.7)'; g.fillText(c.k === 'pay' ? 'WITHDRAWN FROM A FUNDED ACCOUNT' : 'ACCOUNT SIZE · CHALLENGE COMPLETE', x0, ay + 50);
+    g.font = `500 20px ${MONO}`; g.fillStyle = 'rgba(245,245,247,.6)'; g.fillText('AWARDED TO', x0, 640);
+    g.font = `800 56px ${SANS}`; g.fillStyle = white; g.fillText(name, x0, 702);
+  } else {
+  g.textAlign = 'center';
+  const spaced = (t, x, y, font, color, sp) => { g.font = font; g.fillStyle = color; const chars = [...t]; const w = chars.reduce((a, ch) => a + g.measureText(ch).width, 0) + sp * (chars.length - 1); let px = x - w / 2; g.textAlign = 'left'; for (const ch of chars) { g.fillText(ch, px, y); px += g.measureText(ch).width + sp } g.textAlign = 'center' };
+  const top = fmt === 'story' ? 210 : 140;
+  spaced('COMPOUND', cx, top, `600 ${22 * S}px ${MONO}`, 'rgba(245,245,247,.75)', 10);
+  spaced(c.k === 'pay' ? 'CERTIFICATE OF PAYOUT' : 'CERTIFICATE OF ACHIEVEMENT', cx, top + 62 * S, `500 ${20 * S}px ${MONO}`, gold, 8);
+  g.font = `800 ${(fmt === 'story' ? 62 : 58)}px ${SANS}`; g.fillStyle = white; g.fillText(c.k === 'pay' ? 'Payout received' : 'Evaluation passed', cx, top + 150 * S);
+  // amount: gold gradient, the hero
+  const amt = money(c.amount, { dec: 0, show: true });
+  const ay = fmt === 'story' ? 1180 : 700;
+  g.font = `900 ${fmt === 'story' ? 210 : 190}px ${SANS}`; const ag = g.createLinearGradient(0, ay - 170, 0, ay); ag.addColorStop(0, '#FFF6DA'); ag.addColorStop(.5, gold); ag.addColorStop(1, gold2);
+  g.save(); g.shadowColor = 'rgba(0,0,0,.75)'; g.shadowBlur = 40; g.shadowOffsetY = 8; g.fillStyle = ag; g.fillText(amt, cx, ay); g.restore();
+  g.font = `500 ${24 * S}px ${MONO}`; g.fillStyle = 'rgba(245,245,247,.7)'; g.fillText(c.k === 'pay' ? 'WITHDRAWN FROM A FUNDED ACCOUNT' : 'ACCOUNT SIZE · CHALLENGE COMPLETE', cx, ay + 58 * S);
+  // awarded to
+  const ny = fmt === 'story' ? 1420 : 812;
+  g.font = `500 ${22 * S}px ${MONO}`; g.fillStyle = 'rgba(245,245,247,.6)'; g.fillText('AWARDED TO', cx, ny);
+  g.font = `800 ${(fmt === 'story' ? 64 : 52)}px ${SANS}`; g.fillStyle = white; g.fillText(name, cx, ny + 62 * S);
+  }
+  // footer: firm badge left, date right, seal centre
+  const fy = H - m - (fmt === 'story' ? 120 : 70);
+  const bs = fmt === 'story' ? 76 : 64; const bx = m + 50, byy = fy - bs / 2;
+  g.save(); rr(bx, byy, bs, bs, bs * .28); g.clip();
+  if (logo) g.drawImage(logo, bx, byy, bs, bs); else { const lg = g.createLinearGradient(bx, byy, bx + bs, byy + bs); lg.addColorStop(0, f.c[0]); lg.addColorStop(1, f.c[1]); g.fillStyle = lg; g.fillRect(bx, byy, bs, bs); g.fillStyle = '#fff'; g.font = `800 ${bs * (f.mono.length > 1 ? .36 : .5)}px ${SANS}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(f.mono, bx + bs / 2, byy + bs / 2 + 2); g.textBaseline = 'alphabetic' }
+  g.restore();
+  g.textAlign = 'left'; g.font = `700 ${26 * S}px ${SANS}`; g.fillStyle = white; g.fillText(f.name, bx + bs + 20, fy - 4);
+  g.font = `500 ${17 * S}px ${MONO}`; g.fillStyle = 'rgba(245,245,247,.6)'; g.fillText([c.plan, c.label].filter(Boolean).join(' · ').toUpperCase().slice(0, 42), bx + bs + 20, fy + 26 * S);
+  g.textAlign = 'right'; const dt = parseDay(c.d);
+  g.font = `500 ${17 * S}px ${MONO}`; g.fillStyle = 'rgba(245,245,247,.6)'; g.fillText('DATE', W - m - 50, fy - 4);
+  g.font = `700 ${26 * S}px ${SANS}`; g.fillStyle = white; g.fillText(dt.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }), W - m - 50, fy + 28 * S);
+  // gold seal
+  const sx = L ? W - m - 150 : cx, sy = L ? fy - 150 : fy - 150, sr = L ? 58 : 64;
+  {
+    g.save(); g.translate(sx, sy);
+    for (let i = 0; i < 24; i++) { g.rotate(Math.PI / 12); g.fillStyle = gold2; g.beginPath(); g.moveTo(0, -sr - 10); g.lineTo(9, -sr + 4); g.lineTo(-9, -sr + 4); g.closePath(); g.fill() }
+    const sg = g.createRadialGradient(-sr * .3, -sr * .3, 4, 0, 0, sr); sg.addColorStop(0, '#FFF1C9'); sg.addColorStop(.6, gold); sg.addColorStop(1, gold2);
+    g.fillStyle = sg; g.beginPath(); g.arc(0, 0, sr, 0, Math.PI * 2); g.fill();
+    g.strokeStyle = 'rgba(80,55,10,.5)'; g.lineWidth = 2; g.beginPath(); g.arc(0, 0, sr - 9, 0, Math.PI * 2); g.stroke();
+    g.fillStyle = '#4A3408'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.font = `900 ${sr * .62}px ${SANS}`; g.fillText(c.k === 'pay' ? '$' : '✓', 0, -4); g.font = `700 ${sr * .17}px ${MONO}`; g.fillText(c.k === 'pay' ? 'PAID' : 'PASSED', 0, sr * .42);
+    g.restore(); g.textBaseline = 'alphabetic';
+  }
+  // serial
+  g.textAlign = 'center'; g.font = `500 ${14 * S}px ${MONO}`; g.fillStyle = 'rgba(245,245,247,.38)';
+  g.textAlign = 'center'; g.fillText('No. ' + (c.k === 'pay' ? 'PO' : 'EV') + '-' + c.d.replace(/-/g, '') + '-' + String(Math.abs([...c.id].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) | 0, 7)) % 100000).padStart(5, '0'), cx, H - m - 22);
+  g.textAlign = 'left';
+}
+
+function CertModal({ c, onClose }) {
+  const S = useStore(); const cv = useRef(); const [fmt, setFmt] = useState(() => LS.get('compound.certfmt', innerWidth < 760 ? 'story' : 'landscape')); const [busy, setBusy] = useState(false);
+  const name = S.settings.name || 'Trader';
+  useEffect(() => { let live = true; const go = () => live && cv.current && drawCert(cv.current, c, fmt, name); Promise.all([document.fonts?.load?.('900 100px Satoshi'), document.fonts?.load?.('500 20px "Geist Mono"')].filter(Boolean)).then(go, go); go(); return () => { live = false } }, [c.id, fmt, name]);
+  const blob = () => new Promise(r => cv.current.toBlob(r, 'image/png'));
+  const fname = () => `compound-${c.k === 'pay' ? 'payout' : 'passed'}-${(firmById(c.firm).name || 'firm').toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${c.d}.png`;
+  const download = async b => { b = b || await blob(); const dl = store.caps.downloads || fileDownloads; try { await dl.save({ filename: fname(), data: b }); toast('Certificate saved') } catch (e) { toast('Could not save the image here') } };
+  const share = async () => { setBusy(true); try { const b = await blob(); const file = new File([b], fname(), { type: 'image/png' }); if (navigator.canShare && navigator.canShare({ files: [file] })) await navigator.share({ files: [file], title: c.k === 'pay' ? 'Payout certificate' : 'Evaluation passed' }); else await download(b) } catch (e) { if (e?.name !== 'AbortError') toast('Sharing was not available. Try Save.') } setBusy(false) };
+  const copy = async () => { try { const b = await blob(); await navigator.clipboard.write([new ClipboardItem({ 'image/png': b })]); toast('Certificate copied. Paste it anywhere.') } catch (e) { toast('Copy is not supported here. Use Save.') } };
+  return html`<${Modal} title=${c.k === 'pay' ? 'Payout certificate' : 'Evaluation certificate'} size="wide" icon=${html`<${I} n="cert"/>`} onClose=${onClose} foot=${html`<${Seg} sm v=${fmt} set=${v => { setFmt(v); LS.set('compound.certfmt', v) }} opts=${[['landscape', 'Landscape'], ['story', 'Story']]}/><span class="sp"></span><button class="btn btn-g sm" onClick=${copy}><${I} n="copy"/>Copy</button><button class="btn btn-g sm" onClick=${() => download()}><${I} n="download"/>Save</button><button class="btn btn-w" disabled=${busy} onClick=${share}><${I} n="send"/>Share</button>`}>
+    <div class=${'certwrap ' + fmt}><canvas ref=${cv} class="certcv" aria-label="Certificate image"></canvas></div>
+  <//>`;
+}
+
 /* ================= Compound · shell ================= */
 const VIEWS = [
   ['dashboard', 'Dashboard', 'grid'], ['journal', 'Journal', 'book'], ['showcase', 'Showcase', 'star'], ['strategy', 'Strategy', 'target'], ['study', 'Study', 'column'],
@@ -3223,7 +3340,7 @@ function App() {
       case 'detail': return html`<${TradeDetail} ...${p}/>`; case 'account': return html`<${AccountForm} ...${p}/>`; case 'payout': return html`<${PayoutForm} ...${p}/>`;
       case 'strategy': return html`<${StrategyForm} ...${p}/>`; case 'plan': return html`<${PlanForm} ...${p}/>`; case 'review': return html`<${ReviewForm} ...${p}/>`;
       case 'import': return html`<${ImportTrades} ...${p} mode=${p.mode || mode}/>`; case 'settings': return html`<${SettingsWrap} ...${p}/>`; case 'confirm': return html`<${Confirm} ...${p}/>`;
-      case 'assign': return html`<${AssignTrades} ...${p}/>`; case 'delacct': return html`<${DeleteAccount} ...${p}/>`; case 'balance': return html`<${BalanceSync} ...${p}/>`; case 'blown': return html`<${BlownForm} ...${p}/>`; case 'acct': return html`<${AccountDetail} ...${p}/>`; case 'day': return html`<${DaySheet} ...${p} C=${C} days=${byDay(D.ts)}/>`; default: return null;
+      case 'assign': return html`<${AssignTrades} ...${p}/>`; case 'delacct': return html`<${DeleteAccount} ...${p}/>`; case 'balance': return html`<${BalanceSync} ...${p}/>`; case 'blown': return html`<${BlownForm} ...${p}/>`; case 'acct': return html`<${AccountDetail} ...${p}/>`; case 'cert': return html`<${CertModal} ...${p}/>`; case 'day': return html`<${DaySheet} ...${p} C=${C} days=${byDay(D.ts)}/>`; default: return null;
     } })}
   <${Toasts}/><${Tip}/>`;
 }

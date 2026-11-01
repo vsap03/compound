@@ -952,5 +952,15 @@ button.ntbox:hover{border-color:var(--acc)}
 :root.glass .motto{color:rgba(255,255,255,.62);text-shadow:0 1px 10px rgba(0,0,0,.9)}
 :root.glass.lt .motto{color:var(--mut);text-shadow:none}
 @media (max-width:760px){.motto{font-size:8.5px;letter-spacing:.18em;padding:0 12px}}
+/* certificates */
+.cert{background:linear-gradient(180deg,rgba(0,0,0,.55),rgba(0,0,0,.25) 45%,rgba(0,0,0,.8)),url(bg.jpg) center 62%/cover no-repeat,#000;border-color:rgba(233,196,106,.35)}
+.certb{text-align:left;color:var(--fg);cursor:pointer;transition:transform .4s cubic-bezier(.2,1.2,.3,1),border-color .2s,box-shadow .3s}
+.certb:hover{transform:translateY(-3px);border-color:rgba(233,196,106,.7);box-shadow:0 24px 50px -24px rgba(0,0,0,.9),0 0 0 1px rgba(233,196,106,.2)}
+.certb .amt{background:linear-gradient(180deg,#FFF6DA,#E9C46A 55%,#B8892B);-webkit-background-clip:text;background-clip:text;color:transparent;text-shadow:none}
+.certb .mut,.certb .lbl,.certb .dim{color:rgba(245,245,247,.75)!important}
+.certshare{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.18);color:#fff}
+.certwrap{display:flex;justify-content:center;background:#000;border-radius:14px;overflow:hidden}
+.certcv{display:block;width:100%;height:auto}
+.certwrap.story .certcv{width:auto;max-width:100%;max-height:68vh}
 
 @media (min-width:761px) and (not (pointer:coarse)){body{padding-top:env(safe-area-inset-top,0px)}}
