@@ -1090,13 +1090,17 @@ function AccountForm({ id, firm, onClose }) {
   const S = store.s; const ex = id ? S.accounts[id] : null;
   const [a, setA] = useState(() => ex ? { ...ex } : { firm: firm || 'lucid', plan: firmById(firm || 'lucid').plans[0], size: 50000, type: 'eval', label: '', target: 3000, mll: 2000, dd: 'eod', lock: 100, dll: 1000, cons: 50, minDays: '', cost: '', activation: '', status: 'active', mode: 'live', def: true, start: todayKey() });
   const [step, setStep] = useState(ex || firm ? 2 : 1);
+  const [fq, setFq] = useState(''); const [fmk, setFmk] = useState('all'); const fql = fq.trim().toLowerCase();
+  const firmList = FIRMS.filter(x => (fmk === 'all' || (fmk === 'cfd' ? x.market === 'cfd' : x.market !== 'cfd')) && (!fql || x.name.toLowerCase().includes(fql) || x.name.toLowerCase().replace(/[^a-z0-9]/g, '').includes(fql.replace(/[^a-z0-9]/g, ''))));
   const up = p => setA(o => ({ ...o, ...p }));
   const f = firmById(a.firm); const presets = f.presets || SIZE_PRESETS; const mkt = acctMarket(a);
   const applySize = sz => { const p = presets[sz]; up({ size: sz, ...(p ? { target: a.type === 'eval' ? p.target : '', mll: p.mll, dll: p.dll, ...(p.cons != null ? { cons: p.cons } : {}) } : {}) }) };
   const pickFirm = x => { const p = x.presets ? (x.presets[10000] || Object.values(x.presets)[0]) : null; const sz = x.presets ? (x.presets[10000] ? 10000 : +Object.keys(x.presets)[0]) : a.size; up({ firm: x.id, plan: x.plans[0], market: x.market || 'futures', mode: x.id === 'personal' ? 'live' : a.mode, ...(x.market === 'cfd' ? { ppl: a.ppl ?? CFD_PPL, pip: a.pip ?? 1, lotCom: a.lotCom ?? 0, defSym: a.defSym || 'NAS100', defLots: a.defLots ?? 1, dd: 'static', lock: '' } : {}), ...(p ? { size: sz, target: p.target, mll: p.mll, dll: p.dll, cons: p.cons } : {}) }) };
   const save = () => { if (!+a.size) return toast('Add the starting balance'); const o = store.put('accounts', { ...a, size: +a.size, created: ex?.created || Date.now(), label: a.label || (f.name.split(' ')[0] + ' ' + (+a.size / 1000) + 'K') }); toast(ex ? 'Account saved' : 'Account added'); onClose() };
   return html`<${Modal} title=${ex ? 'Edit account' : step === 1 ? 'Pick your prop firm' : 'Account details'} onClose=${onClose} size="wide" foot=${step === 1 ? html`<button class="btn btn-g" onClick=${onClose}>Cancel</button><button class="btn btn-w" onClick=${() => setStep(2)}>Continue<${I} n="right"/></button>` : html`${ex && html`<button class="btn btn-d" style=${{ marginRight: 'auto' }} onClick=${() => UI.open('delacct', { id: ex.id, after: onClose })}><${I} n="trash"/>Delete</button>`}${!ex && html`<button class="btn btn-g" onClick=${() => setStep(1)}><${I} n="left"/>Firm</button>`}<button class="btn btn-w" onClick=${save}><${I} n="check"/>${ex ? 'Save' : 'Add account'}</button>`}>
-    ${step === 1 ? html`<div class="firms">${FIRMS.map(x => html`<button key=${x.id} class=${'firm' + (a.firm === x.id ? ' on' : '')} onClick=${() => pickFirm(x)} onDblClick=${() => { pickFirm(x); setStep(2) }}><${FirmLogo} id=${x.id}/><span class="nm">${x.name}<small>${x.market === 'cfd' ? 'CFD · ' + (x.platform || 'MT5') : x.plans.slice(0, 2).join(' · ')}</small></span></button>`)}</div>
+    ${step === 1 ? html`<div class="row" style=${{ gap: '8px', flexWrap: 'nowrap' }}><div class="search" style=${{ flex: 1 }}><${I} n="search" s=${14}/><input autofocus placeholder=${'Search ' + (FIRMS.length - 1) + ' prop firms…'} value=${fq} onInput=${e => setFq(e.target.value)}/></div><${Seg} sm v=${fmk} set=${setFmk} opts=${[['all', 'All'], ['futures', 'Futures'], ['cfd', 'CFD']]}/></div>
+      <div class="firms">${firmList.map(x => html`<button key=${x.id} class=${'firm' + (a.firm === x.id ? ' on' : '')} onClick=${() => pickFirm(x)} onDblClick=${() => { pickFirm(x); setStep(2) }}><${FirmLogo} id=${x.id}/><span class="nm">${x.name}<small>${x.market === 'cfd' ? 'CFD · ' + (x.platform || 'MT5') : x.plans.slice(0, 2).join(' · ')}</small></span></button>`)}
+        ${fql && !firmList.length && html`<button class="firm" onClick=${() => { pickFirm(customFirm('x:' + fq.trim())); setStep(2) }}><span class="logo" style=${{ width: '34px', height: '34px', borderRadius: '9px' }}>+</span><span class="nm">Add “${fq.trim()}”<small>Custom firm</small></span></button>`}</div>
       <p class="dim" style=${{ margin: 0, fontSize: '11px' }}>Rules change often. Presets fill typical numbers; check them against your firm's dashboard and edit anything. You can upload each firm's real logo from the Propfirm page.</p>`
     : html`<div class="row" style=${{ gap: '12px' }}><${FirmLogo} id=${a.firm} s=${44}/><div><div style=${{ fontWeight: 800, fontSize: '15px' }}>${f.name}</div><div class="mut" style=${{ fontSize: '11.5px' }}>${f.url ? html`<a href=${f.url} target="_blank" rel="noopener">${f.url.replace('https://', '')}</a>` : 'Your own capital'}</div></div></div>
       <div class="grid g3">
@@ -1154,7 +1158,7 @@ function FirmPick({ v, set }) {
   const used = new Set([...Object.values(store.s.accounts).map(a => a.firm), ...Object.values(store.s.blown || {}).map(b => b.firm), ...Object.values(store.s.payouts).map(p => p.firm)].filter(Boolean));
   const customs = [...used].filter(x => String(x).startsWith('x:')).map(customFirm);
   const ql = q.trim().toLowerCase();
-  const list = [...FIRMS.filter(f => f.id !== 'personal'), ...customs].filter(f => (mk === 'all' || (mk === 'cfd' ? f.market === 'cfd' : f.market !== 'cfd')) && (!ql || f.name.toLowerCase().includes(ql)))
+  const list = [...FIRMS.filter(f => f.id !== 'personal'), ...customs].filter(f => (mk === 'all' || (mk === 'cfd' ? f.market === 'cfd' : f.market !== 'cfd')) && (!ql || f.name.toLowerCase().includes(ql) || f.name.toLowerCase().replace(/[^a-z0-9]/g, '').includes(ql.replace(/[^a-z0-9]/g, ''))))
     .sort((a, b) => (used.has(b.id) ? 1 : 0) - (used.has(a.id) ? 1 : 0));
   const exact = list.some(f => f.name.toLowerCase().startsWith(ql) || f.name.toLowerCase().split(/\s+/).some(w => w.startsWith(ql)));
   return html`<div class="col" style=${{ gap: '8px' }}>
@@ -1172,9 +1176,9 @@ function GlassSlider({ st, set }) {
   return html`<${Field} label=${'Glass transparency · ' + v + '%'} hint="Left: more frosted and solid. Right: clearer, more of the background shows through."><div class="row" style=${{ gap: '10px', flexWrap: 'nowrap' }}><span class="dim" style=${{ fontSize: '10.5px' }}>Frosted</span><input type="range" min="0" max="100" step="1" value=${v} style=${{ flex: 1 }} onInput=${e => { const n = +e.target.value; setV(n); applyGlass(st, n) }} onChange=${e => set({ glassT: +e.target.value })}/><span class="dim" style=${{ fontSize: '10.5px' }}>Clear</span></div><//>`;
 }
 
-function PayoutForm({ id, account, onClose }) {
+function PayoutForm({ id, account, firm, onClose }) {
   const S = store.s; const ex = id ? S.payouts[id] : null;
-  const init = () => { if (ex) return { ...ex, firm: payoutFirm(S, ex) }; const a = account ? S.accounts[account] : null; return { account: account || '', firm: a?.firm || '', acctLabel: '', amount: '', d: todayKey(), status: 'paid', note: '', deduct: true } };
+  const init = () => { if (ex) return { ...ex, firm: payoutFirm(S, ex) }; const a = account ? S.accounts[account] : null; return { account: account || '', firm: a?.firm || firm || '', acctLabel: '', amount: '', d: todayKey(), status: 'paid', note: '', deduct: true } };
   const [p, setP] = useState(init);
   const up = x => setP(o => ({ ...o, ...x }));
   const tracked = Object.values(S.accounts).filter(a => a.firm === p.firm && a.status !== 'closed').sort((a, b) => (b.created || 0) - (a.created || 0));
@@ -1201,9 +1205,9 @@ function PayoutForm({ id, account, onClose }) {
 }
 
 const BLOWN_SIZES = [5000, 10000, 25000, 50000, 75000, 100000, 150000, 200000, 300000];
-function BlownForm({ id, onClose }) {
+function BlownForm({ id, firm, onClose }) {
   const S = store.s; const ex = id ? S.blown[id] : null;
-  const [b, setB] = useState(ex ? { ...ex } : { firm: '', plan: '', size: 50000, fee: '', resets: '', activation: '', count: 1, stage: 'eval', bought: '', d: todayKey(), note: '' });
+  const [b, setB] = useState(ex ? { ...ex } : { firm: firm || '', plan: '', size: 50000, fee: '', resets: '', activation: '', count: 1, stage: 'eval', bought: '', d: todayKey(), note: '' });
   const up = x => setB(o => ({ ...o, ...x }));
   const f = b.firm ? firmById(b.firm) : null; const total = blownCost(b);
   const save = (again) => {
@@ -2416,8 +2420,25 @@ function Spending({ S }) {
         </tbody></table></div></div>`}`;
 }
 
+function PropSearch({ S, accs, q, setQ }) {
+  const ql = q.trim().toLowerCase(); const norm = x => String(x || '').toLowerCase().replace(/[^a-z0-9]/g, ''); const qn = norm(ql);
+  const hit = n => !!ql && (String(n || '').toLowerCase().includes(ql) || (qn && norm(n).includes(qn)));
+  const used = new Set([...accs.map(a => a.firm), ...Object.values(S.blown || {}).map(b => b.firm), ...Object.values(S.payouts).map(p => p.firm)].filter(x => String(x || '').startsWith('x:')));
+  const firms = [...FIRMS.filter(f => f.id !== 'personal'), ...[...used].map(customFirm)].filter(f => hit(f.name)).slice(0, 12);
+  const mine = accs.filter(a => hit(a.label) || hit(firmById(a.firm).name)).slice(0, 8);
+  const go = (m, p) => { UI.open(m, p); setQ('') };
+  return html`<div class="psrch">
+    <div class="search"><${I} n="search" s=${14}/><input placeholder="Search prop firms or your accounts — add an account, blown account or payout" value=${q} onInput=${e => setQ(e.target.value)} onKeyDown=${e => { if (e.key === 'Escape') setQ(''); if (e.key === 'Enter' && firms[0] && !mine.length) go('account', { firm: firms[0].id }) }}/>${q && html`<button class="btn btn-t xs" onClick=${() => setQ('')}><${I} n="x" s=${12}/></button>`}</div>
+    ${ql && html`<div class="card psres">
+      ${mine.length > 0 && html`<div class="lbl">Your accounts</div>${mine.map(a => html`<button key=${a.id} class="psrow" onClick=${() => go('acct', { id: a.id })}><${FirmLogo} id=${a.firm} s=${26}/><span class="nm"><b>${a.label}</b><small>${firmById(a.firm).name} · ${a.type} · ${a.status}</small></span><${I} n="right" s=${14}/></button>`)}`}
+      ${firms.length > 0 && html`<div class="lbl">Prop firms</div>${firms.map(f => html`<div key=${f.id} class="psrow"><${FirmLogo} id=${f.id} s=${26}/><span class="nm"><b>${f.name}</b><small>${f.market === 'cfd' ? 'CFD · ' + (f.platform || 'MT5') : 'Futures'}</small></span>
+        <span class="psact"><button class="btn btn-w xs" onClick=${() => go('account', { firm: f.id })}><${I} n="plus" s=${12}/>Account</button><button class="btn btn-g xs" onClick=${() => go('blown', { firm: f.id })}>Blown</button><button class="btn btn-g xs" onClick=${() => go('payout', { firm: f.id })}>Payout</button></span></div>`)}`}
+      ${!firms.length && !mine.length && html`<div class="psrow"><span class="nm"><b>No match for “${q.trim()}”</b><small>Add it as a custom firm</small></span><span class="psact"><button class="btn btn-w xs" onClick=${() => go('account', { firm: 'x:' + q.trim() })}><${I} n="plus" s=${12}/>Account</button><button class="btn btn-g xs" onClick=${() => go('blown', { firm: 'x:' + q.trim() })}>Blown</button><button class="btn btn-g xs" onClick=${() => go('payout', { firm: 'x:' + q.trim() })}>Payout</button></span></div>`}
+    </div>`}
+  </div>`;
+}
 function Propfirm({ C }) {
-  const { S } = C; const [tab, setTab] = useState(() => LS.get('compound.ptab', 'accounts')); const setTabS = v => { setTab(v); LS.set('compound.ptab', v) }; const [arch, setArch] = useState(false);
+  const { S } = C; const [tab, setTab] = useState(() => LS.get('compound.ptab', 'accounts')); const setTabS = v => { setTab(v); LS.set('compound.ptab', v) }; const [arch, setArch] = useState(false); const [pq, setPq] = useState('');
   const { all } = useMemo(() => computeTrades(S, { mode: 'all', dedupe: false }), [store.v]);
   const accs = Object.values(S.accounts).sort((a, b) => (a.created || 0) - (b.created || 0));
   const st = a => acctState(a, all, Object.values(S.adjust).filter(x => x.account === a.id));
@@ -2429,6 +2450,7 @@ function Propfirm({ C }) {
   const passed = accs.filter(a => a.status === 'passed' || a.type === 'funded').length, blown = accs.filter(a => a.status === 'blown').length + sum(hist, b => Math.max(1, +b.count || 1));
   return html`<div class="page">
     <${PageHead} title="Prop firms" sub="Every eval, funded account and payout in one place"><${Seg} v=${tab} set=${setTabS} opts=${[['accounts', 'Accounts'], ['spend', 'Spending'], ['payouts', 'Payouts'], ['certs', 'Certificates'], ['firms', 'Firms']]}/><//>
+    <${PropSearch} S=${S} accs=${accs} q=${pq} setQ=${setPq}/>
     <div class="grid g6 keep2">
       <${Kpi} small k="Active evals" v=${accs.filter(a => a.type === 'eval' && a.status === 'active').length}/><${Kpi} small k="Funded" v=${accs.filter(a => a.type === 'funded' && a.status === 'active').length}/>
       <${Kpi} small k="Fees spent" v=${money(spent, { dec: 0 })}/><${Kpi} small k="Payouts" v=${html`<span class="pos">${money(paid, { dec: 0 })}</span>`}/>

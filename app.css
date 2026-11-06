@@ -1014,4 +1014,16 @@ button.ntbox:hover{border-color:var(--acc)}
 @media (min-width:761px){:root.glass.tablet .desk::before,:root.glass.tablet .rail::before{display:none}}
 :root.glass .shell.ldo .desk::before,:root.glass .shell.rdo .rail::before{display:none}
 
+.psrch{display:flex;flex-direction:column;gap:8px}
+.psrch .search{height:42px;border-radius:14px}
+.psres{display:flex;flex-direction:column;gap:4px;padding:10px}
+.psres .lbl{margin:6px 4px 2px}
+.psrow{display:flex;align-items:center;gap:10px;padding:8px;border-radius:12px;background:transparent;border:0;color:inherit;text-align:left;width:100%;font:inherit;cursor:pointer}
+button.psrow:hover,div.psrow:hover{background:rgba(255,255,255,.06)}
+.psrow .nm{display:flex;flex-direction:column;min-width:0;flex:1}
+.psrow .nm b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.psrow small{color:var(--dim);font-size:11px}
+.psact{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+@media(max-width:560px){div.psrow{flex-wrap:wrap}.psact{width:100%;justify-content:flex-start;padding-left:36px}}
+
 @media (min-width:761px) and (not (pointer:coarse)){body{padding-top:env(safe-area-inset-top,0px)}}
