@@ -158,6 +158,7 @@ const FIRMS = [
   { id: 'myfundedfx', name: 'My Funded FX', mono: 'MX', c: ['#0A1A33', '#3B82F6'], plans: ["1-Step", "2-Step", "Instant"], url: '', market: "cfd", platform: "MT5" },
   { id: 'fundedpeaks', name: 'Funded Peaks', mono: 'PK', c: ['#0C1E1A', '#14B8A6'], plans: ["1-Step", "2-Step", "Instant"], url: '', market: "cfd", platform: "MT5" },
   { id: 'blueberry', name: 'Blueberry Funded', mono: 'BB', c: ['#0E0F2E', '#6366F1'], plans: ["1-Step", "2-Step", "Instant"], url: '', market: "cfd", platform: "MT5" },
+  { id: 'fundyouredge', name: 'FundYourEdge', mono: 'FYE', c: ['#0B1A14', '#22C55E'], plans: ['Evaluation', 'Funded'], url: 'https://fundyouredge.com' },
   { id: 'personal', name: 'Personal / Broker', mono: '$', c: ['#151619', '#8B8F99'], plans: ['Live cash', 'Paper', 'Sim'], url: '' },
 ];
 /* spending: fees paid per account (eval + resets + activation), times how many identical accounts a history entry stands for */
