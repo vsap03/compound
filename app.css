@@ -1026,4 +1026,18 @@ button.psrow:hover,div.psrow:hover{background:rgba(255,255,255,.06)}
 .psact{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
 @media(max-width:560px){div.psrow{flex-wrap:wrap}.psact{width:100%;justify-content:flex-start;padding-left:36px}}
 
+/* Scrollbars: slim, inset, kept clear of rounded corners */
+::-webkit-scrollbar{width:10px;height:10px;background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(255,255,255,.14);border-radius:10px;border:3px solid transparent;background-clip:padding-box;min-height:40px}
+::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.28);background-clip:padding-box}
+:root.lt ::-webkit-scrollbar-thumb{background:rgba(0,0,0,.18);background-clip:padding-box}
+::-webkit-scrollbar-track,::-webkit-scrollbar-corner{background:transparent}
+.main::-webkit-scrollbar-track,.drw .mb::-webkit-scrollbar-track,.cdlg .mb::-webkit-scrollbar-track,.sh-b::-webkit-scrollbar-track{margin:20px 0}
+.rail::-webkit-scrollbar-track,.firmpick::-webkit-scrollbar-track,.psres::-webkit-scrollbar-track{margin:12px 0}
+.main::-webkit-scrollbar-thumb{background:transparent;background-clip:padding-box}
+.main:hover::-webkit-scrollbar-thumb{background:rgba(255,255,255,.16);background-clip:padding-box}
+.main:hover::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.3);background-clip:padding-box}
+:root.lt .main:hover::-webkit-scrollbar-thumb{background:rgba(0,0,0,.2);background-clip:padding-box}
+@supports not selector(::-webkit-scrollbar){*{scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.18) transparent}:root.lt *{scrollbar-color:rgba(0,0,0,.2) transparent}}
+
 @media (min-width:761px) and (not (pointer:coarse)){body{padding-top:env(safe-area-inset-top,0px)}}
