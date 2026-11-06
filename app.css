@@ -1039,5 +1039,10 @@ button.psrow:hover,div.psrow:hover{background:rgba(255,255,255,.06)}
 .main:hover::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.3);background-clip:padding-box}
 :root.lt .main:hover::-webkit-scrollbar-thumb{background:rgba(0,0,0,.2);background-clip:padding-box}
 @supports not selector(::-webkit-scrollbar){*{scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.18) transparent}:root.lt *{scrollbar-color:rgba(0,0,0,.2) transparent}}
+/* Mobile/tablet slide-out desk & rail must stay fixed overlays above the page (glass rules set them relative) */
+@media (max-width:760px){:root.glass .shell.ldo .desk,:root.glass .shell.rdo .rail{position:fixed;z-index:75}}
+:root.glass.tablet .shell.rdo .rail{position:fixed;z-index:75}
+@media (max-width:1100px){:root.glass.tablet .shell.ldo .desk{position:fixed;z-index:75}}
+@media (max-width:1100px){:root.glass:not(.lt) .shell.ldo .desk,:root.glass:not(.lt) .shell.rdo .rail{background:rgba(10,10,13,.82);-webkit-backdrop-filter:blur(28px) saturate(160%);backdrop-filter:blur(28px) saturate(160%)}:root.glass.lt .shell.ldo .desk,:root.glass.lt .shell.rdo .rail{background:rgba(246,247,250,.9)}}
 
 @media (min-width:761px) and (not (pointer:coarse)){body{padding-top:env(safe-area-inset-top,0px)}}
