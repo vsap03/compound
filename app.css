@@ -1144,4 +1144,41 @@ body.rwopen .pillbar,body.rwopen .fab{display:none!important}
 .rwdash{display:flex;align-items:center;gap:12px;width:100%;padding:12px 14px;border-radius:18px;border:1px solid rgba(143,176,255,.25);background:linear-gradient(110deg,rgba(59,110,246,.22),rgba(59,110,246,.04) 60%);color:var(--fg);cursor:pointer;text-align:left}
 .rwdash .rwdi{width:36px;height:36px;border-radius:12px;display:grid;place-items:center;background:#fff;color:#000}
 
+/* ================= News ================= */
+.newscard{display:flex;flex-direction:column;gap:6px;padding:16px 18px 12px}
+.nhead{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.ntit{font-size:12px;letter-spacing:.12em;text-transform:uppercase}
+.nhead>.dim{font-size:11.5px}
+.nday{display:flex;align-items:center;gap:6px;margin:4px 0 2px}.nday b{font-size:14px;min-width:0}
+.nrow{display:grid;grid-template-columns:76px 22px 40px minmax(0,1fr) auto;align-items:center;gap:10px;padding:9px 8px;border-radius:12px;font-size:14px;transition:background .2s}
+.nrow:hover{background:rgba(255,255,255,.04)}
+.nrow.past{opacity:.42}
+.nrow.next{background:rgba(59,110,246,.12);box-shadow:inset 0 0 0 1px rgba(143,176,255,.28)}
+.ntime{font:700 12.5px var(--mono);color:var(--fg2)}
+.nfold{display:grid;place-items:center}
+.nccy{font:500 12px var(--mono);color:var(--mut)}
+.ntitle{font-weight:500;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nsoon{font-style:normal;margin-left:8px;font:600 10.5px var(--mono);color:#8FB0FF;background:rgba(59,110,246,.18);padding:2px 7px;border-radius:99px;vertical-align:1px}
+.nfp{display:flex;gap:12px;font:600 12px var(--mono);color:var(--fg2);white-space:nowrap}.nfp i{font-style:normal;color:var(--mut);margin-right:5px}
+.nwd{font:500 10px var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--dim);margin:12px 8px 2px}.nwd.today{color:#8FB0FF}
+.ngrp:first-of-type .nwd{margin-top:4px}
+.nempty{padding:18px 8px;font-size:12px}
+.nfoot{display:flex;align-items:center;gap:6px;font-size:10.5px;margin-top:6px;padding:0 8px;flex-wrap:wrap}
+.nfilt{right:0;top:42px;width:min(330px,calc(100vw - 32px));padding:14px;display:flex;flex-direction:column;gap:10px;z-index:40}
+.nfilt .chip{display:inline-flex;align-items:center;gap:5px;cursor:pointer}
+.nusd{gap:8px;font-size:12px;cursor:pointer}
+.ib.spin svg{animation:nspin .8s linear infinite}@keyframes nspin{to{transform:rotate(360deg)}}
+@media (max-width:760px){
+  .newscard{padding:14px 12px 10px}
+  .nrow{grid-template-columns:58px 16px 32px minmax(0,1fr);row-gap:2px;font-size:13px;padding:8px 6px;gap:8px}
+  .nrow .nfp{grid-column:4;font-size:10.5px;gap:10px}
+  .ntitle{white-space:normal}
+  .ntime{font-size:11px}
+}
+.nmini{display:flex;flex-direction:column;gap:2px}
+.nmrow{display:grid;grid-template-columns:52px 14px 30px minmax(0,1fr);align-items:center;gap:6px;font-size:11.5px;padding:4px 0}
+.nmrow .tn{font-family:var(--mono);font-size:10.5px;color:var(--fg2)}.nmrow b{font:500 10.5px var(--mono);color:var(--mut)}
+.nmt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nmrow.past{opacity:.42}.nmrow.next .nmt{color:#8FB0FF;font-weight:600}
+
 @media (min-width:761px) and (not (pointer:coarse)){body{padding-top:env(safe-area-inset-top,0px)}}

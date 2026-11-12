@@ -1562,6 +1562,8 @@ function Dashboard({ C }) {
         ${today?.plan ? html`<button class="chip on" onClick=${() => UI.open('plan', { day: todayKey() })}><${I} n="check" s=${12}/>Plan set${today.plan.bias ? ' · ' + ({ bull: 'Bullish', bear: 'Bearish', neutral: 'Neutral', wait: 'Waiting' })[today.plan.bias] : ''}</button>` : html`<button class="lnk" style=${{ fontSize: '12.5px' }} onClick=${() => UI.open('plan', { day: todayKey() })}>Start pre-market plan →</button>`}</div>
       <div class="motto">${dailyMotto()}</div></div>
 
+    <${NewsCard}/>
+
     <div class="row"><span class="lbl">Performance</span><span class="sp"></span><button class="lnk" onClick=${() => C.go('analytics')}>Full analytics →</button><button class="btn btn-t xs" onClick=${C.toggleHide}><${I} n=${UIS.hide ? 'eye' : 'eyeoff'} s=${14}/>${UIS.hide ? 'Show' : 'Hide'} P&L</button></div>
     <div class="grid g4 keep2">
       <${Kpi} k="Win rate" v=${pct(s.wr)} s=${s.n + ' trades'} info="Wins ÷ (wins + losses)"/>
@@ -3672,6 +3674,93 @@ function Rewind({ C }) {
   </div>`;
 }
 
+/* ================= News: Forex Factory economic calendar =================
+   news.json is refreshed hourly by a GitHub Action in the repo (same origin, no CORS).
+   Rule: red + orange folders for every currency, every folder for USD. */
+const FF_URL = 'https://nfs.faireconomy.media/ff_calendar_thisweek.json';
+const NEWS_CCY = ['USD', 'EUR', 'GBP', 'JPY', 'CAD', 'AUD', 'NZD', 'CHF', 'CNY'];
+const IMPACT_C = { High: '#EF4444', Medium: '#F97316', Low: '#FACC15', Holiday: '#9CA3AF' };
+const NEWS = { data: LS.get('compound.news', null), at: 0, busy: null, subs: new Set() };
+async function loadNews(force) {
+  if (NEWS.busy) return NEWS.busy;
+  if (!force && NEWS.at && Date.now() - NEWS.at < 10 * 60000) return NEWS.data;
+  NEWS.busy = (async () => {
+    let d = null;
+    try { const r = await fetch('news.json?t=' + Math.floor(Date.now() / 60000), { cache: 'no-store' }); if (r.ok) { const j = await r.json(); if (Array.isArray(j.events)) d = { at: j.at, events: j.events } } } catch (e) { }
+    if (!d || Date.now() - new Date(d.at) > 6 * 3600000) { try { const r = await fetch(FF_URL, { cache: 'no-store' }); if (r.ok) { const ev = await r.json(); if (Array.isArray(ev)) d = { at: new Date().toISOString(), events: ev } } } catch (e) { } }
+    if (d) { NEWS.data = d; LS.set('compound.news', d) }
+    NEWS.at = Date.now(); NEWS.busy = null; NEWS.subs.forEach(f => f()); return NEWS.data;
+  })();
+  return NEWS.busy;
+}
+function useNews() {
+  const [, set] = useState(0);
+  useEffect(() => { const f = () => set(x => x + 1); NEWS.subs.add(f); loadNews(); const i = setInterval(() => loadNews(), 15 * 60000); const t = setInterval(f, 30000); return () => { NEWS.subs.delete(f); clearInterval(i); clearInterval(t) } }, []);
+  return NEWS.data;
+}
+const newsPrefs = () => ({ ccy: NEWS_CCY, usdAll: true, imp: ['High', 'Medium'], ...(LS.get('compound.newsf', {}) || {}) });
+function newsFilter(evs, f) {
+  return (evs || []).filter(e => f.ccy.includes(e.country) && (f.imp.includes(e.impact) || (f.usdAll && e.country === 'USD')))
+    .map(e => ({ ...e, ms: +new Date(e.date) })).filter(e => !isNaN(e.ms)).sort((a, b) => a.ms - b.ms || (a.impact === 'High' ? -1 : 1));
+}
+const nTime = ms => new Date(ms).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+const nIn = ms => { const m = Math.round((ms - Date.now()) / 60000); if (m < 1) return 'now'; if (m < 60) return 'in ' + m + 'm'; const h = Math.floor(m / 60); return h < 24 ? `in ${h}h ${m % 60}m` : 'in ' + Math.round(h / 24) + 'd' };
+function Folder({ c, s = 15 }) { return html`<svg width=${s} height=${s} viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 6.5A2 2 0 014.5 4.5h4.6l2 2.2h8.4a2 2 0 012 2v9.8a2 2 0 01-2 2h-15a2 2 0 01-2-2z" fill=${c}/><path d="M2.5 9.2h19" stroke="rgba(0,0,0,.25)" stroke-width="1.2"/></svg>` }
+
+function NewsRow({ e, next }) {
+  const past = e.ms < Date.now() - 60000; const allDay = /T00:00:00/.test(e.date) && e.impact === 'Holiday';
+  return html`<div class=${'nrow' + (past ? ' past' : '') + (next ? ' next' : '')}>
+    <span class="ntime tn">${allDay ? 'All day' : nTime(e.ms)}</span>
+    <span class="nfold" title=${e.impact + ' impact'}><${Folder} c=${IMPACT_C[e.impact] || '#8E8E8E'}/></span>
+    <span class="nccy">${e.country}</span>
+    <span class="ntitle">${e.title}${next && html`<em class="nsoon">${nIn(e.ms)}</em>`}</span>
+    <span class="nfp tn">${e.forecast && html`<span><i>F</i>${e.forecast}</span>`}${e.previous && html`<span><i>P</i>${e.previous}</span>`}</span>
+  </div>`;
+}
+
+function NewsCard() {
+  const data = useNews(); const [f, setF0] = useState(newsPrefs); const setF = x => { const n = { ...f, ...x }; setF0(n); LS.set('compound.newsf', n) };
+  const [mode, setMode] = useState(LS.get('compound.newsm', 'day')); const [off, setOff] = useState(0); const [fo, setFo] = useState(false); const [spin, setSpin] = useState(false);
+  const evs = useMemo(() => newsFilter(data?.events, f), [data, f]);
+  const day = addDays(new Date(new Date().setHours(0, 0, 0, 0)), off); const dk = dayKey(day);
+  const list = mode === 'day' ? evs.filter(e => dayKey(new Date(e.ms)) === dk) : evs;
+  const nextE = evs.find(e => e.ms > Date.now() - 60000 && e.impact !== 'Holiday');
+  const groups = mode === 'week' ? [...groupBy(list, e => dayKey(new Date(e.ms)))] : [[dk, list]];
+  const dlabel = k => { const d = new Date(k + 'T12:00'); const t = dayKey(new Date()); return d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) + (k === t ? ' · Today' : k === dayKey(addDays(new Date(), 1)) ? ' · Tomorrow' : '') };
+  const refresh = async () => { setSpin(true); await loadNews(true); setSpin(false) };
+  const share = async () => { const txt = groups.map(([k, a]) => dlabel(k) + '\n' + a.map(e => `${nTime(e.ms)}  ${e.impact === 'High' ? '🔴' : e.impact === 'Medium' ? '🟠' : e.impact === 'Low' ? '🟡' : '⚪'} ${e.country}  ${e.title}${e.forecast ? '  F ' + e.forecast : ''}${e.previous ? '  P ' + e.previous : ''}`).join('\n')).join('\n\n') || 'No news';
+    try { if (navigator.share) await navigator.share({ text: 'News · Forex Factory\n\n' + txt }); else { await navigator.clipboard.writeText(txt); toast('News copied') } } catch (e) { } };
+  const togC = c => setF({ ccy: f.ccy.includes(c) ? f.ccy.filter(x => x !== c) : [...f.ccy, c] });
+  const togI = c => setF({ imp: f.imp.includes(c) ? f.imp.filter(x => x !== c) : [...f.imp, c] });
+  const days = [...new Set(evs.map(e => dayKey(new Date(e.ms))))];
+  return html`<div class="card newscard">
+    <div class="nhead"><b class="ntit">News</b><span class="dim">Forex Factory · this week</span><span class="sp"></span>
+      <${Seg} sm v=${mode} set=${v => { setMode(v); LS.set('compound.newsm', v) }} opts=${[['day', 'Day'], ['week', 'Week']]}/>
+      <div style=${{ position: 'relative' }}><button class=${'btn btn-t sm' + (fo ? ' on' : '')} onClick=${() => setFo(!fo)}><${I} n="sliders" s=${14}/><span class="hide-m">Filters</span></button>
+        ${fo && html`<div class="menu nfilt" onClick=${e => e.stopPropagation()}>
+          <div class="lbl">Impact</div><div class="row" style=${{ gap: '6px' }}>${['High', 'Medium', 'Low', 'Holiday'].map(c => html`<button key=${c} class=${'chip' + (f.imp.includes(c) ? ' on' : '')} onClick=${() => togI(c)}><${Folder} c=${IMPACT_C[c]} s=${12}/>${c}</button>`)}</div>
+          <label class="row nusd"><input type="checkbox" checked=${f.usdAll} onChange=${e => setF({ usdAll: e.target.checked })}/><span>Show every USD event, any impact</span></label>
+          <div class="lbl">Currencies</div><div class="row" style=${{ gap: '6px' }}>${NEWS_CCY.map(c => html`<button key=${c} class=${'chip' + (f.ccy.includes(c) ? ' on' : '')} onClick=${() => togC(c)}>${c}</button>`)}</div>
+          <div class="row" style=${{ justifyContent: 'space-between' }}><button class="btn btn-t xs" onClick=${() => { LS.set('compound.newsf', {}); setF0(newsPrefs()) }}>Reset</button><button class="btn btn-w xs" onClick=${() => setFo(false)}>Done</button></div></div>`}</div>
+      <button class="btn btn-t sm" onClick=${share}><${I} n="send" s=${14}/><span class="hide-m">Share</span></button>
+      <button class=${'ib' + (spin ? ' spin' : '')} onClick=${refresh} aria-label="Refresh"><${I} n="refresh" s=${14}/></button></div>
+    ${mode === 'day' && html`<div class="nday"><button class="ib" onClick=${() => setOff(off - 1)} aria-label="Previous day"><${I} n="left" s=${14}/></button><b>${dlabel(dk).replace(' · ', ' ')}</b><button class="ib" onClick=${() => setOff(off + 1)} aria-label="Next day"><${I} n="right" s=${14}/></button>${off !== 0 && html`<button class="lnk" onClick=${() => setOff(0)}>Today</button>`}</div>`}
+    ${!data ? html`<div class="dim nempty">Loading the calendar…</div>`
+      : !list.length ? html`<div class="dim nempty">${mode === 'day' ? 'No red or orange folder news this day' + (f.usdAll ? ', and no USD events' : '') + '.' : 'Nothing this week for these filters.'}</div>`
+      : groups.map(([k, a]) => html`<div key=${k} class="ngrp">${mode === 'week' && html`<div class=${'nwd' + (k === dayKey(new Date()) ? ' today' : '')}>${dlabel(k)}</div>`}${a.map((e, i) => html`<${NewsRow} key=${k + i} e=${e} next=${nextE && e === nextE}/>`)}</div>`)}
+    <div class="nfoot dim"><${I} n="check" s=${12}/>${list.length} event${list.length === 1 ? '' : 's'}${mode === 'day' ? ' on ' + dlabel(dk).split(' · ')[0] : ' this week'} · ${f.imp.join(', ')}${f.usdAll ? ' · all USD' : ''} · ${f.ccy.length === NEWS_CCY.length ? 'all currencies' : f.ccy.join(' ')}${data?.at ? ' · updated ' + fmtTime(data.at) : ''}</div>
+  </div>`;
+}
+
+/* compact list for the Today panel */
+function NewsMini() {
+  const data = useNews(); const f = newsPrefs(); const evs = newsFilter(data?.events, f);
+  const k = todayKey(); const today = evs.filter(e => dayKey(new Date(e.ms)) === k); const nextE = evs.find(e => e.ms > Date.now() - 60000 && e.impact !== 'Holiday');
+  if (!data) return html`<div class="dim" style=${{ fontSize: '11px' }}>Loading…</div>`;
+  return html`<div class="nmini">${today.length ? today.map((e, i) => html`<div key=${i} class=${'nmrow' + (e.ms < Date.now() - 60000 ? ' past' : '') + (e === nextE ? ' next' : '')}><span class="tn">${nTime(e.ms)}</span><${Folder} c=${IMPACT_C[e.impact]} s=${12}/><b>${e.country}</b><span class="nmt">${e.title}</span></div>`)
+    : html`<div class="dim" style=${{ fontSize: '11px' }}>No major news today.${nextE ? ' Next: ' + nextE.country + ' ' + nextE.title + ' ' + nIn(nextE.ms) + '.' : ''}</div>`}</div>`;
+}
+
 /* ================= Compound · shell ================= */
 const VIEWS = [
   ['dashboard', 'Dashboard', 'grid'], ['journal', 'Journal', 'book'], ['showcase', 'Showcase', 'star'], ['strategy', 'Strategy', 'target'], ['study', 'Study', 'column'],
@@ -3725,6 +3814,7 @@ function Rail({ C }) {
     <${Sec} id="check" title="Checklist" right=${html`<span class="row" style=${{ gap: '4px' }}><span class="dim tn" style=${{ fontSize: '10.5px' }}>${done}/${st.checklist.length}</span><button class="ib" style=${{ width: '24px', height: '24px' }} onClick=${() => UI.open('settings', { tab: 'journal' })} aria-label="Edit checklist"><${I} n="edit" s=${12}/></button></span>`}>
       ${st.checklist.map((c, i) => html`<button key=${i} class=${'chk' + (checks[i] ? ' on' : '')} onClick=${() => store.put('days', { ...day, id: k, checks: { ...checks, [i]: !checks[i] } })}><span class="bx">${checks[i] && html`<${I} n="check" w=${3}/>`}</span><span>${c}</span></button>`)}
       ${done === st.checklist.length && st.checklist.length > 0 && html`<div class="chip pos" style=${{ marginTop: '6px' }}>Cleared to trade</div>`}<//>
+    <${Sec} id="news" title="News today" right=${html`<button class="lnk" onClick=${() => C.go('dashboard')}>All</button>`}><${NewsMini}/><//>
     <${Sec} id="sess" title="Session" right=${sess?.start && !sess.end ? html`<span class="chip pos tn">● ${fmtDur(elapsed)}</span>` : null}>
       <div class="row" style=${{ alignItems: 'baseline' }}><span class="tn" style=${{ fontSize: '23px', fontWeight: 800, letterSpacing: '-.03em' }}>${sess?.start ? fmtDur(elapsed) : '—'}</span><span class="sp"></span>
         ${!sess?.start || sess.end ? html`<button class="btn btn-g xs" onClick=${() => store.put('days', { ...day, id: k, session: { start: Date.now() } })}><${I} n="play" s=${12}/>${sess?.end ? 'Restart' : 'Start'}</button>` : html`<button class="btn btn-g xs" onClick=${() => store.put('days', { ...day, id: k, session: { ...sess, end: Date.now() } })}><${I} n="stop" s=${12}/>End</button>`}</div>
