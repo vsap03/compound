@@ -3136,6 +3136,120 @@ function AcctTrades({ a, ts, S }) {
     ${shown.length ? html`<div class="card" style=${{ padding: 0 }}><${TradeTable} ts=${shown} S=${S} showAcct=${false}/></div>` : html`<div class="card dim" style=${{ textAlign: 'center', fontSize: '11.5px' }}>No trades in this month.</div>`}`;
 }
 
+/* ================= Liquid card: the shared look for trade cards and certificates =================
+   Soft grey (or graphite) card, a cut-out Porsche 918 as the centre object, a thin white price line with
+   Entry / Exit pills, a huge white headline number, a centred key/value list and a "Compound × you" footer. */
+let _carCut = null;
+const carCut = () => _carCut || (_carCut = loadImg('car-cut.webp'));
+const LOOKS = [
+  { n: 'Silver', bg: ['#C6C6C8', '#AFAFB2'], flip: false, z: 1 },
+  { n: 'Graphite', bg: ['#2C2C30', '#141416'], flip: true, z: 1.05, dark: true },
+  { n: 'Stone', bg: ['#C3BEB6', '#A9A39A'], flip: true, z: .96 },
+  { n: 'Steel', bg: ['#B9C0C8', '#9EA7B2'], flip: false, z: 1.08 },
+  { n: 'Onyx', bg: ['#151517', '#060607'], flip: false, z: 1, dark: true },
+  { n: 'Ash', bg: ['#B5B5B7', '#98989B'], flip: true, z: 1.02 },
+];
+const INSTR_C = { NQ: '#1C9BE0', ES: '#E5484D', YM: '#7C5CFF', RTY: '#F2994A', GC: '#D4A017', CL: '#2E2E2E', DAX: '#111', SI: '#9CA3AF' };
+
+async function drawLiquidCard(cv, o) {
+  try { await Promise.all([document.fonts?.load?.('900 100px Satoshi'), document.fonts?.load?.('500 20px "Geist Mono"')].filter(Boolean)) } catch (e) { }
+  const carImg = o.photo ? await loadImg(o.photo) : await carCut();
+  /* everything below is synchronous, so overlapping redraws can't interleave */
+  const story = o.fmt === 'story'; const W = 1080, H = story ? 1920 : 1080; cv.width = W; cv.height = H;
+  const g = cv.getContext('2d'); const look = o.look || LOOKS[0]; const cx = W / 2;
+  const SANS = 'Satoshi, -apple-system, Segoe UI, sans-serif', MONO = '"Geist Mono", ui-monospace, Menlo, monospace';
+  const rr = (x, y, w, h, r) => { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath() };
+  g.clearRect(0, 0, W, H); g.save(); rr(0, 0, W, H, story ? 72 : 64); g.clip();
+  // backdrop
+  let gr = g.createLinearGradient(0, 0, 0, H); gr.addColorStop(0, look.bg[0]); gr.addColorStop(1, look.bg[1]); g.fillStyle = gr; g.fillRect(0, 0, W, H);
+  gr = g.createRadialGradient(cx, H * .28, 0, cx, H * .28, W * .8); gr.addColorStop(0, look.dark ? 'rgba(255,255,255,.09)' : 'rgba(255,255,255,.28)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, W, H);
+  gr = g.createRadialGradient(cx, H * .5, W * .45, cx, H * .5, W * .95); gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(1, look.dark ? 'rgba(0,0,0,.45)' : 'rgba(0,0,0,.12)'); g.fillStyle = gr; g.fillRect(0, 0, W, H);
+  const white = '#FFFFFF', mut = look.dark ? 'rgba(255,255,255,.5)' : 'rgba(255,255,255,.72)';
+  const soft = (blur = 18, a = .16) => { g.shadowColor = `rgba(0,0,0,${look.dark ? a * 2 : a})`; g.shadowBlur = blur; g.shadowOffsetY = 2 };
+  const noShadow = () => { g.shadowColor = 'transparent'; g.shadowBlur = 0; g.shadowOffsetY = 0 };
+  g.textBaseline = 'alphabetic';
+  // layout
+  const Lh = story ? { head: 340, cTop: 500, cBot: 900, carW: 1000, carB: 1250, big: 1290, rows: 1420, step: 70, foot: 1775 } : { head: 128, cTop: 220, cBot: 450, carW: 720, carB: 650, big: 660, rows: 742, step: 50, foot: 985 };
+  if (!o.chart) { Lh.carB -= story ? 90 : 60; Lh.carW *= 1.1 }
+  // header: icon + title + sub, centred as a group
+  {
+    const is = story ? 72 : 60; g.font = `800 ${story ? 54 : 46}px ${SANS}`; const tw = g.measureText(o.title).width;
+    const sub = o.sub || ''; g.font = `600 ${story ? 25 : 21}px ${SANS}`; try { g.letterSpacing = '2px' } catch (e) { } const sw = o.sub ? g.measureText(sub).width + 22 : 0; try { g.letterSpacing = '0px' } catch (e) { }
+    const total = is + 22 + tw + sw; let x = cx - total / 2; const y = Lh.head;
+    g.save(); soft(14, .12);
+    if (o.icon?.img) { rr(x, y - is / 2 - 14, is, is, o.icon.round ? is / 2 : is * .28); g.save(); g.clip(); g.drawImage(o.icon.img, x, y - is / 2 - 14, is, is); g.restore() }
+    else { const ic = o.icon || {}; if (ic.round) { g.beginPath(); g.arc(x + is / 2, y - 14, is / 2, 0, Math.PI * 2) } else rr(x, y - is / 2 - 14, is, is, is * .28); const lg = g.createLinearGradient(x, y - is, x + is, y); lg.addColorStop(0, ic.c?.[0] || '#1C9BE0'); lg.addColorStop(1, ic.c?.[1] || ic.c?.[0] || '#1C9BE0'); g.fillStyle = lg; g.fill(); noShadow();
+      if (ic.glyph === 'chart') { const a = x + is * .27, b = x + is * .73, yy = y - 14; g.strokeStyle = '#fff'; g.lineWidth = is * .09; g.lineCap = 'round'; g.lineJoin = 'round'; g.beginPath(); g.moveTo(a, yy + is * .16); g.lineTo(a + is * .14, yy - is * .14); g.lineTo(a + is * .26, yy + is * .1); g.lineTo(b, yy - is * .18); g.stroke() }
+      else { g.fillStyle = '#fff'; g.textAlign = 'center'; g.font = `800 ${is * (String(ic.text || '').length > 1 ? .36 : .5)}px ${SANS}`; g.fillText(ic.text || '', x + is / 2, y - 14 + is * .17); g.textAlign = 'left' } }
+    g.restore(); x += is + 22;
+    g.save(); soft(16, .14); g.fillStyle = white; g.font = `800 ${story ? 54 : 46}px ${SANS}`; g.fillText(o.title, x, y); x += tw + 22;
+    if (o.sub) { g.font = `600 ${story ? 25 : 21}px ${SANS}`; try { g.letterSpacing = '2px' } catch (e) { } g.fillStyle = mut; g.fillText(sub, x, y - (story ? 7 : 6)); try { g.letterSpacing = '0px' } catch (e) { } } g.restore();
+  }
+  // centre object: the cut-out car (or the trader's own photo, faded in)
+  {
+    const car = carImg;
+    if (car) {
+      const w = Lh.carW * (look.z || 1); const h = car.height * (w / car.width); const x = cx - w / 2, y = Lh.carB - h;
+      // contact shadow
+      const sg = g.createRadialGradient(cx, Lh.carB - h * .04, 0, cx, Lh.carB - h * .04, w * .55); sg.addColorStop(0, look.dark ? 'rgba(0,0,0,.6)' : 'rgba(0,0,0,.32)'); sg.addColorStop(1, 'rgba(0,0,0,0)');
+      g.save(); g.translate(0, Lh.carB - h * .04); g.scale(1, .12); g.translate(0, -(Lh.carB - h * .04)); g.fillStyle = sg; g.fillRect(0, Lh.carB - h * .04 - w * .55, W, w * 1.1); g.restore();
+      g.save();
+      if (o.photo) { const off = document.createElement('canvas'); const s = Math.max(w / car.width, (w * .75) / car.height); off.width = w; off.height = w * .75; const og = off.getContext('2d'); og.drawImage(car, (w - car.width * s) / 2, (w * .75 - car.height * s) / 2, car.width * s, car.height * s); og.globalCompositeOperation = 'saturation'; og.fillStyle = '#808080'; og.fillRect(0, 0, off.width, off.height); og.globalCompositeOperation = 'destination-in'; const m = og.createRadialGradient(w / 2, w * .375, w * .15, w / 2, w * .375, w * .5); m.addColorStop(0, '#000'); m.addColorStop(1, 'rgba(0,0,0,0)'); og.fillStyle = m; og.fillRect(0, 0, off.width, off.height); g.drawImage(off, x, Lh.carB - w * .75) }
+      else { if (look.flip) { g.translate(cx * 2, 0); g.scale(-1, 1) } g.drawImage(car, x, y, w, h) }
+      g.restore();
+    }
+  }
+  // price line with Entry / Exit pills
+  if (o.chart) {
+    const c = o.chart; const x0 = story ? 130 : 200, x1 = W - x0, y0 = Lh.cTop, y1 = Lh.cBot;
+    const pts = c.ser; const xs = pts.map(p => p.x), ys = pts.map(p => p.y);
+    const lo = Math.min(...ys, c.ent ?? Infinity, c.ex ?? Infinity), hi = Math.max(...ys, c.ent ?? -Infinity, c.ex ?? -Infinity); const pad = (hi - lo || 1) * .1;
+    const X = x => x0 + (x - xs[0]) / ((xs[xs.length - 1] - xs[0]) || 1) * (x1 - x0), Y = v => y1 - (v - lo + pad) / ((hi - lo) + 2 * pad) * (y1 - y0);
+    g.save(); soft(12, .14); g.strokeStyle = white; g.lineWidth = story ? 5 : 4; g.lineJoin = 'round'; g.lineCap = 'round'; g.beginPath();
+    if (c.smooth) { g.moveTo(X(pts[0].x), Y(pts[0].y)); for (let i = 1; i < pts.length; i++) { const p = pts[i - 1], q = pts[i]; const mx = (X(p.x) + X(q.x)) / 2; g.bezierCurveTo(mx, Y(p.y), mx, Y(q.y), X(q.x), Y(q.y)) } }
+    else pts.forEach((p, i) => i ? g.lineTo(X(p.x), Y(p.y)) : g.moveTo(X(p.x), Y(p.y)));
+    g.stroke(); g.restore();
+    const pill = (px, py, txt, up) => { g.font = `700 ${story ? 30 : 25}px ${SANS}`; const tw = g.measureText(txt).width + (story ? 40 : 34), th = story ? 54 : 46; let bx = Math.min(Math.max(px - tw / 2, 24), W - 24 - tw); const by = up ? py - th - 22 : py + 22;
+      g.save(); soft(16, .18); rr(bx, by, tw, th, 14); g.fillStyle = '#fff'; g.fill(); noShadow(); g.beginPath(); const tx = Math.min(Math.max(px, bx + 18), bx + tw - 18); if (up) { g.moveTo(tx - 10, by + th - 1); g.lineTo(tx, by + th + 11); g.lineTo(tx + 10, by + th - 1) } else { g.moveTo(tx - 10, by + 1); g.lineTo(tx, by - 11); g.lineTo(tx + 10, by + 1) } g.fill();
+      g.fillStyle = '#111'; g.textAlign = 'center'; g.fillText(txt, bx + tw / 2, by + th * .68); g.textAlign = 'left'; g.restore() };
+    if (c.ent != null && c.ex != null) { const ey = Y(c.ent), xy = Y(c.ex); const exUp = xy <= ey; pill(X(c.t0), ey, 'Entry', !exUp); pill(X(c.t1), xy, 'Exit', exUp) }
+  } else if (o.kicker) {
+    g.save(); soft(10, .1); g.font = `600 ${story ? 25 : 21}px ${SANS}`; try { g.letterSpacing = '5px' } catch (e) { } g.fillStyle = mut; g.textAlign = 'center'; g.fillText(o.kicker, cx, Lh.cTop + (story ? 40 : 10)); try { g.letterSpacing = '0px' } catch (e) { } g.restore();
+  }
+  // headline number
+  {
+    let fs = story ? 196 : 172; g.font = `900 ${fs}px ${SANS}`; while (g.measureText(o.big).width > W - 120 && fs > 80) { fs -= 6; g.font = `900 ${fs}px ${SANS}` }
+    g.save(); g.textAlign = 'center'; soft(40, .22); g.fillStyle = 'rgba(255,255,255,.94)'; g.fillText(o.big, cx, Lh.big); g.restore();
+    g.textAlign = 'left';
+  }
+  // key / value list
+  {
+    const rows = o.rows.filter(r => r[1] != null && r[1] !== ''); const lf = `500 ${story ? 34 : 28}px ${SANS}`, vf = `700 ${story ? 36 : 30}px ${SANS}`;
+    g.font = lf; const lw = Math.max(...rows.map(r => g.measureText(r[0]).width)); g.font = vf; const vw = Math.max(...rows.map(r => g.measureText(String(r[1])).width));
+    const gap = story ? 70 : 60; const x = cx - (lw + gap + vw) / 2;
+    rows.forEach(([k, v], i) => { const y = Lh.rows + i * Lh.step; g.save(); soft(10, .1); g.font = lf; g.fillStyle = mut; g.fillText(k, x, y); g.font = vf; g.fillStyle = white; g.fillText(String(v), x + lw + gap, y); g.restore() });
+  }
+  // footer: Compound × you
+  {
+    const y = Lh.foot; const name = o.name || 'Trader'; const fs = story ? 34 : 29;
+    g.font = `800 ${fs}px ${SANS}`; const bw = g.measureText('Compound').width, nw = g.measureText(name).width; const lg = fs * 1.05, av = fs * 1.25, xw = fs * .9;
+    const total = lg + 12 + bw + xw + av + 12 + nw + 10 + fs * .8; let x = cx - total / 2;
+    g.save(); soft(12, .12);
+    // mark: three nested arcs
+    g.strokeStyle = white; g.lineCap = 'round'; const mx = x + lg / 2, my = y - fs * .34;
+    [[.5, 3.2], [.33, 3], [.16, 2.8]].forEach(([r, lw], i) => { g.lineWidth = lw * (story ? 1.2 : 1); g.beginPath(); g.arc(mx, my, lg * r, Math.PI * (.75 + i * .1), Math.PI * (2.35 + i * .1)); g.stroke() });
+    x += lg + 12; g.fillStyle = white; g.fillText('Compound', x, y); x += bw;
+    g.font = `500 ${fs * .7}px ${SANS}`; g.fillStyle = mut; g.textAlign = 'center'; g.fillText('×', x + xw / 2, y - 2); g.textAlign = 'left'; x += xw;
+    noShadow(); g.beginPath(); g.arc(x + av / 2, y - fs * .34, av / 2, 0, Math.PI * 2); const ag = g.createLinearGradient(x, y - av, x + av, y); ag.addColorStop(0, '#3B6EF6'); ag.addColorStop(1, '#8FB0FF'); g.fillStyle = ag; g.fill();
+    g.fillStyle = '#fff'; g.font = `800 ${av * .5}px ${SANS}`; g.textAlign = 'center'; g.fillText(name[0].toUpperCase(), x + av / 2, y - fs * .34 + av * .18); g.textAlign = 'left'; x += av + 12;
+    soft(12, .12); g.font = `800 ${fs}px ${SANS}`; g.fillStyle = white; g.fillText(name, x, y); x += nw + 10;
+    noShadow(); const br = fs * .4; g.beginPath(); g.arc(x + br, y - fs * .34, br, 0, Math.PI * 2); g.fillStyle = '#22C55E'; g.fill(); g.strokeStyle = '#fff'; g.lineWidth = story ? 3.4 : 3; g.beginPath(); g.moveTo(x + br * .55, y - fs * .34); g.lineTo(x + br * .9, y - fs * .34 + br * .35); g.lineTo(x + br * 1.5, y - fs * .34 - br * .35); g.stroke();
+    g.restore();
+    g.font = `500 ${story ? 24 : 20}px ${SANS}`; g.fillStyle = mut; g.textAlign = 'center'; g.fillText(o.foot || 'vsap03.github.io/compound', cx, y + (story ? 56 : 46)); g.textAlign = 'left';
+  }
+  g.restore();
+}
+
 /* ================= Certificates: rendered to an image (Porsche backdrop) so they can be saved and shared ================= */
 let _certBg = null;
 const certBg = () => _certBg || (_certBg = new Promise(res => { const im = new Image(); im.onload = () => res(im); im.onerror = () => res(null); im.src = 'bg-bw.jpg' }));
@@ -3150,91 +3264,19 @@ function certList(S) {
 }
 
 async function drawCert(cv, c, fmt, name) {
-  const W = fmt === 'story' ? 1080 : 1600, H = fmt === 'story' ? 1920 : 1000;
-  cv.width = W; cv.height = H; const g = cv.getContext('2d');
-  const SANS = 'Satoshi, -apple-system, Segoe UI, sans-serif', MONO = '"Geist Mono", ui-monospace, Menlo, monospace';
-  const f = firmById(c.firm); const bg = await certBg(); const logo = await loadImg(store.s.settings.firmLogos?.[c.firm]);
-  const gold = '#E9C46A', gold2 = '#B8892B', white = '#F5F5F7';
-  // backdrop: the car, cover-fit, slightly lower so the headline sits over the dark sky
-  g.fillStyle = '#000'; g.fillRect(0, 0, W, H);
-  const L = fmt !== 'story';
-  if (bg) {
-    if (L) { const s = H * 1.25 / bg.height; const dw = bg.width * s, dh = bg.height * s; const ix = W - dw + 40; g.drawImage(bg, ix, -95, dw, dh); const eg = g.createLinearGradient(ix, 0, ix + 300, 0); eg.addColorStop(0, '#000'); eg.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = eg; g.fillRect(ix - 2, 0, 302, H); const bgr = g.createLinearGradient(0, H - 260, 0, H); bgr.addColorStop(0, 'rgba(0,0,0,0)'); bgr.addColorStop(1, 'rgba(0,0,0,.7)'); g.fillStyle = bgr; g.fillRect(0, H - 260, W, 260);
-      const hg = g.createLinearGradient(0, 0, W, 0); hg.addColorStop(0, 'rgba(0,0,0,1)'); hg.addColorStop(.36, 'rgba(0,0,0,.92)'); hg.addColorStop(.52, 'rgba(0,0,0,.25)'); hg.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = hg; g.fillRect(0, 0, W, H) }
-    else { const s = Math.max(W / bg.width, H / bg.height); const dw = bg.width * s, dh = bg.height * s; g.drawImage(bg, (W - dw) / 2, (H - dh) * .55, dw, dh) }
-  }
-  let gr = g.createLinearGradient(0, 0, 0, H); gr.addColorStop(0, 'rgba(0,0,0,.72)'); gr.addColorStop(.42, 'rgba(0,0,0,.15)'); gr.addColorStop(.7, 'rgba(0,0,0,.2)'); gr.addColorStop(1, 'rgba(0,0,0,.88)'); g.fillStyle = gr; g.fillRect(0, 0, W, H);
-  gr = g.createRadialGradient(W / 2, H * .5, Math.min(W, H) * .3, W / 2, H * .5, Math.max(W, H) * .75); gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(1, 'rgba(0,0,0,.6)'); g.fillStyle = gr; g.fillRect(0, 0, W, H);
-  // double gold frame
-  const rr = (x, y, w, h, r) => { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath() };
-  const m = fmt === 'story' ? 48 : 40;
-  const fg = g.createLinearGradient(0, 0, W, H); fg.addColorStop(0, gold); fg.addColorStop(.5, '#FFF1C9'); fg.addColorStop(1, gold2);
-  g.strokeStyle = fg; g.lineWidth = 3; rr(m, m, W - 2 * m, H - 2 * m, 26); g.stroke();
-  g.globalAlpha = .45; g.lineWidth = 1; rr(m + 12, m + 12, W - 2 * m - 24, H - 2 * m - 24, 18); g.stroke(); g.globalAlpha = 1;
-  // corner ornaments
-  g.fillStyle = gold; [[m + 12, m + 12], [W - m - 12, m + 12], [m + 12, H - m - 12], [W - m - 12, H - m - 12]].forEach(([x, y]) => { g.save(); g.translate(x, y); g.rotate(Math.PI / 4); g.fillRect(-5, -5, 10, 10); g.restore() });
-  g.textBaseline = 'alphabetic';
-  const spacedL = (t, x, y, font, color, sp, center) => { g.font = font; g.fillStyle = color; const chars = [...t]; const w = chars.reduce((q, ch) => q + g.measureText(ch).width, 0) + sp * (chars.length - 1); let px = center ? x - w / 2 : x; g.textAlign = 'left'; for (const ch of chars) { g.fillText(ch, px, y); px += g.measureText(ch).width + sp } };
-  const cx = W / 2; const S = L ? 1 : 1.05;
-  if (L) {
-    const x0 = m + 80;
-    spacedL('COMPOUND', x0, 160, `600 22px ${MONO}`, 'rgba(245,245,247,.75)', 10);
-    spacedL(c.k === 'pay' ? 'CERTIFICATE OF PAYOUT' : 'CERTIFICATE OF ACHIEVEMENT', x0, 214, `500 19px ${MONO}`, gold, 7);
-    g.textAlign = 'left'; g.font = `800 56px ${SANS}`; g.fillStyle = white; g.fillText(c.k === 'pay' ? 'Payout received' : 'Evaluation passed', x0, 296);
-    const amt = money(c.amount, { dec: 0, show: true }); let fs = 168; g.font = `900 ${fs}px ${SANS}`; while (g.measureText(amt).width > 640 && fs > 90) { fs -= 6; g.font = `900 ${fs}px ${SANS}` }
-    const ay = 486; const ag = g.createLinearGradient(0, ay - fs * .8, 0, ay); ag.addColorStop(0, '#FFF6DA'); ag.addColorStop(.5, gold); ag.addColorStop(1, gold2);
-    g.save(); g.shadowColor = 'rgba(0,0,0,.8)'; g.shadowBlur = 30; g.shadowOffsetY = 6; g.fillStyle = ag; g.fillText(amt, x0 - 6, ay); g.restore();
-    g.font = `500 21px ${MONO}`; g.fillStyle = 'rgba(245,245,247,.7)'; g.fillText(c.k === 'pay' ? 'WITHDRAWN FROM A FUNDED ACCOUNT' : 'ACCOUNT SIZE · CHALLENGE COMPLETE', x0, ay + 50);
-    g.font = `500 20px ${MONO}`; g.fillStyle = 'rgba(245,245,247,.6)'; g.fillText('AWARDED TO', x0, 640);
-    g.font = `800 56px ${SANS}`; g.fillStyle = white; g.fillText(name, x0, 702);
-  } else {
-  g.textAlign = 'center';
-  const spaced = (t, x, y, font, color, sp) => { g.font = font; g.fillStyle = color; const chars = [...t]; const w = chars.reduce((a, ch) => a + g.measureText(ch).width, 0) + sp * (chars.length - 1); let px = x - w / 2; g.textAlign = 'left'; for (const ch of chars) { g.fillText(ch, px, y); px += g.measureText(ch).width + sp } g.textAlign = 'center' };
-  const top = fmt === 'story' ? 210 : 140;
-  spaced('COMPOUND', cx, top, `600 ${22 * S}px ${MONO}`, 'rgba(245,245,247,.75)', 10);
-  spaced(c.k === 'pay' ? 'CERTIFICATE OF PAYOUT' : 'CERTIFICATE OF ACHIEVEMENT', cx, top + 62 * S, `500 ${20 * S}px ${MONO}`, gold, 8);
-  g.font = `800 ${(fmt === 'story' ? 62 : 58)}px ${SANS}`; g.fillStyle = white; g.fillText(c.k === 'pay' ? 'Payout received' : 'Evaluation passed', cx, top + 150 * S);
-  // amount: gold gradient, the hero
-  const amt = money(c.amount, { dec: 0, show: true });
-  const ay = fmt === 'story' ? 1180 : 700;
-  g.font = `900 ${fmt === 'story' ? 210 : 190}px ${SANS}`; const ag = g.createLinearGradient(0, ay - 170, 0, ay); ag.addColorStop(0, '#FFF6DA'); ag.addColorStop(.5, gold); ag.addColorStop(1, gold2);
-  g.save(); g.shadowColor = 'rgba(0,0,0,.75)'; g.shadowBlur = 40; g.shadowOffsetY = 8; g.fillStyle = ag; g.fillText(amt, cx, ay); g.restore();
-  g.font = `500 ${24 * S}px ${MONO}`; g.fillStyle = 'rgba(245,245,247,.7)'; g.fillText(c.k === 'pay' ? 'WITHDRAWN FROM A FUNDED ACCOUNT' : 'ACCOUNT SIZE · CHALLENGE COMPLETE', cx, ay + 58 * S);
-  // awarded to
-  const ny = fmt === 'story' ? 1420 : 812;
-  g.font = `500 ${22 * S}px ${MONO}`; g.fillStyle = 'rgba(245,245,247,.6)'; g.fillText('AWARDED TO', cx, ny);
-  g.font = `800 ${(fmt === 'story' ? 64 : 52)}px ${SANS}`; g.fillStyle = white; g.fillText(name, cx, ny + 62 * S);
-  }
-  // footer: firm badge left, date right, seal centre
-  const fy = H - m - (fmt === 'story' ? 120 : 70);
-  const bs = fmt === 'story' ? 76 : 64; const bx = m + 50, byy = fy - bs / 2;
-  g.save(); rr(bx, byy, bs, bs, bs * .28); g.clip();
-  if (logo) g.drawImage(logo, bx, byy, bs, bs); else { const lg = g.createLinearGradient(bx, byy, bx + bs, byy + bs); lg.addColorStop(0, f.c[0]); lg.addColorStop(1, f.c[1]); g.fillStyle = lg; g.fillRect(bx, byy, bs, bs); g.fillStyle = '#fff'; g.font = `800 ${bs * (f.mono.length > 1 ? .36 : .5)}px ${SANS}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(f.mono, bx + bs / 2, byy + bs / 2 + 2); g.textBaseline = 'alphabetic' }
-  g.restore();
-  g.textAlign = 'left'; g.font = `700 ${26 * S}px ${SANS}`; g.fillStyle = white; g.fillText(f.name, bx + bs + 20, fy - 4);
-  g.font = `500 ${17 * S}px ${MONO}`; g.fillStyle = 'rgba(245,245,247,.6)'; g.fillText([c.plan, c.label].filter(Boolean).join(' · ').toUpperCase().slice(0, 42), bx + bs + 20, fy + 26 * S);
-  g.textAlign = 'right'; const dt = parseDay(c.d);
-  g.font = `500 ${17 * S}px ${MONO}`; g.fillStyle = 'rgba(245,245,247,.6)'; g.fillText('DATE', W - m - 50, fy - 4);
-  g.font = `700 ${26 * S}px ${SANS}`; g.fillStyle = white; g.fillText(dt.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }), W - m - 50, fy + 28 * S);
-  // gold seal
-  const sx = L ? W - m - 150 : cx, sy = L ? fy - 150 : fy - 150, sr = L ? 58 : 64;
-  {
-    g.save(); g.translate(sx, sy);
-    for (let i = 0; i < 24; i++) { g.rotate(Math.PI / 12); g.fillStyle = gold2; g.beginPath(); g.moveTo(0, -sr - 10); g.lineTo(9, -sr + 4); g.lineTo(-9, -sr + 4); g.closePath(); g.fill() }
-    const sg = g.createRadialGradient(-sr * .3, -sr * .3, 4, 0, 0, sr); sg.addColorStop(0, '#FFF1C9'); sg.addColorStop(.6, gold); sg.addColorStop(1, gold2);
-    g.fillStyle = sg; g.beginPath(); g.arc(0, 0, sr, 0, Math.PI * 2); g.fill();
-    g.strokeStyle = 'rgba(80,55,10,.5)'; g.lineWidth = 2; g.beginPath(); g.arc(0, 0, sr - 9, 0, Math.PI * 2); g.stroke();
-    g.fillStyle = '#4A3408'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.font = `900 ${sr * .62}px ${SANS}`; g.fillText(c.k === 'pay' ? '$' : '✓', 0, -4); g.font = `700 ${sr * .17}px ${MONO}`; g.fillText(c.k === 'pay' ? 'PAID' : 'PASSED', 0, sr * .42);
-    g.restore(); g.textBaseline = 'alphabetic';
-  }
-  // serial
-  g.textAlign = 'center'; g.font = `500 ${14 * S}px ${MONO}`; g.fillStyle = 'rgba(245,245,247,.38)';
-  g.textAlign = 'center'; g.fillText('No. ' + (c.k === 'pay' ? 'PO' : 'EV') + '-' + c.d.replace(/-/g, '') + '-' + String(Math.abs([...c.id].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) | 0, 7)) % 100000).padStart(5, '0'), cx, H - m - 22);
-  g.textAlign = 'left';
+  const f = firmById(c.firm); const logo = await loadImg(store.s.settings.firmLogos?.[c.firm]); const dt = parseDay(c.d); const pay = c.k === 'pay';
+  const look = LOOKS[([...c.id].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) | 0, 7) >>> 0) % LOOKS.length];
+  await drawLiquidCard(cv, { fmt: fmt === 'story' ? 'story' : 'square', look,
+    icon: logo ? { img: logo } : { text: f.mono, c: f.c }, title: f.name.length > 20 ? f.mono : f.name,
+    sub: ((pay ? 'PAYOUT · ' : 'PASSED · ') + dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })).toUpperCase(),
+    kicker: pay ? 'CERTIFICATE OF PAYOUT' : 'CERTIFICATE OF ACHIEVEMENT',
+    big: (pay ? '+' : '') + money(c.amount, { dec: 2, show: true }),
+    rows: [['Account', c.label || null], ['Plan', c.plan || null], [pay ? 'Paid on' : 'Passed on', dt.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })], ['Awarded to', name]],
+    name: (name || 'Trader').split(' ')[0] });
 }
 
 function CertModal({ c, onClose }) {
-  const S = useStore(); const cv = useRef(); const [fmt, setFmt] = useState(() => LS.get('compound.certfmt', innerWidth < 760 ? 'story' : 'landscape')); const [busy, setBusy] = useState(false);
+  const S = useStore(); const cv = useRef(); const [fmt, setFmt] = useState(() => (v => v === 'landscape' ? 'square' : v)(LS.get('compound.certfmt', innerWidth < 760 ? 'story' : 'square'))); const [busy, setBusy] = useState(false);
   const name = S.settings.name || 'Trader';
   useEffect(() => { let live = true; const go = () => live && cv.current && drawCert(cv.current, c, fmt, name); Promise.all([document.fonts?.load?.('900 100px Satoshi'), document.fonts?.load?.('500 20px "Geist Mono"')].filter(Boolean)).then(go, go); go(); return () => { live = false } }, [c.id, fmt, name]);
   const blob = () => new Promise(r => cv.current.toBlob(r, 'image/png'));
@@ -3242,7 +3284,7 @@ function CertModal({ c, onClose }) {
   const download = async b => { b = b || await blob(); const dl = store.caps.downloads || fileDownloads; try { await dl.save({ filename: fname(), data: b }); toast('Certificate saved') } catch (e) { toast('Could not save the image here') } };
   const share = async () => { setBusy(true); try { const b = await blob(); const file = new File([b], fname(), { type: 'image/png' }); if (navigator.canShare && navigator.canShare({ files: [file] })) await navigator.share({ files: [file], title: c.k === 'pay' ? 'Payout certificate' : 'Evaluation passed' }); else await download(b) } catch (e) { if (e?.name !== 'AbortError') toast('Sharing was not available. Try Save.') } setBusy(false) };
   const copy = async () => { try { const b = await blob(); await navigator.clipboard.write([new ClipboardItem({ 'image/png': b })]); toast('Certificate copied. Paste it anywhere.') } catch (e) { toast('Copy is not supported here. Use Save.') } };
-  return html`<${Modal} title=${c.k === 'pay' ? 'Payout certificate' : 'Evaluation certificate'} size="wide" icon=${html`<${I} n="cert"/>`} onClose=${onClose} foot=${html`<${Seg} sm v=${fmt} set=${v => { setFmt(v); LS.set('compound.certfmt', v) }} opts=${[['landscape', 'Landscape'], ['story', 'Story']]}/><span class="sp"></span><button class="btn btn-g sm" onClick=${copy}><${I} n="copy"/>Copy</button><button class="btn btn-g sm" onClick=${() => download()}><${I} n="download"/>Save</button><button class="btn btn-w" disabled=${busy} onClick=${share}><${I} n="send"/>Share</button>`}>
+  return html`<${Modal} title=${c.k === 'pay' ? 'Payout certificate' : 'Evaluation certificate'} size="wide" icon=${html`<${I} n="cert"/>`} onClose=${onClose} foot=${html`<${Seg} sm v=${fmt} set=${v => { setFmt(v); LS.set('compound.certfmt', v) }} opts=${[['square', 'Card'], ['story', 'Story']]}/><span class="sp"></span><button class="btn btn-g sm" onClick=${copy}><${I} n="copy"/>Copy</button><button class="btn btn-g sm" onClick=${() => download()}><${I} n="download"/>Save</button><button class="btn btn-w" disabled=${busy} onClick=${share}><${I} n="send"/>Share</button>`}>
     <div class=${'certwrap ' + fmt}><canvas ref=${cv} class="certcv" aria-label="Certificate image"></canvas></div>
   <//>`;
 }
@@ -3319,7 +3361,7 @@ const SHOTS = [
   { n: 'Door line', x: .66, y: .58, z: 2.1, grade: 'mono' },
 ];
 const hashStr = s => { let h = 7; for (const ch of String(s)) h = (h * 31 + ch.charCodeAt(0)) | 0; return Math.abs(h) };
-function shotPool(S) { const mine = Object.values(S.media || {}).filter(m => m.kind === '918' && m.url).sort((a, b) => (a.created || 0) - (b.created || 0)).map(m => ({ n: 'Your photo', src: m.url, x: .5, y: .5, z: 1, grade: 'none', mine: true, id: m.id })); return [...mine, ...SHOTS] }
+function shotPool(S) { const mine = Object.values(S.media || {}).filter(m => m.kind === '918' && m.url).sort((a, b) => (a.created || 0) - (b.created || 0)).map(m => ({ n: 'Your photo', src: m.url, x: .5, y: .5, z: 1, grade: 'none', mine: true, id: m.id })); return [...mine, ...LOOKS] }
 
 async function drawShot(g, shot, W, H) {
   const im = shot.src ? await loadImg(shot.src) : await certBg();
@@ -3337,96 +3379,27 @@ async function drawShot(g, shot, W, H) {
 }
 
 async function drawTradeCard(cv, t, S, fmt, shot, bars) {
-  const L = fmt !== 'story'; const W = L ? 1600 : 1080, H = L ? 1000 : 1920;
-  cv.width = W; cv.height = H; const g = cv.getContext('2d');
-  const SANS = 'Satoshi, -apple-system, Segoe UI, sans-serif', MONO = '"Geist Mono", ui-monospace, Menlo, monospace';
-  await drawShot(g, shot, W, H);
-  const win = t.pnl >= 0; const pos = '#35D49A', neg = '#FF5A6E', gold = '#E9C46A', white = '#F5F5F7';
-  let gr = g.createLinearGradient(0, 0, 0, H); gr.addColorStop(0, 'rgba(0,0,0,.78)'); gr.addColorStop(.35, 'rgba(0,0,0,.25)'); gr.addColorStop(.6, 'rgba(0,0,0,.35)'); gr.addColorStop(1, 'rgba(0,0,0,.92)'); g.fillStyle = gr; g.fillRect(0, 0, W, H);
-  if (L) { gr = g.createLinearGradient(0, 0, W, 0); gr.addColorStop(0, 'rgba(0,0,0,.7)'); gr.addColorStop(.55, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.fillRect(0, 0, W, H) }
-  const rr = (x, y, w, h, r) => { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath() };
-  const m = L ? 64 : 64;
-  g.textBaseline = 'alphabetic'; g.textAlign = 'left';
-  const spaced = (txt, x, y, font, color, sp) => { g.font = font; g.fillStyle = color; let px = x; for (const ch of txt) { g.fillText(ch, px, y); px += g.measureText(ch).width + sp } return px - x };
-  // header
-  spaced('COMPOUND', m, m + 26, `600 20px ${MONO}`, 'rgba(245,245,247,.8)', 9);
-  g.font = `500 18px ${MONO}`; g.fillStyle = gold; g.textAlign = 'right'; g.fillText(win ? 'WINNING TRADE' : 'TRADE RECAP', W - m, m + 26); g.textAlign = 'left';
-  // symbol + side
-  const sy = L ? 190 : 250;
-  g.font = `900 ${L ? 92 : 104}px ${SANS}`; g.fillStyle = white; g.fillText(t.symbol, m, sy); const sw = g.measureText(t.symbol).width;
-  const side = t.side === 'short' ? 'SHORT' : 'LONG'; g.font = `700 22px ${MONO}`; const pw = g.measureText(side).width + 36;
-  rr(m + sw + 24, sy - 52, pw, 44, 22); g.fillStyle = t.side === 'short' ? 'rgba(255,90,110,.2)' : 'rgba(53,212,154,.2)'; g.fill(); g.strokeStyle = t.side === 'short' ? neg : pos; g.lineWidth = 1.5; g.stroke();
-  g.fillStyle = t.side === 'short' ? neg : pos; g.fillText(side, m + sw + 42, sy - 22);
-  const dt = new Date(t.t);
-  g.font = `500 ${L ? 22 : 26}px ${MONO}`; g.fillStyle = 'rgba(245,245,247,.7)';
-  g.fillText(dt.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }).toUpperCase() + ' · ' + fmtTime(t.t) + ' · ' + sessionOf(t).toUpperCase(), m, sy + 48);
-  // P&L hero
-  const py = L ? 430 : 620; const amt = (t.pnl > 0 ? '+' : t.pnl < 0 ? '-' : '') + money(Math.abs(t.pnl), { dec: 2, show: true });
-  let fs = L ? 176 : 178; g.font = `900 ${fs}px ${SANS}`; while (g.measureText(amt).width > (L ? 820 : W - 2 * m) && fs > 80) { fs -= 6; g.font = `900 ${fs}px ${SANS}` }
-  const ag = g.createLinearGradient(0, py - fs * .8, 0, py); if (win) { ag.addColorStop(0, '#E8FFF4'); ag.addColorStop(.55, pos); ag.addColorStop(1, '#1E9E6E') } else { ag.addColorStop(0, '#FFE6EA'); ag.addColorStop(.55, neg); ag.addColorStop(1, '#C23149') }
-  g.save(); g.shadowColor = 'rgba(0,0,0,.8)'; g.shadowBlur = 36; g.shadowOffsetY = 6; g.fillStyle = ag; g.fillText(amt, m - 6, py); g.restore();
-  const r = tR(t); const sub = [r != null ? rfmt(r) : null, t.pts != null ? (t.pts > 0 ? '+' : '') + t.pts.toFixed(2) + ' pts' : null, t.grade ? 'Grade ' + t.grade : null].filter(Boolean).join('   ·   ');
-  g.font = `700 ${L ? 30 : 34}px ${SANS}`; g.fillStyle = white; g.fillText(sub, m, py + 56);
-  // glass panel with the instrument's price: entry to exit, with stop and target levels
-  const gx = m, gw = W - 2 * m, gh = L ? 250 : 420, gy = L ? H - m - gh - 120 : H - m - gh - 300;
-  rr(gx, gy, gw, gh, 28); g.fillStyle = 'rgba(14,14,18,.55)'; g.fill(); g.strokeStyle = 'rgba(255,255,255,.16)'; g.lineWidth = 1.5; g.stroke();
-  g.save(); rr(gx, gy, gw, gh, 28); g.clip(); const sh = g.createLinearGradient(0, gy, 0, gy + gh * .5); sh.addColorStop(0, 'rgba(255,255,255,.1)'); sh.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = sh; g.fillRect(gx, gy, gw, gh * .5); g.restore();
-  const ent = num(t.entry), ex = num(t.exit), stp = num(t.stop), tgt = num(t.target);
-  const t0 = tTime(t) / 1000, t1 = Math.max(t0 + 60, (tExit(t) || tTime(t)) / 1000);
-  let ser = null;
-  if (bars && bars.length && ent != null && ex != null) {
-    const dur = t1 - t0, padL = Math.max(dur * .8, 20 * 60), padR = Math.max(dur * .5, 10 * 60);
-    const win = bars.filter(b => b.time >= t0 - padL && b.time <= t1 + padR);
-    if (win.length >= 3) ser = win.map(b => ({ x: b.time, y: b.close }));
-  }
-  const xs0 = ser ? ser[0].x : t0, xs1 = ser ? ser[ser.length - 1].x : t1;
-  const lv = [ent, ex, stp, tgt, ...(ser ? ser.map(p => p.y) : [])].filter(v => v != null && isFinite(v));
-  const lo = Math.min(...lv), hi = Math.max(...lv); const padv = (hi - lo || Math.abs(ent || 1) * .001) * .12;
-  const ix = gx + 28, iw = gw - 56 - 120, iy = gy + 60, ih = gh - 92;
-  const X = x => ix + (xs1 > xs0 ? (x - xs0) / (xs1 - xs0) : .5) * iw, Y = v => iy + ih - (v - (lo - padv)) / ((hi + padv) - (lo - padv)) * ih;
-  const dec = Math.abs(ent || 0) >= 1000 ? 2 : Math.abs(ent || 0) >= 10 ? 2 : 4;
-  g.font = `500 16px ${MONO}`; g.fillStyle = 'rgba(245,245,247,.7)'; g.textAlign = 'left';
-  g.fillText((ser ? 'PRICE · ' + t.symbol : 'ENTRY → EXIT · ' + t.symbol) + ' · ' + fmtTime(t.t) + (tExit(t) ? '–' + fmtTime(new Date(tExit(t))) : ''), gx + 28, gy + 38);
-  const level = (v, col, name, dash) => { if (v == null) return; const y = Y(v); g.save(); g.setLineDash(dash ? [8, 8] : []); g.strokeStyle = col; g.globalAlpha = .75; g.lineWidth = 1.5; g.beginPath(); g.moveTo(ix, y); g.lineTo(ix + iw, y); g.stroke(); g.restore();
-    labs.push({ y, col, txt: name + ' ' + v.toFixed(dec) }) };
-  const labs = [];
-  level(tgt, pos, 'TP', true); level(stp, neg, 'SL', true); level(ent, 'rgba(245,245,247,.9)', 'IN', true);
-  const outCol = win ? pos : neg;
-  if (ex != null && Math.abs(Y(ex) - Y(ent ?? ex)) > 14) level(ex, outCol, 'OUT', false);
-  labs.sort((a, b) => a.y - b.y); for (let i = 1; i < labs.length; i++) if (labs[i].y - labs[i - 1].y < 20) labs[i].y = labs[i - 1].y + 20;
-  const over = labs.length ? labs[labs.length - 1].y - (gy + gh - 14) : 0; if (over > 0) labs.forEach(l => l.y -= over);
-  g.font = `600 14px ${MONO}`; g.textAlign = 'left'; labs.forEach(l => { g.fillStyle = l.col; g.fillText(l.txt, ix + iw + 14, l.y + 5) });
-  if (ser) {
-    g.save(); g.shadowColor = 'rgba(255,255,255,.5)'; g.shadowBlur = 10; g.beginPath(); ser.forEach((p, i) => i ? g.lineTo(X(p.x), Y(p.y)) : g.moveTo(X(p.x), Y(p.y))); g.strokeStyle = 'rgba(235,235,240,.85)'; g.lineWidth = 3; g.lineJoin = 'round'; g.stroke(); g.restore();
-    // the part of the move you held, in your result colour
-    const held = ser.filter(p => p.x >= t0 - 60 && p.x <= t1 + 60);
-    if (held.length > 1) { g.save(); g.shadowColor = outCol; g.shadowBlur = 16; g.beginPath(); held.forEach((p, i) => i ? g.lineTo(X(p.x), Y(p.y)) : g.moveTo(X(p.x), Y(p.y))); g.strokeStyle = outCol; g.lineWidth = 5; g.stroke(); g.restore() }
-  } else if (ent != null && ex != null) {
-    const fillg = g.createLinearGradient(0, Math.min(Y(ent), Y(ex)), 0, Math.max(Y(ent), Y(ex))); fillg.addColorStop(0, outCol + '55'); fillg.addColorStop(1, outCol + '10');
-    g.beginPath(); g.moveTo(X(t0), Y(ent)); g.lineTo(X(t1), Y(ex)); g.lineTo(X(t1), Y(ent)); g.closePath(); g.fillStyle = fillg; g.fill();
-    g.save(); g.shadowColor = outCol; g.shadowBlur = 18; g.beginPath(); g.moveTo(X(t0), Y(ent)); g.lineTo(X(t1), Y(ex)); g.strokeStyle = outCol; g.lineWidth = 5; g.lineCap = 'round'; g.stroke(); g.restore();
-  }
-  const dot = (x, y, col, txt, up) => { g.beginPath(); g.arc(x, y, 9, 0, Math.PI * 2); g.fillStyle = col; g.shadowColor = col; g.shadowBlur = 18; g.fill(); g.shadowBlur = 0; g.strokeStyle = 'rgba(0,0,0,.6)'; g.lineWidth = 2; g.stroke();
-    g.font = `700 13px ${MONO}`; const tw = g.measureText(txt).width + 16; const bx = Math.min(Math.max(x - tw / 2, ix), ix + iw - tw), by = up ? y - 40 : y + 16; rr(bx, by, tw, 24, 12); g.fillStyle = 'rgba(0,0,0,.65)'; g.fill(); g.fillStyle = col; g.textAlign = 'center'; g.fillText(txt, bx + tw / 2, by + 17); g.textAlign = 'left' };
-  if (ent != null) { const ey = Y(ent), xy = ex != null ? Y(ex) : ey; dot(X(t0), ey, '#F5F5F7', (t.side === 'short' ? 'SELL ' : 'BUY ') + ent.toFixed(dec), ey > xy) }
-  if (ex != null) { const ey = ent != null ? Y(ent) : Y(ex); dot(X(t1), Y(ex), outCol, 'EXIT ' + ex.toFixed(dec), Y(ex) >= ey ? false : true) }
-  // stats row
-  const unit = t.unit === 'lot' ? 'Lots' : 'Contracts';
-  const stats = [['Entry', t.entry || '—'], ['Exit', t.exit || '—'], [unit, String(t.qty)], ['Hold', fmtDur(holdMin(t))], ['Setup', (t.setups || [])[0] || (S.strategies[t.strategy]?.name) || '—']];
-  const cols = L ? 5 : 3; const cw = (W - 2 * m) / cols; const ry = L ? H - m - 40 : H - m - 210;
-  stats.forEach(([k, v], i) => { const c = i % cols, row = Math.floor(i / cols); const x = m + c * cw, y = ry + row * 110;
-    g.font = `500 16px ${MONO}`; g.fillStyle = 'rgba(245,245,247,.55)'; g.fillText(k.toUpperCase(), x, y - 34);
-    let f2 = 30; g.font = `800 ${f2}px ${SANS}`; let s2 = String(v); while (g.measureText(s2).width > cw - 20 && s2.length > 4) s2 = s2.slice(0, -2) + '…'; g.fillStyle = white; g.fillText(s2, x, y) });
-  // footer: firm + trader
-  const a = S.accounts[t.account]; const f = a ? firmById(a.firm) : null;
-  g.font = `500 16px ${MONO}`; g.fillStyle = 'rgba(245,245,247,.5)'; g.textAlign = 'right';
-  g.fillText(((S.settings.name || '').toUpperCase() + (f ? '  ·  ' + f.name.toUpperCase() : '')).trim(), W - m, m + 60);
-  g.fillText('918 · ' + (shot.n || '').toUpperCase(), W - m, H - 22); g.textAlign = 'left';
+  const ent = num(t.entry), ex = num(t.exit); const t0 = tTime(t) / 1000, t1 = Math.max(t0 + 60, (tExit(t) || tTime(t)) / 1000);
+  let ser = null, smooth = false;
+  if (bars && bars.length && ent != null && ex != null) { const dur = t1 - t0, padL = Math.max(dur * .8, 20 * 60), padR = Math.max(dur * .5, 10 * 60); const w = bars.filter(b => b.time >= t0 - padL && b.time <= t1 + padR); if (w.length >= 3) ser = w.map(b => ({ x: b.time, y: b.close })) }
+  if (!ser && ent != null && ex != null) { const d = t1 - t0; ser = [{ x: t0 - d * .45, y: ent }, { x: t0, y: ent }, { x: t1, y: ex }, { x: t1 + d * .3, y: ex }]; smooth = true }
+  const ins = instr(t.symbol); const dec = Math.abs(ent || 0) >= 10 ? 2 : 4;
+  const nf = v => v == null ? null : v.toLocaleString('en-US', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+  const r = tR(t); const q = +t.qty || 0;
+  const size = t.unit === 'lot' ? (Math.round(q * 100) / 100) + ' lot' + (q === 1 ? '' : 's') : q + ' contract' + (q === 1 ? '' : 's');
+  const look = shot && !shot.mine ? shot : LOOKS[hashStr(t.id) % LOOKS.length];
+  const big = (t.pnl > 0 ? '+' : t.pnl < 0 ? '−' : '') + money(Math.abs(t.pnl), { dec: 2, show: true });
+  const sub = ((t.side === 'short' ? 'SHORT' : 'LONG') + ' · ' + new Date(t.t).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })).toUpperCase();
+  await drawLiquidCard(cv, { fmt: fmt === 'story' ? 'story' : 'square', look, photo: shot?.mine ? shot.src : null,
+    icon: { round: true, glyph: 'chart', c: [INSTR_C[ins.fam] || '#3B6EF6'] }, title: t.symbol, sub,
+    chart: ser && ent != null && ex != null ? { ser, smooth, ent, ex, t0, t1 } : null, kicker: 'TRADE RECAP',
+    big, rows: [['Entry', nf(ent)], ['Exit', nf(ex)], ['Size', q ? size : null], ['Return', r != null ? (r >= 0 ? '+' : '−') + Math.abs(r).toFixed(2) + 'R' : t.pts != null ? (t.pts > 0 ? '+' : '') + t.pts.toFixed(2) + ' pts' : null]],
+    name: (S.settings.name || 'Trader').split(' ')[0] });
 }
 
 function TradeCardModal({ id, onClose }) {
   const S = useStore(); const raw = S.trades[id]; const cv = useRef();
-  const [fmt, setFmt] = useState(() => LS.get('compound.tcfmt', innerWidth < 760 ? 'story' : 'landscape'));
+  const [fmt, setFmt] = useState(() => (v => v === 'landscape' ? 'square' : v)(LS.get('compound.tcfmt', innerWidth < 760 ? 'story' : 'square')));
   const [off, setOff] = useState(0); const [busy, setBusy] = useState(false); const fileRef = useRef();
   const pool = shotPool(S); const t = raw ? { ...raw, ...tradeCalc(raw, S.settings) } : null; const bb = useChartFor(raw, S);
   const shot = t ? pool[(hashStr(t.id) + off) % pool.length] : null;
@@ -3439,11 +3412,11 @@ function TradeCardModal({ id, onClose }) {
   const copy = async () => { try { const b = await blob(); await navigator.clipboard.write([new ClipboardItem({ 'image/png': b })]); toast('Trade card copied') } catch (e) { toast('Copy is not supported here. Use Save.') } };
   const addPhotos = async files => { let n = 0; for (const f of [...files].slice(0, 12)) { try { const r = await saveImage(f); store.put('media', { id: r.id || uid(), kind: '918', url: r.url, created: Date.now() }); n++ } catch (e) { } } if (n) toast(`${n} photo${n > 1 ? 's' : ''} added to your 918 rotation`) };
   const mine = pool.filter(p => p.mine).length;
-  return html`<${Modal} title=${t.symbol + ' trade card'} size="wide" icon=${html`<${I} n="send"/>`} onClose=${onClose} foot=${html`<${Seg} sm v=${fmt} set=${v => { setFmt(v); LS.set('compound.tcfmt', v) }} opts=${[['landscape', 'Landscape'], ['story', 'Story']]}/><span class="sp"></span><button class="btn btn-g sm" onClick=${copy}><${I} n="copy"/>Copy</button><button class="btn btn-g sm" onClick=${() => download()}><${I} n="download"/>Save</button><button class="btn btn-w" disabled=${busy} onClick=${share}><${I} n="send"/>Share</button>`}>
+  return html`<${Modal} title=${t.symbol + ' trade card'} size="wide" icon=${html`<${I} n="send"/>`} onClose=${onClose} foot=${html`<${Seg} sm v=${fmt} set=${v => { setFmt(v); LS.set('compound.tcfmt', v) }} opts=${[['square', 'Card'], ['story', 'Story']]}/><span class="sp"></span><button class="btn btn-g sm" onClick=${copy}><${I} n="copy"/>Copy</button><button class="btn btn-g sm" onClick=${() => download()}><${I} n="download"/>Save</button><button class="btn btn-w" disabled=${busy} onClick=${share}><${I} n="send"/>Share</button>`}>
     <div class=${'certwrap ' + fmt}><canvas ref=${cv} class="certcv" aria-label="Trade card image"></canvas></div>
     <div class="row" style=${{ gap: '8px', marginTop: '12px' }}>
-      <button class="btn btn-g sm" onClick=${() => setOff(o => o + 1)}><${I} n="refresh" s=${14}/>Another 918 shot</button>
-      <span class="dim" style=${{ fontSize: '11px' }}>${shot.n}${shot.mine ? '' : ' · ' + SHOTS.length + ' built-in shots'}${mine ? ' · ' + mine + ' of your photos' : ''}</span>
+      <button class="btn btn-g sm" onClick=${() => setOff(o => o + 1)}><${I} n="refresh" s=${14}/>Another look</button>
+      <span class="dim" style=${{ fontSize: '11px' }}>${shot.n}${shot.mine ? '' : ' · ' + LOOKS.length + ' looks'}${mine ? ' · ' + mine + ' of your photos' : ''}</span>
       <span class="sp"></span>
       <input type="file" accept="image/*" multiple hidden ref=${fileRef} onChange=${e => { addPhotos(e.target.files); e.target.value = '' }}/>
       <button class="btn btn-t sm" onClick=${() => fileRef.current.click()}><${I} n="plus" s=${14}/>Add 918 photos</button>

@@ -1180,5 +1180,8 @@ body.rwopen .pillbar,body.rwopen .fab{display:none!important}
 .nmrow .tn{font-family:var(--mono);font-size:10.5px;color:var(--fg2)}.nmrow b{font:500 10.5px var(--mono);color:var(--mut)}
 .nmt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .nmrow.past{opacity:.42}.nmrow.next .nmt{color:#8FB0FF;font-weight:600}
+.certwrap{background:transparent!important;padding:4px 0}
+.certwrap.square .certcv{width:auto;max-width:100%;max-height:62vh;filter:drop-shadow(0 18px 40px rgba(0,0,0,.45))}
+.certwrap.story .certcv{filter:drop-shadow(0 18px 40px rgba(0,0,0,.45))}
 
 @media (min-width:761px) and (not (pointer:coarse)){body{padding-top:env(safe-area-inset-top,0px)}}
