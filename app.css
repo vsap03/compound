@@ -1183,5 +1183,7 @@ body.rwopen .pillbar,body.rwopen .fab{display:none!important}
 .certwrap{background:transparent!important;padding:4px 0}
 .certwrap.square .certcv{width:auto;max-width:100%;max-height:62vh;filter:drop-shadow(0 18px 40px rgba(0,0,0,.45))}
 .certwrap.story .certcv{filter:drop-shadow(0 18px 40px rgba(0,0,0,.45))}
+@media (min-width:1281px) and (max-width:1600px){.tab{padding:7px 6px;gap:5px;font-size:12px}.nav .wmc{margin:0 6px}}
+@media (min-width:1281px) and (max-width:1460px){.nav .tab:not(.on) span.t{display:none}.nav .tab:not(.on){padding:8px 9px}}
 
 @media (min-width:761px) and (not (pointer:coarse)){body{padding-top:env(safe-area-inset-top,0px)}}

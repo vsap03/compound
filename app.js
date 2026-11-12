@@ -694,7 +694,7 @@ const ICONS = {
   user: '<circle cx="12" cy="8.5" r="4"/><path d="M4.5 20.5c1-3.8 4-5.5 7.5-5.5s6.5 1.7 7.5 5.5"/>', cert: '<rect x="3.5" y="4.5" width="17" height="12" rx="2"/><circle cx="16" cy="16.5" r="3"/><path d="M14.5 19l-.5 2.5 2-1 2 1-.5-2.5M7 8.5h8M7 11.5h5"/>',
   brain: '<path d="M9 4.5a3 3 0 00-3 3 3 3 0 00-1.5 5.5A3 3 0 009 19.5V4.5zM15 4.5a3 3 0 013 3 3 3 0 011.5 5.5A3 3 0 0115 19.5V4.5z"/><path d="M9 4.5a3 3 0 016 0M9 19.5a3 3 0 006 0"/>',
   lock: '<rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8 10.5V8a4 4 0 018 0v2.5"/>', rotate: '<path d="M4.5 12a7.5 7.5 0 0113-5l2 2M19.5 12a7.5 7.5 0 01-13 5l-2-2M19.5 4.5v4.5H15M4.5 19.5V15H9"/>',
-  rewind: '<path d="M11.5 6.5L4.5 12l7 5.5zM19.5 6.5l-7 5.5 7 5.5z"/>', stop: '<rect x="6" y="6" width="12" height="12" rx="2"/>', layers: '<path d="M12 3.5l8.5 4.5-8.5 4.5L3.5 8z"/><path d="M3.5 12.5l8.5 4.5 8.5-4.5M3.5 16.5l8.5 4.5 8.5-4.5"/>',
+  news: '<rect x="3.5" y="5" width="14" height="14.5" rx="2"/><path d="M17.5 9h3v8.5a2 2 0 01-2 2h-1M7 9h7M7 12.5h7M7 16h4"/>', rewind: '<path d="M11.5 6.5L4.5 12l7 5.5zM19.5 6.5l-7 5.5 7 5.5z"/>', stop: '<rect x="6" y="6" width="12" height="12" rx="2"/>', layers: '<path d="M12 3.5l8.5 4.5-8.5 4.5L3.5 8z"/><path d="M3.5 12.5l8.5 4.5 8.5-4.5M3.5 16.5l8.5 4.5 8.5-4.5"/>',
 };
 const I = ({ n, s = 16, w = 1.8, c = '' }) => html`<svg class=${c} width=${s} height=${s} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width=${w} stroke-linecap="round" stroke-linejoin="round" dangerouslySetInnerHTML=${{ __html: ICONS[n] || '' }}></svg>`;
 
@@ -1562,7 +1562,6 @@ function Dashboard({ C }) {
         ${today?.plan ? html`<button class="chip on" onClick=${() => UI.open('plan', { day: todayKey() })}><${I} n="check" s=${12}/>Plan set${today.plan.bias ? ' · ' + ({ bull: 'Bullish', bear: 'Bearish', neutral: 'Neutral', wait: 'Waiting' })[today.plan.bias] : ''}</button>` : html`<button class="lnk" style=${{ fontSize: '12.5px' }} onClick=${() => UI.open('plan', { day: todayKey() })}>Start pre-market plan →</button>`}</div>
       <div class="motto">${dailyMotto()}</div></div>
 
-    <${NewsCard}/>
 
     <div class="row"><span class="lbl">Performance</span><span class="sp"></span><button class="lnk" onClick=${() => C.go('analytics')}>Full analytics →</button><button class="btn btn-t xs" onClick=${C.toggleHide}><${I} n=${UIS.hide ? 'eye' : 'eyeoff'} s=${14}/>${UIS.hide ? 'Show' : 'Hide'} P&L</button></div>
     <div class="grid g4 keep2">
@@ -3734,11 +3733,15 @@ function NewsMini() {
     : html`<div class="dim" style=${{ fontSize: '11px' }}>No major news today.${nextE ? ' Next: ' + nextE.country + ' ' + nextE.title + ' ' + nIn(nextE.ms) + '.' : ''}</div>`}</div>`;
 }
 
+function NewsPage() {
+  return html`<div class="page"><${PageHead} title="News" sub="Forex Factory calendar · red and orange folders for every currency, every USD event"/><${NewsCard}/></div>`;
+}
+
 /* ================= Compound · shell ================= */
 const VIEWS = [
   ['dashboard', 'Dashboard', 'grid'], ['journal', 'Journal', 'book'], ['showcase', 'Showcase', 'star'], ['strategy', 'Strategy', 'target'], ['study', 'Study', 'column'],
   '|',
-  ['chart', 'Chart', 'candle'], ['analytics', 'Analytics', 'bars'], ['propfirm', 'Propfirm', 'building'], ['ai', 'AI', 'spark'], ['progress', 'Progress', 'trophy'], ['rewind', 'Rewind', 'rewind'],
+  ['chart', 'Chart', 'candle'], ['analytics', 'Analytics', 'bars'], ['propfirm', 'Propfirm', 'building'], ['ai', 'AI', 'spark'], ['progress', 'Progress', 'trophy'], ['rewind', 'Rewind', 'rewind'], ['news', 'News', 'news'],
 ];
 
 function Desk({ C, onPick }) {
@@ -3787,7 +3790,7 @@ function Rail({ C }) {
     <${Sec} id="check" title="Checklist" right=${html`<span class="row" style=${{ gap: '4px' }}><span class="dim tn" style=${{ fontSize: '10.5px' }}>${done}/${st.checklist.length}</span><button class="ib" style=${{ width: '24px', height: '24px' }} onClick=${() => UI.open('settings', { tab: 'journal' })} aria-label="Edit checklist"><${I} n="edit" s=${12}/></button></span>`}>
       ${st.checklist.map((c, i) => html`<button key=${i} class=${'chk' + (checks[i] ? ' on' : '')} onClick=${() => store.put('days', { ...day, id: k, checks: { ...checks, [i]: !checks[i] } })}><span class="bx">${checks[i] && html`<${I} n="check" w=${3}/>`}</span><span>${c}</span></button>`)}
       ${done === st.checklist.length && st.checklist.length > 0 && html`<div class="chip pos" style=${{ marginTop: '6px' }}>Cleared to trade</div>`}<//>
-    <${Sec} id="news" title="News today" right=${html`<button class="lnk" onClick=${() => C.go('dashboard')}>All</button>`}><${NewsMini}/><//>
+    <${Sec} id="news" title="News today" right=${html`<button class="lnk" onClick=${() => C.go('news')}>All</button>`}><${NewsMini}/><//>
     <${Sec} id="sess" title="Session" right=${sess?.start && !sess.end ? html`<span class="chip pos tn">● ${fmtDur(elapsed)}</span>` : null}>
       <div class="row" style=${{ alignItems: 'baseline' }}><span class="tn" style=${{ fontSize: '23px', fontWeight: 800, letterSpacing: '-.03em' }}>${sess?.start ? fmtDur(elapsed) : '—'}</span><span class="sp"></span>
         ${!sess?.start || sess.end ? html`<button class="btn btn-g xs" onClick=${() => store.put('days', { ...day, id: k, session: { start: Date.now() } })}><${I} n="play" s=${12}/>${sess?.end ? 'Restart' : 'Start'}</button>` : html`<button class="btn btn-g xs" onClick=${() => store.put('days', { ...day, id: k, session: { ...sess, end: Date.now() } })}><${I} n="stop" s=${12}/>End</button>`}</div>
@@ -3833,7 +3836,7 @@ function App() {
     addEventListener('keydown', k); return () => removeEventListener('keydown', k);
   }, [modals.length, mode]);
   const scope = scopeLabel(S, F);
-  const V = { flex: Flex, dashboard: Dashboard, journal: Journal, showcase: Showcase, strategy: Strategy, study: Study, chart: ChartPage, analytics: Analytics, propfirm: Propfirm, ai: AIPage, progress: Progress, rewind: Rewind, flex: Flex }[view] || Dashboard;
+  const V = { flex: Flex, dashboard: Dashboard, journal: Journal, showcase: Showcase, strategy: Strategy, study: Study, chart: ChartPage, analytics: Analytics, propfirm: Propfirm, ai: AIPage, progress: Progress, rewind: Rewind, news: NewsPage, flex: Flex }[view] || Dashboard;
   const tabs = VIEWS.filter(v => v !== '|');
   const sync = store.mode === 'cloud' ? (store.syncErr ? ['wait', 'Reconnecting…'] : ['ok', 'Synced across devices' + (store.lastSync ? ' · ' + fmtTime(store.lastSync) : '')]) : store.mode === 'local' ? ['loc', 'This browser only · not syncing'] : ['wait', 'Connecting…'];
   const full = view === 'ai'; const wide = view === 'chart' && LIVE_OK && LS.get('compound.chartmode', 'live') === 'live';
