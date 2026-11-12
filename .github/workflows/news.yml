@@ -18,8 +18,10 @@ jobs:
           set -e
           curl -fsSL -A "Mozilla/5.0 (compatible; CompoundJournal/1.0)" https://nfs.faireconomy.media/ff_calendar_thisweek.json -o /tmp/ff.json
           jq -e 'type=="array" and length>0' /tmp/ff.json > /dev/null
+          if [ -f news.json ] && [ "$(jq -cS '.events' news.json)" = "$(jq -cS '.' /tmp/ff.json)" ]; then echo "unchanged"; echo "SKIP=1" >> $GITHUB_ENV; exit 0; fi
           jq -c '{at: (now|todate), events: .}' /tmp/ff.json > news.json
       - name: Commit if changed
+        if: env.SKIP != '1'
         run: |
           git config user.name "compound-bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
