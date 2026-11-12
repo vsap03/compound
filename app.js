@@ -694,7 +694,7 @@ const ICONS = {
   user: '<circle cx="12" cy="8.5" r="4"/><path d="M4.5 20.5c1-3.8 4-5.5 7.5-5.5s6.5 1.7 7.5 5.5"/>', cert: '<rect x="3.5" y="4.5" width="17" height="12" rx="2"/><circle cx="16" cy="16.5" r="3"/><path d="M14.5 19l-.5 2.5 2-1 2 1-.5-2.5M7 8.5h8M7 11.5h5"/>',
   brain: '<path d="M9 4.5a3 3 0 00-3 3 3 3 0 00-1.5 5.5A3 3 0 009 19.5V4.5zM15 4.5a3 3 0 013 3 3 3 0 011.5 5.5A3 3 0 0115 19.5V4.5z"/><path d="M9 4.5a3 3 0 016 0M9 19.5a3 3 0 006 0"/>',
   lock: '<rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8 10.5V8a4 4 0 018 0v2.5"/>', rotate: '<path d="M4.5 12a7.5 7.5 0 0113-5l2 2M19.5 12a7.5 7.5 0 01-13 5l-2-2M19.5 4.5v4.5H15M4.5 19.5V15H9"/>',
-  stop: '<rect x="6" y="6" width="12" height="12" rx="2"/>', layers: '<path d="M12 3.5l8.5 4.5-8.5 4.5L3.5 8z"/><path d="M3.5 12.5l8.5 4.5 8.5-4.5M3.5 16.5l8.5 4.5 8.5-4.5"/>',
+  rewind: '<path d="M11.5 6.5L4.5 12l7 5.5zM19.5 6.5l-7 5.5 7 5.5z"/>', stop: '<rect x="6" y="6" width="12" height="12" rx="2"/>', layers: '<path d="M12 3.5l8.5 4.5-8.5 4.5L3.5 8z"/><path d="M3.5 12.5l8.5 4.5 8.5-4.5M3.5 16.5l8.5 4.5 8.5-4.5"/>',
 };
 const I = ({ n, s = 16, w = 1.8, c = '' }) => html`<svg class=${c} width=${s} height=${s} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width=${w} stroke-linecap="round" stroke-linejoin="round" dangerouslySetInnerHTML=${{ __html: ICONS[n] || '' }}></svg>`;
 
@@ -1550,6 +1550,7 @@ function Dashboard({ C }) {
   const noTrades = !Object.keys(S.trades).length;
   return html`<div class="page">
     <${PageHead} title="Dashboard" sub=${fmtLong(new Date()) + ' · ' + scopeLabel(S, C.F)}><button class="btn btn-t sm" onClick=${() => UI.open('settings')}><${I} n="gear"/>Settings</button><//>
+    ${!noTrades && (() => { const d = new Date(); const lm = d.getDate() <= 7; const P = rwPeriods(d).find(p => p.id === (lm ? 'lmonth' : 'month')); return html`<button class="rwdash" onClick=${() => UI.open('rewind', { pid: P.id, F: C.F })}><span class="rwdi"><${I} n="play" s=${16}/></span><span class="col" style=${{ gap: '1px', flex: 1, minWidth: 0 }}><b>Your ${P.name} Rewind${lm ? ' is ready' : ' so far'}</b><span class="mut" style=${{ fontSize: '11.5px' }}>Your month as a story: P&L, best day, top setups, golden hour, trader type.</span></span><${I} n="right" s=${16}/></button>` })()}
     ${noTrades && html`<div class="card" style=${{ padding: '22px 24px', background: 'radial-gradient(120% 160% at 0% 0%,var(--accs),transparent 55%),var(--card)' }}>
       <h3 style=${{ fontSize: '16.5px' }}>Log your first trade</h3><div class="mut" style=${{ marginTop: '4px' }}>Your numbers, calendar, score and coach fill in from your trades. Start with one.</div>
       <div class="row" style=${{ marginTop: '16px' }}><button class="btn btn-w" onClick=${() => UI.open('trade')}>Log a trade</button><button class="btn btn-g" onClick=${() => UI.open('import')}>Import trades</button><button class="btn btn-g" onClick=${() => UI.open('account')}>Add prop account</button><button class="btn btn-t" onClick=${() => { loadSample(); toast('Sample data loaded. Remove it any time in Settings → Data.') }}>Preview with sample data</button></div></div>`}
@@ -3449,11 +3450,233 @@ function TradeCardModal({ id, onClose }) {
   <//>`;
 }
 
+/* ================= Rewind: your trading, told as a story (Spotify Wrapped style) ================= */
+const MONTHS_L = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+function rwPeriods(now = new Date()) {
+  const y = now.getFullYear(), m = now.getMonth();
+  const ws = weekStart(now); const lws = addDays(ws, -7);
+  const mo = (yy, mm) => new Date(yy, mm, 1);
+  return [
+    { id: 'week', name: 'This week', short: 'week', from: ws, to: addDays(ws, 7), prev: [lws, ws] },
+    { id: 'lweek', name: 'Last week', short: 'week', from: lws, to: ws, prev: [addDays(lws, -7), lws] },
+    { id: 'month', name: MONTHS_L[m], short: 'month', from: mo(y, m), to: mo(y, m + 1), prev: [mo(y, m - 1), mo(y, m)] },
+    { id: 'lmonth', name: MONTHS_L[(m + 11) % 12], short: 'month', from: mo(y, m - 1), to: mo(y, m), prev: [mo(y, m - 2), mo(y, m - 1)] },
+    { id: 'year', name: String(y), short: 'year', from: new Date(y, 0, 1), to: new Date(y + 1, 0, 1), prev: [new Date(y - 1, 0, 1), new Date(y, 0, 1)] },
+    { id: 'all', name: 'All time', short: 'journey', from: new Date(2000, 0, 1), to: new Date(2100, 0, 1), prev: null },
+  ];
+}
+const inP = (ms, a, b) => ms >= +a && ms < +b;
+
+function rwArchetype(s, perDay, nDays) {
+  if (s.net < 0 && s.n >= 5) return { name: 'The Apprentice', ic: 'book', line: 'Red period, real reps. Every great run starts with a stretch like this. The data is your teacher now.' };
+  if (perDay >= 5) return { name: 'The Machine Gun', ic: 'bolt', line: `${perDay.toFixed(1)} trades a day. You live in the tape. Make sure every bullet is an A setup.` };
+  if (s.wr < .45 && (s.payoff || 0) >= 2) return { name: 'The Home-Run Hitter', ic: 'trophy', line: 'You lose often and win big. Your winners pay for everything. Let them run.' };
+  if (s.wr >= .62 && (s.payoff || 0) < 1.1) return { name: 'The Scalper', ic: 'target', line: 'High hit rate, quick hands. Your edge is consistency, protect it from the one big loss.' };
+  if (perDay <= 1.6 && s.wr >= .5) return { name: 'The Sniper', ic: 'target', line: 'Few shots, well placed. Patience is your edge and it is showing.' };
+  if (s.pf >= 1.8) return { name: 'The Closer', ic: 'shield', line: `Profit factor ${s.pf === Infinity ? '∞' : s.pf.toFixed(2)}. You take what the market gives and you keep it.` };
+  return { name: 'The Grinder', ic: 'bars', line: 'Steady, showing up, compounding. Not flashy. Exactly how accounts get built.' };
+}
+
+function rewindData(S, D, P) {
+  const ts = D.ts.filter(t => t.pnl != null && inP(tTime(t), P.from, P.to));
+  const s = stats(ts); const days = byDay(ts); const dk = Object.keys(days).sort();
+  const prev = P.prev ? stats(D.ts.filter(t => t.pnl != null && inP(tTime(t), P.prev[0], P.prev[1]))) : null;
+  const dayRows = dk.map(k => ({ k, ...days[k] }));
+  const bestDay = dayRows.length ? dayRows.reduce((a, b) => b.pnl > a.pnl ? b : a) : null;
+  const worstDay = dayRows.length ? dayRows.reduce((a, b) => b.pnl < a.pnl ? b : a) : null;
+  const green = dayRows.filter(d => d.pnl > 0).length;
+  let gs = 0, mgs = 0; for (const d of dayRows) { if (d.pnl > 0) { gs++; mgs = Math.max(mgs, gs) } else gs = 0 }
+  const rank = (f, min = 1) => [...groupBy(ts, f)].map(([k, a]) => ({ k, n: a.length, v: sum(a, t => t.pnl), wr: stats(a).wr })).filter(r => r.n >= min);
+  const syms = rank(t => t.symbol).sort((a, b) => b.n - a.n);
+  const setups = rank(t => t.setups?.length ? t.setups : null).sort((a, b) => b.v - a.v);
+  const hrs = rank(t => pad(Math.floor(nyHM(t.t))) + ':00', 2).sort((a, b) => b.v - a.v);
+  const wds = rank(t => DOW[(new Date(t.t).getDay() + 6) % 7], 2).sort((a, b) => b.v - a.v);
+  const sess = rank(t => sessionOf(t), 2).sort((a, b) => b.v - a.v);
+  const sides = rank(t => t.side === 'short' ? 'Short' : 'Long');
+  // discipline
+  const allDays = Object.keys(S.days || {}).filter(k => /^\d{4}-\d\d-\d\d$/.test(k) && inP(+new Date(k + 'T12:00'), P.from, P.to));
+  const planned = allDays.filter(k => S.days[k]?.plan).length, reviewed = allDays.filter(k => S.days[k]?.review).length, sat = allDays.filter(k => S.days[k]?.noTrade).length;
+  const ruled = ts.filter(t => t.rules === true || t.rules === false); const kept = ruled.filter(t => t.rules === true).length;
+  const graded = ts.filter(t => t.grade); const aG = graded.filter(t => /^A/.test(t.grade)).length;
+  const mist = rank(t => t.mistakes?.length ? t.mistakes : null).sort((a, b) => a.v - b.v);
+  const mistCost = sum(ts.filter(t => (t.mistakes || []).length && t.pnl < 0), t => t.pnl);
+  // prop
+  const pays = Object.values(S.payouts).filter(p => p.status === 'paid' && inP(+new Date((p.d || '') + 'T12:00'), P.from, P.to));
+  const accs = Object.values(S.accounts).filter(a => a.created && inP(a.created, P.from, P.to));
+  const blownH = Object.values(S.blown || {}).filter(b => inP(+new Date((b.d || '') + 'T12:00'), P.from, P.to));
+  const spent = sum(accs, acctCost) + sum(blownH, blownCost) + sum(pays.filter(p => !p.account), p => +p.fee || 0);
+  const paid = sum(pays, p => p.amount);
+  const passed = accs.filter(a => a.status === 'passed' || a.type === 'funded').length;
+  const blownN = accs.filter(a => a.status === 'blown').length + sum(blownH, b => Math.max(1, +b.count || 1));
+  // all-time dream
+  const allPaid = sum(Object.values(S.payouts).filter(p => p.status === 'paid'), p => p.amount);
+  const allSpent = sum(Object.values(S.accounts), acctCost) + sum(Object.values(S.blown || {}), blownCost) + payoutFees(S);
+  const price = +S.settings.dreamPrice || 1800000; const spy = Math.max(0, (allPaid - allSpent) / price);
+  const perDay = dk.length ? ts.length / dk.length : 0;
+  const series = []; let eq = 0; for (const t of [...ts].sort((a, b) => tExit(a) - tExit(b))) { eq += t.pnl; series.push(eq) }
+  return { P, ts, s, prev, dayRows, bestDay, worstDay, green, mgs, syms, setups, hrs, wds, sess, sides, planned, reviewed, sat, journaled: allDays.filter(k => journaledDay(S.days[k])).length,
+    ruled: ruled.length, kept, graded: graded.length, aG, mist, mistCost, pays, paid, spent, accs, passed, blownN, spy, price, allNet: allPaid - allSpent, perDay, series, arch: rwArchetype(s, perDay, dk.length), name: (S.settings.name || 'Trader').split(' ')[0] };
+}
+
+function useCountUp(target, on, dur = 1100) {
+  const [v, setV] = useState(0);
+  useEffect(() => { if (!on) { setV(0); return } let raf, t0; const step = ts => { t0 ||= ts; const p = Math.min(1, (ts - t0) / dur); const e = 1 - Math.pow(1 - p, 3); setV(target * e); if (p < 1) raf = requestAnimationFrame(step) }; raf = requestAnimationFrame(step); return () => cancelAnimationFrame(raf) }, [target, on]);
+  return v;
+}
+function RwSpark({ pts, col }) {
+  if (pts.length < 2) return null; const W = 300, H = 90; const lo = Math.min(0, ...pts), hi = Math.max(0, ...pts); const r = hi - lo || 1;
+  const X = i => i / (pts.length - 1) * W, Y = v => H - 6 - (v - lo) / r * (H - 12);
+  const d = pts.map((v, i) => (i ? 'L' : 'M') + X(i).toFixed(1) + ' ' + Y(v).toFixed(1)).join(' ');
+  return html`<svg class="rwspark" viewBox=${`0 0 ${W} ${H}`} preserveAspectRatio="none"><defs><linearGradient id="rwg" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color=${col} stop-opacity=".45"/><stop offset="1" stop-color=${col} stop-opacity="0"/></linearGradient></defs>
+    <line x1="0" x2=${W} y1=${Y(0)} y2=${Y(0)} stroke="rgba(255,255,255,.25)" stroke-dasharray="3 5"/><path d=${d + ` L${W} ${H} L0 ${H} Z`} fill="url(#rwg)"/><path class="rwdraw" d=${d} fill="none" stroke=${col} stroke-width="3" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/></svg>`;
+}
+const rwSign = v => (v >= 0 ? '+' : '−') + money(Math.abs(v), { dec: 0 });
+const rwDay = k => new Date(k + 'T12:00').toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
+
+/* ---------- slides ---------- */
+function rwSlides(R) {
+  const { s, P } = R; const out = []; const pos = s.net >= 0;
+  const per = P.id === 'all' ? 'so far' : 'this ' + P.short; const lbl = P.id === 'all' ? 'All-time' : P.name;
+  out.push({ k: 'intro', bg: 'car', dur: 5200, render: on => html`<div class="rwc rwintro"><div class="rwk">Compound Rewind</div><h1 class="rwh">${R.name},<br/>here's your <em>${lbl}</em>.</h1><p class="rwp">${s.n} trades. Every tick, every decision. Let's run it back.</p></div>` });
+  out.push({ k: 'volume', bg: 'g1', render: on => { const n = useCountUp(s.n, on); return html`<div class="rwc"><div class="rwk">${per}</div><p class="rwp">You took</p><div class="rwbig tn">${Math.round(n)}</div><p class="rwp">trades across <b>${R.dayRows.length}</b> trading day${R.dayRows.length === 1 ? '' : 's'}.</p>
+    <div class="rwdots">${R.dayRows.slice(-60).map((d, i) => html`<i key=${d.k} style=${{ '--d': i * 18 + 'ms', background: d.pnl > 0 ? 'var(--pos)' : d.pnl < 0 ? 'var(--neg)' : 'rgba(255,255,255,.4)', opacity: .35 + Math.min(1, Math.abs(d.pnl) / (Math.abs(R.bestDay?.pnl || 1) || 1)) * .65 }}></i>`)}</div>
+    <p class="rwsm">${R.green} green day${R.green === 1 ? '' : 's'} · ${R.dayRows.length - R.green} red or flat · about ${R.perDay.toFixed(1)} trades a day</p></div>` } });
+  out.push({ k: 'net', bg: pos ? 'gpos' : 'gneg', render: on => { const v = useCountUp(s.net, on, 1500); const ch = R.prev && R.prev.n ? s.net - R.prev.net : null; return html`<div class="rwc"><div class="rwk">The bottom line</div><p class="rwp">Net P&L ${per}</p><div class=${'rwbig tn ' + (pos ? 'pos' : 'neg')}>${rwSign(v)}</div>
+    <${RwSpark} pts=${R.series} col=${pos ? '#34D399' : '#F87171'}/>
+    <div class="rwrow"><div><span>Won</span><b class="pos">${money(s.gw, { dec: 0 })}</b></div><div><span>Lost</span><b class="neg">${money(s.gl, { dec: 0 })}</b></div>${ch != null && html`<div><span>vs last ${P.short}</span><b class=${ch >= 0 ? 'pos' : 'neg'}>${rwSign(ch)}</b></div>`}</div></div>` } });
+  out.push({ k: 'edge', bg: 'g2', render: on => { const wr = useCountUp(s.wr * 100, on); const C = 2 * Math.PI * 70; return html`<div class="rwc"><div class="rwk">Your edge</div>
+    <div class="rwring"><svg viewBox="0 0 160 160"><circle cx="80" cy="80" r="70" stroke="rgba(255,255,255,.12)" stroke-width="12" fill="none"/><circle cx="80" cy="80" r="70" stroke="var(--acc)" stroke-width="12" fill="none" stroke-linecap="round" stroke-dasharray=${C} stroke-dashoffset=${C * (1 - wr / 100)} transform="rotate(-90 80 80)"/></svg><div><b class="tn">${wr.toFixed(0)}%</b><span>win rate</span></div></div>
+    <p class="rwp">${s.w} wins, ${s.l} losses${s.be ? ', ' + s.be + ' scratch' : ''}.</p>
+    <div class="rwrow"><div><span>Profit factor</span><b>${s.pf === Infinity ? '∞' : s.pf.toFixed(2)}</b></div><div><span>Avg win</span><b class="pos">${money(s.avgW, { dec: 0 })}</b></div><div><span>Avg loss</span><b class="neg">${money(s.avgL, { dec: 0 })}</b></div>${s.expR != null && html`<div><span>Avg R</span><b>${s.expR.toFixed(2)}R</b></div>`}</div></div>` } });
+  if (R.bestDay && R.bestDay.pnl > 0) out.push({ k: 'bestday', bg: 'car2', render: on => { const v = useCountUp(R.bestDay.pnl, on); return html`<div class="rwc"><div class="rwk">Your best day</div><h2 class="rwh2">${rwDay(R.bestDay.k)}</h2><div class="rwbig tn pos">${rwSign(v)}</div><p class="rwp">${R.bestDay.n} trade${R.bestDay.n === 1 ? '' : 's'}, ${R.bestDay.w} winner${R.bestDay.w === 1 ? '' : 's'}. Remember how that felt. That's the standard.</p>
+    ${R.worstDay && R.worstDay.pnl < 0 && html`<div class="rwglass"><span class="rwk">And the one to learn from</span><div class="row" style=${{ justifyContent: 'space-between' }}><span>${fmtDate(R.worstDay.k + 'T12:00')}</span><b class="neg tn">${rwSign(R.worstDay.pnl)}</b></div></div>`}</div>` } });
+  if (s.best && s.best.pnl > 0) out.push({ k: 'trade', bg: 'g3', render: on => { const t = s.best; const v = useCountUp(t.pnl, on); const r = tR(t); return html`<div class="rwc"><div class="rwk">Trade of the ${P.id === 'all' ? 'journey' : P.short}</div>
+    <div class="rwtrade"><div class="rwsym">${t.symbol}</div><span class=${'rwside ' + (t.side === 'short' ? 'neg' : 'pos')}>${t.side === 'short' ? 'SHORT' : 'LONG'}</span></div>
+    <div class="rwbig tn pos">${rwSign(v)}</div>
+    <div class="rwrow"><div><span>Date</span><b>${fmtDate(t.t)}</b></div>${r != null && html`<div><span>R</span><b>${r.toFixed(1)}R</b></div>`}<div><span>Size</span><b>${qtyFmt(t)}</b></div>${(t.setups || [])[0] && html`<div><span>Setup</span><b>${t.setups[0]}</b></div>`}</div>
+    <button class="rwbtn" onClick=${e => { e.stopPropagation(); UI.open('tcard', { id: t.id }) }}><${I} n="send" s=${14}/>Make it a trade card</button></div>` } });
+  if (R.syms.length) out.push({ k: 'syms', bg: 'g4', render: on => html`<div class="rwc"><div class="rwk">Your top instruments</div><h2 class="rwh2">You couldn't stop trading <em>${R.syms[0].k}</em>.</h2>
+    <ol class="rwlist">${R.syms.slice(0, 5).map((x, i) => html`<li key=${x.k} style=${{ '--d': 200 + i * 140 + 'ms' }}><span class="rwn">${i + 1}</span><span class="rwt"><b>${x.k}</b><small>${x.n} trades · ${pct(x.wr, 0)} win rate</small></span><b class=${'tn ' + (x.v >= 0 ? 'pos' : 'neg')}>${rwSign(x.v)}</b></li>`)}</ol></div>` });
+  if (R.setups.length) out.push({ k: 'setups', bg: 'g5', render: on => html`<div class="rwc"><div class="rwk">Your top setups</div><h2 class="rwh2"><em>${R.setups[0].k}</em> was on repeat.</h2>
+    <ol class="rwlist">${R.setups.slice(0, 5).map((x, i) => html`<li key=${x.k} style=${{ '--d': 200 + i * 140 + 'ms' }}><span class="rwn">${i + 1}</span><span class="rwt"><b>${x.k}</b><small>${x.n} trades · ${pct(x.wr, 0)} win rate</small></span><b class=${'tn ' + (x.v >= 0 ? 'pos' : 'neg')}>${rwSign(x.v)}</b></li>`)}</ol>
+    ${R.setups.length > 1 && R.setups[R.setups.length - 1].v < 0 && html`<p class="rwsm">Leak: ${R.setups[R.setups.length - 1].k} cost you ${money(-R.setups[R.setups.length - 1].v, { dec: 0 })}.</p>`}</div>` });
+  if (R.hrs.length || R.wds.length) out.push({ k: 'time', bg: 'g1', render: on => html`<div class="rwc"><div class="rwk">Your golden hour</div>
+    ${R.hrs[0] && html`<div class="rwbig tn">${R.hrs[0].k}</div><p class="rwp">New York time was your hour. <b class=${R.hrs[0].v >= 0 ? 'pos' : 'neg'}>${rwSign(R.hrs[0].v)}</b> over ${R.hrs[0].n} trades.</p>`}
+    <div class="rwrow">${R.sess[0] && html`<div><span>Best session</span><b>${R.sess[0].k}</b></div>`}${R.wds[0] && html`<div><span>Best weekday</span><b>${R.wds[0].k}</b></div>`}${R.hrs.length > 1 && R.hrs[R.hrs.length - 1].v < 0 && html`<div><span>Hour to skip</span><b class="neg">${R.hrs[R.hrs.length - 1].k}</b></div>`}</div>
+    ${R.sides.length === 2 && html`<div class="rwsplit">${R.sides.sort((a, b) => a.k < b.k ? -1 : 1).map(x => html`<div key=${x.k} style=${{ flex: Math.max(1, x.n) }} class=${x.k === 'Long' ? 'l' : 's'}><b>${x.k}</b><span>${x.n} · ${rwSign(x.v)}</span></div>`)}</div>`}</div>` });
+  out.push({ k: 'streaks', bg: 'g2', render: on => { const a = useCountUp(s.mcw, on), b = useCountUp(R.mgs, on); return html`<div class="rwc"><div class="rwk">Streaks</div><h2 class="rwh2">When you were on, you were <em>on</em>.</h2>
+    <div class="rwgrid"><div class="rwglass"><span>Win streak</span><b class="tn pos">${Math.round(a)}</b><small>trades in a row</small></div><div class="rwglass"><span>Green days</span><b class="tn pos">${Math.round(b)}</b><small>days in a row</small></div><div class="rwglass"><span>Max drawdown</span><b class="tn neg">${money(s.mdd, { dec: 0 })}</b><small>peak to trough</small></div><div class="rwglass"><span>Losing streak</span><b class="tn neg">${s.mcl}</b><small>you came back from it</small></div></div></div>` } });
+  if (R.journaled || R.ruled || R.graded || R.sat) out.push({ k: 'disc', bg: 'g3', render: on => html`<div class="rwc"><div class="rwk">Discipline</div><h2 class="rwh2">The work nobody sees.</h2>
+    <div class="rwgrid">
+      <div class="rwglass"><span>Days planned</span><b class="tn">${R.planned}</b><small>${R.reviewed} reviewed</small></div>
+      <div class="rwglass"><span>Sat on hands</span><b class="tn">${R.sat}</b><small>no-trade days</small></div>
+      ${R.ruled > 0 && html`<div class="rwglass"><span>Rules kept</span><b class="tn">${pct(R.kept / R.ruled, 0)}</b><small>${R.kept} of ${R.ruled} trades</small></div>`}
+      ${R.graded > 0 && html`<div class="rwglass"><span>A-grade trades</span><b class="tn">${R.aG}</b><small>of ${R.graded} graded</small></div>`}
+    </div>${R.mist[0] && R.mist[0].v < 0 && html`<p class="rwsm">Most expensive habit: <b>${R.mist[0].k}</b>, ${money(-R.mist[0].v, { dec: 0 })} across ${R.mist[0].n} trade${R.mist[0].n === 1 ? '' : 's'}.</p>`}</div>` });
+  if (R.pays.length || R.accs.length || R.blownN || R.spent) out.push({ k: 'prop', bg: 'car3', render: on => { const v = useCountUp(R.paid, on); return html`<div class="rwc"><div class="rwk">Prop firms</div><p class="rwp">Paid out ${per}</p><div class="rwbig tn pos">${money(v, { dec: 0 })}</div>
+    <div class="rwrow"><div><span>Payouts</span><b>${R.pays.length}</b></div><div><span>Fees</span><b class="neg">${money(R.spent, { dec: 0 })}</b></div><div><span>New accounts</span><b>${R.accs.length}</b></div><div><span>Passed / blown</span><b>${R.passed} / ${R.blownN}</b></div></div></div>` } });
+  out.push({ k: 'dream', bg: 'car', render: on => { const v = useCountUp(R.spy, on, 1600); return html`<div class="rwc"><div class="rwk">The 918 fund</div><p class="rwp">All-time payouts minus everything spent</p><div class="rwbig tn">${v.toFixed(v < 1 ? 3 : 2)}</div><p class="rwp">Porsche 918 Spyders earned.</p>
+    <div class="rwbar"><i style=${{ width: Math.min(100, R.spy * 100) + '%' }}></i></div><p class="rwsm">${R.allNet >= R.price ? 'You could park one in the garage.' : money(Math.max(0, R.price - R.allNet), { dec: 0 }) + ' to go. Keep compounding.'}</p></div>` } });
+  out.push({ k: 'arch', bg: 'g5', render: on => html`<div class="rwc rwarch"><div class="rwk">Your trader type</div><div class="rwbadge"><${I} n=${R.arch.ic} s=${44}/></div><h1 class="rwh">${R.arch.name}</h1><p class="rwp">${R.arch.line}</p></div>` });
+  out.push({ k: 'sum', bg: 'car', dur: 15000, render: on => html`<${RwSummary} R=${R}/>` });
+  return out;
+}
+
+function RwSummary({ R }) {
+  const { s, P } = R; const [busy, setBusy] = useState(false);
+  const fname = () => `compound-rewind-${P.id}-${dayKey(new Date())}.png`;
+  const blob = async () => { const cv = document.createElement('canvas'); await drawRewindCard(cv, R); return await new Promise(r => cv.toBlob(r, 'image/png')) };
+  const save = async b => { b = b || await blob(); const dl = store.caps.downloads || fileDownloads; try { await dl.save({ filename: fname(), data: b }); toast('Rewind saved') } catch (e) { toast('Could not save the image here') } };
+  const share = async e => { e.stopPropagation(); setBusy(true); try { const b = await blob(); const f = new File([b], fname(), { type: 'image/png' }); if (navigator.canShare && navigator.canShare({ files: [f] })) await navigator.share({ files: [f], title: 'My Compound Rewind' }); else await save(b) } catch (er) { if (er?.name !== 'AbortError') toast('Sharing was not available. Try Save.') } setBusy(false) };
+  const lbl = P.id === 'all' ? 'All-time' : P.name;
+  const cells = [['Net P&L', rwSign(s.net), s.net >= 0 ? 'pos' : 'neg'], ['Win rate', pct(s.wr, 0)], ['Trades', s.n], ['Profit factor', s.pf === Infinity ? '∞' : s.pf.toFixed(2)], ['Best day', R.bestDay ? rwSign(R.bestDay.pnl) : '—', 'pos'], ['Top setup', R.setups[0]?.k || '—']];
+  return html`<div class="rwc rwsum"><div class="rwk">My ${lbl} Rewind</div><h2 class="rwh2" style=${{ marginBottom: '4px' }}>${R.arch.name}</h2>
+    <div class="rwsgrid">${cells.map(([k, v, c]) => html`<div key=${k}><span>${k}</span><b class=${'tn ' + (c || '')}>${v}</b></div>`)}</div>
+    ${R.syms[0] && html`<p class="rwsm">Top instrument ${R.syms[0].k} · ${R.spy.toFixed(3)} Porsche 918s earned</p>`}
+    <div class="rwacts"><button class="rwbtn w" disabled=${busy} onClick=${share}><${I} n="send" s=${14}/>${busy ? 'Preparing…' : 'Share story'}</button><button class="rwbtn" onClick=${e => { e.stopPropagation(); save() }}><${I} n="download" s=${14}/>Save</button></div></div>`;
+}
+
+async function drawRewindCard(cv, R) {
+  const W = 1080, H = 1920; cv.width = W; cv.height = H; const g = cv.getContext('2d'); const { s, P } = R;
+  const SANS = 'Satoshi, -apple-system, Segoe UI, sans-serif', MONO = '"Geist Mono", ui-monospace, Menlo, monospace';
+  try { await Promise.all([document.fonts?.load?.('900 100px Satoshi'), document.fonts?.load?.('500 20px "Geist Mono"')].filter(Boolean)) } catch (e) { }
+  await drawShot(g, SHOTS[(hashStr(P.id + P.name) % (SHOTS.length - 1)) + 1], W, H);
+  let gr = g.createLinearGradient(0, 0, 0, H); gr.addColorStop(0, 'rgba(0,0,0,.55)'); gr.addColorStop(.35, 'rgba(0,0,0,.35)'); gr.addColorStop(.6, 'rgba(0,0,0,.82)'); gr.addColorStop(1, 'rgba(0,0,0,.96)'); g.fillStyle = gr; g.fillRect(0, 0, W, H);
+  const rg = g.createRadialGradient(W * .8, H * .15, 0, W * .8, H * .15, 900); rg.addColorStop(0, 'rgba(59,110,246,.35)'); rg.addColorStop(1, 'rgba(59,110,246,0)'); g.fillStyle = rg; g.fillRect(0, 0, W, H);
+  const m = 84; const white = '#F5F5F7', mut = 'rgba(245,245,247,.6)', pos = '#34D399', neg = '#F87171';
+  g.fillStyle = white; g.font = `500 26px ${MONO}`; g.fillText('C O M P O U N D   R E W I N D', m, 150);
+  g.font = `900 108px ${SANS}`; g.fillText(P.id === 'all' ? 'All time' : P.name, m, 290);
+  g.fillStyle = mut; g.font = `500 34px ${SANS}`; g.fillText(`${R.name} · ${R.arch.name}`, m, 350);
+  // net
+  g.fillStyle = mut; g.font = `500 24px ${MONO}`; g.fillText('NET P&L', m, 900);
+  g.fillStyle = s.net >= 0 ? pos : neg; g.font = `900 170px ${SANS}`; let t = rwSign(s.net); while (g.measureText(t).width > W - 2 * m) { g.font = g.font.replace(/\d+px/, n => (parseInt(n) - 8) + 'px') } g.fillText(t, m, 1060);
+  // spark
+  const pts = R.series; if (pts.length > 1) { const lo = Math.min(0, ...pts), hi = Math.max(0, ...pts), rr = hi - lo || 1; const X = i => m + i / (pts.length - 1) * (W - 2 * m), Y = v => 1250 - (v - lo) / rr * 140; g.save(); g.shadowColor = s.net >= 0 ? pos : neg; g.shadowBlur = 20; g.beginPath(); pts.forEach((v, i) => i ? g.lineTo(X(i), Y(v)) : g.moveTo(X(i), Y(v))); g.strokeStyle = s.net >= 0 ? pos : neg; g.lineWidth = 6; g.lineJoin = 'round'; g.stroke(); g.restore() }
+  // grid
+  const cells = [['WIN RATE', pct(s.wr, 0)], ['TRADES', String(s.n)], ['PROFIT FACTOR', s.pf === Infinity ? '∞' : s.pf.toFixed(2)], ['BEST DAY', R.bestDay ? rwSign(R.bestDay.pnl) : '—'], ['TOP SETUP', R.setups[0]?.k || '—'], ['TOP INSTRUMENT', R.syms[0]?.k || '—']];
+  const cw = (W - 2 * m) / 3; cells.forEach(([k, v], i) => { const x = m + (i % 3) * cw, y = 1400 + Math.floor(i / 3) * 170; g.fillStyle = mut; g.font = `500 22px ${MONO}`; g.fillText(k, x, y); g.fillStyle = white; g.font = `800 50px ${SANS}`; let s2 = v; while (g.measureText(s2).width > cw - 24 && s2.length > 3) s2 = s2.slice(0, -2) + '…'; g.fillText(s2, x, y + 64) });
+  g.fillStyle = 'rgba(255,255,255,.18)'; g.fillRect(m, H - 170, W - 2 * m, 2);
+  g.fillStyle = mut; g.font = `500 24px ${MONO}`; g.fillText(`${R.spy.toFixed(3)} PORSCHE 918 SPYDERS EARNED`, m, H - 110);
+  g.textAlign = 'right'; g.fillStyle = white; g.font = `800 30px ${SANS}`; g.fillText('Compound', W - m, H - 108); g.textAlign = 'left';
+}
+
+/* ---------- full-screen story player ---------- */
+function RwSlide({ render }) { return render(true) }
+function RewindPlayer({ pid, F, onClose }) {
+  const S = useStore(); const D = useMemo(() => computeTrades(S, F || { mode: LS.get('compound.mode', 'live'), accounts: (LS.get('compound.accts', []) || []).filter(id => S.accounts[id]) }), [store.v]);
+  const P = rwPeriods().find(p => p.id === pid) || rwPeriods()[2];
+  const R = useMemo(() => rewindData(S, D, P), [store.v, pid]);
+  const slides = useMemo(() => rwSlides(R), [R]);
+  const [i, setI] = useState(0); const [paused, setPaused] = useState(false); const [prog, setProg] = useState(0);
+  const sl = slides[Math.min(i, slides.length - 1)]; const dur = sl.dur || 6500;
+  const next = () => setI(x => { if (x >= slides.length - 1) return x; return x + 1 }); const back = () => setI(x => Math.max(0, x - 1));
+  useEffect(() => setProg(0), [i]);
+  useEffect(() => { if (paused) return; let raf, last = performance.now(); const step = now => { const dt = now - last; last = now; setProg(p => { const np = p + dt / dur; if (np >= 1) { if (i < slides.length - 1) { setI(i + 1); return 0 } return 1 } return np }); raf = requestAnimationFrame(step) }; raf = requestAnimationFrame(step); return () => cancelAnimationFrame(raf) }, [i, paused, dur]);
+  useEffect(() => { const k = e => { if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); next() } else if (e.key === 'ArrowLeft') back(); else if (e.key === 'Escape') onClose() }; addEventListener('keydown', k); document.body.classList.add('rwopen'); return () => { removeEventListener('keydown', k); document.body.classList.remove('rwopen') } }, [slides.length]);
+  const pd = useRef(null);
+  const down = e => { if (e.target.closest('button')) return; pd.current = { x: e.clientX, y: e.clientY, t: Date.now() }; setPaused(true) };
+  const up = e => { const st = pd.current; pd.current = null; setPaused(false); if (!st) return; const dx = e.clientX - st.x, dy = e.clientY - st.y; if (dy > 110 && Math.abs(dx) < 80) return onClose(); if (Math.abs(dx) > 60) return dx < 0 ? next() : back(); if (Date.now() - st.t > 350) return; const w = e.currentTarget.getBoundingClientRect(); if (e.clientX - w.left < w.width * .3) back(); else next() };
+  if (!R.s.n) return html`<div class="rwov" onClick=${onClose}><div class="rwstage rwbg-g1"><div class="rwc"><div class="rwk">Compound Rewind</div><h1 class="rwh">Nothing to rewind yet.</h1><p class="rwp">No trades in ${P.name.toLowerCase()} for the accounts you're viewing. Log some trades or pick another period.</p><button class="rwbtn w" onClick=${onClose}>Back</button></div></div></div>`;
+  const carBg = sl.bg.startsWith('car');
+  return html`<div class="rwov" role="dialog" aria-label="Compound Rewind">
+    <div class=${'rwstage rwbg-' + sl.bg} onPointerDown=${down} onPointerUp=${up} onPointerCancel=${() => { pd.current = null; setPaused(false) }}>
+      ${carBg && html`<div class=${'rwcar ' + sl.bg} key=${'c' + i}></div>`}<div class="rwglow"></div>
+      <div class="rwbars">${slides.map((x, j) => html`<i key=${x.k}><b style=${{ width: (j < i ? 100 : j === i ? prog * 100 : 0) + '%' }}></b></i>`)}</div>
+      <div class="rwtop"><span class="rwmark"><${Mark} s=${18}/>Rewind · ${P.id === 'all' ? 'All time' : P.name}</span><span class="sp"></span><button class="rwx" onClick=${() => setPaused(p => !p)} aria-label=${paused ? 'Play' : 'Pause'}>${paused ? html`<${I} n="play" s=${16}/>` : html`<${I} n="pause" s=${16}/>`}</button><button class="rwx" onClick=${onClose} aria-label="Close"><${I} n="x" s=${16}/></button></div>
+      <div class="rwslide" key=${sl.k}><${RwSlide} key=${sl.k} render=${sl.render}/></div>
+      <div class="rwnav"><button class="rwx" onClick=${back} disabled=${!i} aria-label="Previous"><${I} n="left" s=${16}/></button><span>${i + 1} / ${slides.length}</span><button class="rwx" onClick=${next} disabled=${i >= slides.length - 1} aria-label="Next"><${I} n="right" s=${16}/></button></div>
+    </div></div>`;
+}
+
+/* ---------- Rewind page ---------- */
+function Rewind({ C }) {
+  const { S, D } = C; const ps = rwPeriods();
+  const rows = useMemo(() => ps.map(P => { const ts = D.ts.filter(t => t.pnl != null && inP(tTime(t), P.from, P.to)); return { P, n: ts.length, net: sum(ts, t => t.pnl), wr: stats(ts).wr } }), [D]);
+  const now = new Date(); const fresh = now.getDate() <= 7 ? 'lmonth' : 'month';
+  const hero = rows.find(r => r.P.id === fresh && r.n) || rows.find(r => r.n) || rows[2];
+  return html`<div class="page">
+    <${PageHead} title="Rewind" sub="Your trading, told as a story. Tap through, then share the card."/>
+    <button class="rwhero" onClick=${() => UI.open('rewind', { pid: hero.P.id, F: C.F })}>
+      <div class="rwcar car"></div><div class="rwhgrad"></div>
+      <div class="rwhin"><span class="lbl" style=${{ color: 'rgba(255,255,255,.75)' }}>Your ${hero.P.id === 'all' ? 'all-time' : hero.P.name} Rewind is ready</span>
+        <h2>${hero.P.id === 'all' ? 'All time' : hero.P.name}<em>.</em></h2>
+        <div class="row" style=${{ gap: '14px' }}><span class="tn" style=${{ fontSize: '15px', fontWeight: 700, color: hero.net >= 0 ? 'var(--pos)' : 'var(--neg)' }}>${hero.n ? rwSign(hero.net) : '—'}</span><span style=${{ color: 'rgba(255,255,255,.7)' }}>${hero.n} trades · ${pct(hero.wr, 0)} win rate</span></div>
+        <span class="rwplay"><${I} n="play" s=${16}/>Play</span></div>
+    </button>
+    <div class="rwtiles">${rows.map(({ P, n, net, wr }, j) => html`<button key=${P.id} class=${'rwtile rwbg-g' + (j % 5 + 1)} disabled=${!n} onClick=${() => UI.open('rewind', { pid: P.id, F: C.F })}>
+      <span class="lbl">${P.id === 'week' || P.id === 'lweek' ? fmtDate(P.from) + ' – ' + fmtDate(addDays(P.to, -1)) : P.id === 'all' ? 'Since day one' : P.id === 'year' ? 'Year to date' : String(P.from.getFullYear())}</span>
+      <b>${P.name}</b>
+      <span class="row" style=${{ gap: '8px', justifyContent: 'space-between', width: '100%' }}><span class=${'tn ' + (net >= 0 ? 'pos' : 'neg')} style=${{ fontWeight: 700 }}>${n ? rwSign(net) : 'No trades'}</span>${n > 0 && html`<span class="mut">${n} · ${pct(wr, 0)}</span>`}</span>
+      ${n > 0 && html`<span class="rwtplay"><${I} n="play" s=${12}/></span>`}</button>`)}</div>
+    <p class="dim" style=${{ fontSize: '11px', margin: 0 }}>Uses the accounts and live/paper mode you have selected at the top. Tap the right side to skip, left to go back, hold to pause, swipe down to close.</p>
+  </div>`;
+}
+
 /* ================= Compound · shell ================= */
 const VIEWS = [
   ['dashboard', 'Dashboard', 'grid'], ['journal', 'Journal', 'book'], ['showcase', 'Showcase', 'star'], ['strategy', 'Strategy', 'target'], ['study', 'Study', 'column'],
   '|',
-  ['chart', 'Chart', 'candle'], ['analytics', 'Analytics', 'bars'], ['propfirm', 'Propfirm', 'building'], ['ai', 'AI', 'spark'], ['progress', 'Progress', 'trophy'],
+  ['chart', 'Chart', 'candle'], ['analytics', 'Analytics', 'bars'], ['propfirm', 'Propfirm', 'building'], ['ai', 'AI', 'spark'], ['progress', 'Progress', 'trophy'], ['rewind', 'Rewind', 'rewind'],
 ];
 
 function Desk({ C, onPick }) {
@@ -3547,7 +3770,7 @@ function App() {
     addEventListener('keydown', k); return () => removeEventListener('keydown', k);
   }, [modals.length, mode]);
   const scope = scopeLabel(S, F);
-  const V = { flex: Flex, dashboard: Dashboard, journal: Journal, showcase: Showcase, strategy: Strategy, study: Study, chart: ChartPage, analytics: Analytics, propfirm: Propfirm, ai: AIPage, progress: Progress, flex: Flex }[view] || Dashboard;
+  const V = { flex: Flex, dashboard: Dashboard, journal: Journal, showcase: Showcase, strategy: Strategy, study: Study, chart: ChartPage, analytics: Analytics, propfirm: Propfirm, ai: AIPage, progress: Progress, rewind: Rewind, flex: Flex }[view] || Dashboard;
   const tabs = VIEWS.filter(v => v !== '|');
   const sync = store.mode === 'cloud' ? (store.syncErr ? ['wait', 'Reconnecting…'] : ['ok', 'Synced across devices' + (store.lastSync ? ' · ' + fmtTime(store.lastSync) : '')]) : store.mode === 'local' ? ['loc', 'This browser only · not syncing'] : ['wait', 'Connecting…'];
   const full = view === 'ai'; const wide = view === 'chart' && LIVE_OK && LS.get('compound.chartmode', 'live') === 'live';
@@ -3583,7 +3806,7 @@ function App() {
       case 'detail': return html`<${TradeDetail} ...${p}/>`; case 'account': return html`<${AccountForm} ...${p}/>`; case 'payout': return html`<${PayoutForm} ...${p}/>`;
       case 'strategy': return html`<${StrategyForm} ...${p}/>`; case 'plan': return html`<${PlanForm} ...${p}/>`; case 'review': return html`<${ReviewForm} ...${p}/>`;
       case 'import': return html`<${ImportTrades} ...${p} mode=${p.mode || mode}/>`; case 'settings': return html`<${SettingsWrap} ...${p}/>`; case 'confirm': return html`<${Confirm} ...${p}/>`;
-      case 'assign': return html`<${AssignTrades} ...${p}/>`; case 'delacct': return html`<${DeleteAccount} ...${p}/>`; case 'balance': return html`<${BalanceSync} ...${p}/>`; case 'blown': return html`<${BlownForm} ...${p}/>`; case 'acct': return html`<${AccountDetail} ...${p}/>`; case 'cert': return html`<${CertModal} ...${p}/>`; case 'tcard': return html`<${TradeCardModal} ...${p}/>`; case 'day': return html`<${DaySheet} ...${p} C=${C} days=${byDay(D.ts)}/>`; default: return null;
+      case 'assign': return html`<${AssignTrades} ...${p}/>`; case 'delacct': return html`<${DeleteAccount} ...${p}/>`; case 'balance': return html`<${BalanceSync} ...${p}/>`; case 'blown': return html`<${BlownForm} ...${p}/>`; case 'acct': return html`<${AccountDetail} ...${p}/>`; case 'rewind': return html`<${RewindPlayer} ...${p}/>`; case 'cert': return html`<${CertModal} ...${p}/>`; case 'tcard': return html`<${TradeCardModal} ...${p}/>`; case 'day': return html`<${DaySheet} ...${p} C=${C} days=${byDay(D.ts)}/>`; default: return null;
     } })}
   <${Toasts}/><${Tip}/>`;
 }
