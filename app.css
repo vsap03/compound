@@ -1185,5 +1185,10 @@ body.rwopen .pillbar,body.rwopen .fab{display:none!important}
 .certwrap.story .certcv{filter:drop-shadow(0 18px 40px rgba(0,0,0,.45))}
 @media (min-width:1281px) and (max-width:1600px){.tab{padding:7px 6px;gap:5px;font-size:12px}.nav .wmc{margin:0 6px}}
 @media (min-width:1281px) and (max-width:1460px){.nav .tab:not(.on) span.t{display:none}.nav .tab:not(.on){padding:8px 9px}}
+.fundcta{display:flex;align-items:center;gap:10px;width:100%;padding:10px 12px;border-radius:14px;border:1px solid rgba(52,211,153,.35);background:linear-gradient(110deg,rgba(52,211,153,.18),rgba(52,211,153,.04));color:var(--fg);cursor:pointer;text-align:left;animation:fundglow 2.4s ease-in-out infinite}
+.fundcta span{flex:1;display:flex;flex-direction:column}.fundcta small{font-size:11px;color:var(--mut)}.fundcta>svg:first-child{color:var(--pos)}
+@keyframes fundglow{50%{box-shadow:0 0 0 4px rgba(52,211,153,.08),0 0 24px rgba(52,211,153,.18)}}
+.fundhero{display:flex;align-items:center;gap:12px;padding:14px;border-radius:16px;background:linear-gradient(110deg,rgba(52,211,153,.14),transparent 70%);border:1px solid rgba(52,211,153,.25)}
+.fundhero>div{flex:1}
 
 @media (min-width:761px) and (not (pointer:coarse)){body{padding-top:env(safe-area-inset-top,0px)}}

@@ -1086,6 +1086,56 @@ function QuickLog({ onClose, mode }) {
   <//>`;
 }
 
+/* Eval passed → funded: the firm gives a funded account with its own rules */
+const fundLabel = l => { l = String(l || ''); const m = l.match(/^(.*?)E(\d+)$/i); return m ? m[1] + 'F' + m[2] : l ? l + ' F' : '' };
+function FundForm({ id, onClose }) {
+  const S = store.s; const ev = S.accounts[id]; if (!ev) return null;
+  const f = firmById(ev.firm);
+  const [how, setHow] = useState('new');
+  const [a, setA] = useState(() => ({ label: fundLabel(ev.label), size: ev.size, plan: ev.plan, mll: ev.mll, dd: ev.dd, lock: ev.lock, dll: ev.dll, cons: ev.cons, minDays: '', target: '', activation: '', buffer: '', payDays: '', maxPay: '', split: '', start: todayKey() }));
+  const up = p => setA(o => ({ ...o, ...p }));
+  const save = () => {
+    if (!+a.size) return toast('Add the funded starting balance');
+    const rules = { size: +a.size, plan: a.plan, mll: a.mll, dd: a.dd, lock: a.lock, dll: a.dll, cons: a.cons, minDays: a.minDays, target: a.target, activation: a.activation, buffer: a.buffer, payDays: a.payDays, maxPay: a.maxPay, split: a.split, start: a.start };
+    if (how === 'new') {
+      const { id: _i, created: _c, passedAt: _p, blownAt: _b, fundedId: _f, ...base } = ev;
+      const nw = store.put('accounts', { ...base, ...rules, cost: '', type: 'funded', status: 'active', label: a.label || fundLabel(ev.label), fromEval: ev.id, created: Date.now(), def: true });
+      store.put('accounts', { ...ev, status: 'passed', passedAt: ev.passedAt || todayKey(), fundedId: nw.id, def: false });
+    } else store.put('accounts', { ...ev, ...rules, type: 'funded', status: 'active', label: a.label || ev.label, passedAt: ev.passedAt || todayKey(), evalRules: { size: ev.size, target: ev.target, mll: ev.mll, dd: ev.dd, lock: ev.lock, dll: ev.dll, cons: ev.cons, minDays: ev.minDays } });
+    toast('Funded. Congrats, now protect it.'); onClose();
+  };
+  const D = (k, label, hint, pre = '$') => html`<${Field} label=${label} hint=${hint}>${pre ? html`<div class="inwrap"><span class="pre">${pre}</span><input class="in tn" inputmode="decimal" value=${a[k]} onInput=${e => up({ [k]: e.target.value })}/></div>` : html`<input class="in tn" inputmode="decimal" value=${a[k]} onInput=${e => up({ [k]: e.target.value })}/>`}<//>`;
+  return html`<${Modal} title="Upgrade to funded" onClose=${onClose} size="wide" foot=${html`<button class="btn btn-g" onClick=${onClose}>Cancel</button><button class="btn btn-w" onClick=${save}><${I} n="check"/>${how === 'new' ? 'Create funded account' : 'Convert to funded'}</button>`}>
+    <div class="fundhero"><${FirmLogo} id=${ev.firm} s=${44}/><div style=${{ minWidth: 0 }}><div class="lbl" style=${{ color: 'var(--pos)' }}>Eval passed</div><b>${f.name} ${(+ev.size / 1000)}K${ev.plan ? ' · ' + ev.plan : ''} · ${ev.label}</b></div><${I} n="right" s=${18}/><span class="status st-funded">Funded</span></div>
+    <${Seg} v=${how} set=${setHow} opts=${[['new', 'New funded account'], ['convert', 'Convert this account']]}/>
+    <p class="dim" style=${{ margin: 0, fontSize: '11.5px' }}>${how === 'new' ? 'Most firms issue a fresh funded account. Your eval stays in the archive as passed, with its trades and fees, and the funded account starts clean with the rules below.' : 'Keeps this account, its trades and balance, and switches it to funded with the rules below. Use this if your firm carries the eval over.'}</p>
+    <div class="grid g3">
+      <${Field} label="Funded account ID" hint="e.g. LDF06"><input class="in" value=${a.label} onInput=${e => up({ label: e.target.value })}/><//>
+      ${D('size', 'Starting balance')}
+      <${Field} label="Plan"><input class="in" list="fplans" value=${a.plan} onInput=${e => up({ plan: e.target.value })}/><datalist id="fplans">${f.plans.map(p => html`<option value=${p}/>`)}</datalist><//>
+      <${Field} label="Started"><input class="in" type="date" value=${a.start} onInput=${e => up({ start: e.target.value })}/><//>
+      ${D('activation', 'Activation fee', 'Counted in your spending')}
+      ${D('split', 'Profit split', 'Your share, e.g. 90', '%')}
+    </div>
+    <div class="lbl">Funded rules</div>
+    <div class="grid g3">
+      ${D('mll', 'Max loss / drawdown')}
+      <${Field} label="Drawdown type"><select class="sel" value=${a.dd} onChange=${e => up({ dd: e.target.value })}><option value="eod">End-of-day trailing</option><option value="intraday">Intraday trailing</option><option value="static">Static</option></select><//>
+      ${D('lock', 'Trailing locks at start +', 'Usually $100 or $0')}
+      ${D('dll', 'Daily loss limit', '0 = none')}
+      ${D('cons', 'Consistency rule', 'Best day ÷ total profit. 0 = none', '%')}
+      ${D('minDays', 'Min trading days', '', '')}
+    </div>
+    <div class="lbl">Payout rules</div>
+    <div class="grid g3">
+      ${D('buffer', 'Payout buffer', 'Profit to keep above start before withdrawing')}
+      ${D('payDays', 'Winning days per payout', 'e.g. 5', '')}
+      ${D('maxPay', 'Max payout', 'Per request, 0 = none')}
+      ${D('target', 'Profit goal (optional)', 'Leave empty if there is none')}
+    </div>
+    <p class="dim" style=${{ margin: 0, fontSize: '11px' }}>Rules start from your eval's numbers. Check them against your firm's funded dashboard. You can edit them any time from the account.</p>
+  <//>`;
+}
 function AccountForm({ id, firm, onClose }) {
   const S = store.s; const ex = id ? S.accounts[id] : null;
   const [a, setA] = useState(() => ex ? { ...ex } : { firm: firm || 'lucid', plan: firmById(firm || 'lucid').plans[0], size: 50000, type: 'eval', label: '', target: 3000, mll: 2000, dd: 'eod', lock: 100, dll: 1000, cons: 50, minDays: '', cost: '', activation: '', status: 'active', mode: 'live', def: true, start: todayKey() });
@@ -1135,6 +1185,12 @@ function AccountForm({ id, firm, onClose }) {
         <${Field} label="Fee paid"><div class="inwrap"><span class="pre">$</span><input class="in tn" value=${a.cost} onInput=${e => up({ cost: e.target.value })}/></div><//>
         <${Field} label="Activation fee"><div class="inwrap"><span class="pre">$</span><input class="in tn" value=${a.activation} onInput=${e => up({ activation: e.target.value })}/></div><//>
       </div>
+      ${a.type === 'funded' && html`<div class="lbl">Payout rules</div><div class="grid g3">
+        <${Field} label="Payout buffer" hint="Profit to keep above start"><div class="inwrap"><span class="pre">$</span><input class="in tn" value=${a.buffer ?? ''} onInput=${e => up({ buffer: e.target.value })}/></div><//>
+        <${Field} label="Winning days per payout"><input class="in tn" value=${a.payDays ?? ''} onInput=${e => up({ payDays: e.target.value })}/><//>
+        <${Field} label="Max payout"><div class="inwrap"><span class="pre">$</span><input class="in tn" value=${a.maxPay ?? ''} onInput=${e => up({ maxPay: e.target.value })}/></div><//>
+        <${Field} label="Profit split"><div class="inwrap"><span class="pre">%</span><input class="in tn" value=${a.split ?? ''} onInput=${e => up({ split: e.target.value })}/></div><//>
+      </div>`}
       <div class="row" style=${{ gap: '16px' }}>
         <${Field} label="Started"><input class="in" type="date" value=${a.start} onInput=${e => up({ start: e.target.value })}/><//>
         <label class="row" style=${{ gap: '8px', cursor: 'pointer', fontSize: '11.5px' }}><input type="checkbox" checked=${!!a.def} onChange=${e => up({ def: e.target.checked })}/>Pre-select when logging trades</label>
@@ -2490,12 +2546,14 @@ function PropCard({ a, st, S }) {
           <button onClick=${() => { setMenu(false); UI.open('account', { id: a.id }) }}><${I} n="edit"/>Edit rules</button>
           <button onClick=${() => { setMenu(false); UI.open('payout', { account: a.id }) }}><${I} n="wallet"/>Record payout</button>
           <button onClick=${() => { setMenu(false); setMc(true) }}><${I} n="layers"/>Pass probability</button>
-          <hr/>${a.type === 'eval' && a.status === 'active' && html`<button onClick=${() => { setMenu(false); store.put('accounts', { ...a, status: 'passed', passedAt: todayKey() }); toast('Congrats. Eval marked passed.') }}><${I} n="check"/>Mark passed</button>`}
+          <hr/>${a.type === 'eval' && a.status === 'active' && html`<button onClick=${() => { setMenu(false); UI.open('fund', { id: a.id }) }}><${I} n="trophy"/>Passed · upgrade to funded</button><button onClick=${() => { setMenu(false); store.put('accounts', { ...a, status: 'passed', passedAt: todayKey() }); toast('Eval marked passed.') }}><${I} n="check"/>Mark passed only</button>`}
           ${a.status === 'active' && html`<button onClick=${() => { setMenu(false); store.put('accounts', { ...a, status: 'blown', blownAt: todayKey() }) }}><${I} n="x"/>Mark blown</button>`}
           ${a.status !== 'active' && html`<button onClick=${() => { setMenu(false); store.put('accounts', { ...a, status: 'active' }) }}><${I} n="rotate"/>Reactivate</button>`}
           <hr/><button style=${{ color: 'var(--neg)' }} onClick=${() => { setMenu(false); UI.open('delacct', { id: a.id }) }}><${I} n="trash"/>Delete account</button>
         <//></div></div>
     <div class="row" style=${{ alignItems: 'flex-end' }}><div><div class="lbl">Balance</div><div class="bal">${money(st.bal, { dec: 0 })}</div></div><span class="sp"></span><div style=${{ textAlign: 'right' }}><div class=${'tn ' + cls(st.profit)} style=${{ fontSize: '16.5px', fontWeight: 800 }}>${money(st.profit, { sign: true, dec: 0 })}</div><${Spark} vals=${sparkVals} w=${110} h=${30}/></div></div>
+    ${a.type === 'eval' && a.status === 'active' && st.target > 0 && st.toGo <= 0 && html`<button class="fundcta" onClick=${() => UI.open('fund', { id: a.id })}><${I} n="trophy" s=${16}/><span><b>Target hit</b><small>Upgrade to funded with its own rules</small></span><${I} n="right" s=${16}/></button>`}
+    ${a.fundedId && S.accounts[a.fundedId] && html`<button class="chip" style=${{ alignSelf: 'flex-start', cursor: 'pointer' }} onClick=${() => UI.open('acct', { id: a.fundedId })}><${I} n="check" s=${12}/>Funded as ${S.accounts[a.fundedId].label}</button>`}
     <div><div class="row" style=${{ justifyContent: 'space-between', marginBottom: '8px' }}><span class="lbl" style=${{ color: danger ? 'var(--neg)' : undefined }}>${money(st.left, { dec: 0 })} left</span>${st.toGo != null && html`<span class="lbl" style=${{ color: 'var(--fg)' }}>${st.toGo > 0 ? money(st.toGo, { dec: 0 }) + ' to go' : 'Target hit'}</span>`}</div>
       <div class="gauge"><span class="z" style=${{ left: z + '%' }}></span><span class="mk" style=${{ left: `calc(${pos}% - 1.5px)` }}></span></div>
       <div class="row dim mono" style=${{ justifyContent: 'space-between', fontSize: '9px', marginTop: '6px' }}><span>Floor ${money(st.floor, { dec: 0 })}</span><span>${st.target ? 'Target ' + money(st.start + st.target, { dec: 0 }) : 'Peak ' + money(st.peak, { dec: 0 })}</span></div></div>
@@ -3006,13 +3064,14 @@ function AccountDetail({ id, onClose }) {
         <button class="btn btn-w sm" onClick=${() => UI.open('trade', { preset: { account: a.id } })}><${I} n="plus"/>Log trade</button>
         <button class="btn btn-g sm" onClick=${() => UI.open('account', { id: a.id })}><${I} n="edit"/>Edit rules</button>
         <button class="btn btn-g sm" onClick=${() => UI.open('payout', { account: a.id })}><${I} n="wallet"/>Record payout</button>
+        ${a.type === 'eval' && a.status === 'active' && st.target > 0 && st.toGo <= 0 && html`<button class="btn btn-w sm" onClick=${() => { onClose(); UI.open('fund', { id: a.id }) }}><${I} n="trophy"/>Upgrade to funded</button>`}
         ${a.status === 'active' && st.target ? html`<button class="btn btn-g sm" onClick=${() => setMc(true)}><${I} n="layers"/>Pass probability</button>` : null}
         <span class="sp"></span>
         <div style=${{ position: 'relative' }}><button class="ib" onClick=${() => setMenu(!menu)} aria-label="More actions"><${I} n="menu"/></button>
           <${Menu} open=${menu} onClose=${() => setMenu(false)} style=${{ right: 0, top: '36px' }}>
             <button onClick=${() => { setMenu(false); UI.open('assign', { account: a.id }) }}><${I} n="plus"/>Assign trades</button>
             <button onClick=${() => { setMenu(false); UI.open('balance', { id: a.id }) }}><${I} n="refresh"/>Sync balance</button>
-            <hr/>${a.type === 'eval' && a.status === 'active' && html`<button onClick=${() => { setStatus('passed', { passedAt: todayKey() }); toast('Congrats. Eval marked passed.') }}><${I} n="check"/>Mark passed</button>`}
+            <hr/>${a.type === 'eval' && a.status === 'active' && html`<button onClick=${() => { setMenu(false); onClose(); UI.open('fund', { id: a.id }) }}><${I} n="trophy"/>Passed · upgrade to funded</button><button onClick=${() => { setStatus('passed', { passedAt: todayKey() }); toast('Eval marked passed.') }}><${I} n="check"/>Mark passed only</button>`}
             ${a.status === 'active' && html`<button onClick=${() => setStatus('blown', { blownAt: todayKey() })}><${I} n="x"/>Mark blown</button>`}
             ${a.status !== 'active' && html`<button onClick=${() => setStatus('active')}><${I} n="rotate"/>Reactivate</button>`}
             <hr/><button style=${{ color: 'var(--neg)' }} onClick=${() => { setMenu(false); onClose(); UI.open('delacct', { id: a.id }) }}><${I} n="trash"/>Delete account</button>
@@ -3082,6 +3141,9 @@ function AccountDetail({ id, onClose }) {
           <${KV} k="Current floor" v=${money(st.floor, { dec: 0, show: true })}/>
           <${KV} k="Daily loss limit" v=${a.dll ? money(+a.dll, { dec: 0, show: true }) : 'None'}/><${KV} k="Consistency rule" v=${a.cons ? a.cons + '% max per day' : 'None'}/>
           <${KV} k="Minimum trading days" v=${a.minDays || 'None'}/>
+          ${a.type === 'funded' && html`<${KV} k="Payout buffer" v=${+a.buffer ? money(+a.buffer, { dec: 0, show: true }) : 'None'}/><${KV} k="Winning days per payout" v=${a.payDays || 'None'}/><${KV} k="Max payout" v=${+a.maxPay ? money(+a.maxPay, { dec: 0, show: true }) : 'None'}/><${KV} k="Profit split" v=${a.split ? a.split + '%' : '—'}/>`}
+          ${a.fromEval && S.accounts[a.fromEval] && html`<${KV} k="Funded from eval" v=${html`<button class="lnk" onClick=${() => { onClose(); UI.open('acct', { id: a.fromEval }) }}>${S.accounts[a.fromEval].label}</button>`}/>`}
+          ${a.fundedId && S.accounts[a.fundedId] && html`<${KV} k="Funded account" v=${html`<button class="lnk" onClick=${() => { onClose(); UI.open('acct', { id: a.fundedId }) }}>${S.accounts[a.fundedId].label}</button>`}/>`}
           ${cfd && html`<${KV} k="$ per point, per lot" v=${'$' + (num(a.ppl) ?? CFD_PPL)}/><${KV} k="1 pip" v=${(num(a.pip) ?? 1) + ' point'}/><${KV} k="Commission per lot" v=${money(+a.lotCom || 0, { dec: 2, show: true })}/><${KV} k="Default symbol / lots" v=${(a.defSym || 'NAS100') + ' · ' + (a.defLots ?? 1)}/>`}
         </div></div></div>`}
 
@@ -3872,7 +3934,7 @@ function App() {
       case 'detail': return html`<${TradeDetail} ...${p}/>`; case 'account': return html`<${AccountForm} ...${p}/>`; case 'payout': return html`<${PayoutForm} ...${p}/>`;
       case 'strategy': return html`<${StrategyForm} ...${p}/>`; case 'plan': return html`<${PlanForm} ...${p}/>`; case 'review': return html`<${ReviewForm} ...${p}/>`;
       case 'import': return html`<${ImportTrades} ...${p} mode=${p.mode || mode}/>`; case 'settings': return html`<${SettingsWrap} ...${p}/>`; case 'confirm': return html`<${Confirm} ...${p}/>`;
-      case 'assign': return html`<${AssignTrades} ...${p}/>`; case 'delacct': return html`<${DeleteAccount} ...${p}/>`; case 'balance': return html`<${BalanceSync} ...${p}/>`; case 'blown': return html`<${BlownForm} ...${p}/>`; case 'acct': return html`<${AccountDetail} ...${p}/>`; case 'rewind': return html`<${RewindPlayer} ...${p}/>`; case 'cert': return html`<${CertModal} ...${p}/>`; case 'tcard': return html`<${TradeCardModal} ...${p}/>`; case 'day': return html`<${DaySheet} ...${p} C=${C} days=${byDay(D.ts)}/>`; default: return null;
+      case 'assign': return html`<${AssignTrades} ...${p}/>`; case 'delacct': return html`<${DeleteAccount} ...${p}/>`; case 'balance': return html`<${BalanceSync} ...${p}/>`; case 'blown': return html`<${BlownForm} ...${p}/>`; case 'acct': return html`<${AccountDetail} ...${p}/>`; case 'fund': return html`<${FundForm} ...${p}/>`; case 'rewind': return html`<${RewindPlayer} ...${p}/>`; case 'cert': return html`<${CertModal} ...${p}/>`; case 'tcard': return html`<${TradeCardModal} ...${p}/>`; case 'day': return html`<${DaySheet} ...${p} C=${C} days=${byDay(D.ts)}/>`; default: return null;
     } })}
   <${Toasts}/><${Tip}/>`;
 }
