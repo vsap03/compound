@@ -43,5 +43,5 @@ old = None
 try: old = json.load(open('earnings.json')).get('events')
 except Exception: pass
 if old == out: print('unchanged'); sys.exit(0)
-json.dump({'at': dt.datetime.utcnow().replace(microsecond=0).isoformat() + 'Z', 'from': mon.isoformat(), 'events': out}, open('earnings.json', 'w'), separators=(',', ':'))
+json.dump({'at': dt.datetime.now(dt.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'), 'from': mon.isoformat(), 'events': out}, open('earnings.json', 'w'), separators=(',', ':'))
 print('wrote', len(out))

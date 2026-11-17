@@ -3793,11 +3793,62 @@ function NewsMini() {
   const k = todayKey(); const today = evs.filter(e => dayKey(new Date(e.ms)) === k); const nextE = evs.find(e => e.ms > Date.now() - 60000 && e.impact !== 'Holiday');
   if (!data) return html`<div class="dim" style=${{ fontSize: '11px' }}>Loading…</div>`;
   return html`<div class="nmini">${today.length ? today.map((e, i) => html`<div key=${i} class=${'nmrow' + (e.ms < Date.now() - 60000 ? ' past' : '') + (e === nextE ? ' next' : '')}><span class="tn">${nTime(e.ms)}</span><${Folder} c=${IMPACT_C[e.impact]} s=${12}/><b>${e.country}</b><span class="nmt">${e.title}</span></div>`)
-    : html`<div class="dim" style=${{ fontSize: '11px' }}>No major news today.${nextE ? ' Next: ' + nextE.country + ' ' + nextE.title + ' ' + nIn(nextE.ms) + '.' : ''}</div>`}</div>`;
+    : html`<div class="dim" style=${{ fontSize: '11px' }}>No major news today.${nextE ? ' Next: ' + nextE.country + ' ' + nextE.title + ' ' + nIn(nextE.ms) + '.' : ''}</div>`}<${EarnMini}/></div>`;
+}
+
+/* ================= Earnings: market-moving companies (Nasdaq calendar, refreshed hourly by the repo's Action) ================= */
+const ERN = { data: LS.get('compound.earn', null), at: 0, busy: null, subs: new Set() };
+async function loadEarn(force) {
+  if (ERN.busy) return ERN.busy; if (!force && ERN.at && Date.now() - ERN.at < 10 * 60000) return ERN.data;
+  ERN.busy = (async () => { try { const r = await fetch('earnings.json?t=' + Math.floor(Date.now() / 60000), { cache: 'no-store' }); if (r.ok) { const j = await r.json(); if (Array.isArray(j.events)) { ERN.data = j; LS.set('compound.earn', j) } } } catch (e) { } ERN.at = Date.now(); ERN.busy = null; ERN.subs.forEach(f => f()); return ERN.data })();
+  return ERN.busy;
+}
+function useEarn() { const [, set] = useState(0); useEffect(() => { const f = () => set(x => x + 1); ERN.subs.add(f); loadEarn(); const i = setInterval(() => loadEarn(), 30 * 60000); return () => { ERN.subs.delete(f); clearInterval(i) } }, []); return ERN.data }
+/* New York wall-clock time on a date → a real instant */
+function nyInstant(day, h, m) { const guess = Date.UTC(+day.slice(0, 4), +day.slice(5, 7) - 1, +day.slice(8, 10), h, m); const p = Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date(guess)).map(x => [x.type, x.value])); const asNY = Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour, +p.minute); return new Date(guess - (asNY - guess)) }
+const nyToday = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(new Date());
+const capFmt = c => !c ? '' : c >= 1e12 ? '$' + (c / 1e12).toFixed(c >= 1e13 ? 0 : 2) + 'T' : '$' + Math.round(c / 1e9) + 'B';
+const ERN_C = ['#3B6EF6', '#22C55E', '#F97316', '#A855F7', '#EF4444', '#14B8A6', '#EAB308', '#EC4899'];
+function earnWhen(e) {
+  if (e.when === 'bmo') return { ic: 'sun', l: 'Before open', at: nyInstant(e.d, 8, 0) };
+  if (e.when === 'amc') return { ic: 'moon', l: 'After close', at: nyInstant(e.d, 16, 5) };
+  return { ic: 'clock', l: 'Time not set', at: null };
+}
+function EarnRow({ e }) {
+  const w = earnWhen(e); const td = nyToday(); const out = w.at && +w.at < Date.now(); const tag = e.d === td ? (out ? 'Out' : e.when === 'amc' ? 'Tonight' : 'Today') : null;
+  const done = e.eps && e.eps !== 'N/A'; const sp = num(e.surp);
+  return html`<div class=${'erow' + (tag && !out ? ' now' : '') + (e.d < td || out ? ' past' : '')}>
+    <span class="elogo" style=${{ background: ERN_C[hashStr(e.sym) % ERN_C.length] }}>${e.sym.slice(0, 4)}</span>
+    <span class="ename"><b>${e.sym}${tag && html`<em class="nsoon">${tag}</em>`}</b><small>${e.name}${e.q ? ' · Q ending ' + e.q : ''}</small></span>
+    <span class="ewhen"><${I} n=${w.ic} s=${13}/><span>${w.l}${w.at ? html`<small>${w.at.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })} your time</small>` : ''}</span></span>
+    <span class="eeps tn">${done ? html`<span><i>EPS</i>${e.eps}</span>${sp != null && html`<span class=${sp >= 0 ? 'pos' : 'neg'}><i>Surp</i>${sp > 0 ? '+' : ''}${e.surp}%</span>`}` : html`<span><i>Est</i>${e.est || '—'}</span>${e.ly && html`<span><i>LY</i>${e.ly}</span>`}`}</span>
+    <span class="ecap tn">${capFmt(e.cap)}</span>
+  </div>`;
+}
+function EarningsCard() {
+  const data = useEarn(); const [wk, setWk] = useState('this'); const [spin, setSpin] = useState(false);
+  const td = nyToday(); const mon = data?.from; const nextMon = mon ? dayKey(addDays(new Date(mon + 'T12:00'), 7)) : null;
+  const evs = (data?.events || []).filter(e => wk === 'this' ? e.d < nextMon : e.d >= nextMon);
+  const groups = [...groupBy(evs, e => e.d)];
+  const dl = k => new Date(k + 'T12:00').toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' }) + (k === td ? ' · Today' : '');
+  return html`<div class="card newscard">
+    <div class="nhead"><b class="ntit">Earnings</b><span class="dim">Market movers · $150B+ and key names</span><span class="sp"></span>
+      <${Seg} sm v=${wk} set=${setWk} opts=${[['this', 'This week'], ['next', 'Next week']]}/>
+      <button class=${'ib' + (spin ? ' spin' : '')} onClick=${async () => { setSpin(true); await loadEarn(true); setSpin(false) }} aria-label="Refresh"><${I} n="refresh" s=${14}/></button></div>
+    ${!data ? html`<div class="dim nempty">Loading earnings…</div>` : !evs.length ? html`<div class="dim nempty">No major earnings ${wk === 'this' ? 'left this week' : 'scheduled next week yet'}.</div>`
+      : groups.map(([k, a]) => html`<div key=${k} class="ngrp"><div class=${'nwd' + (k === td ? ' today' : '')}>${dl(k)}</div>${a.map(e => html`<${EarnRow} key=${e.sym + e.d} e=${e}/>`)}</div>`)}
+    <div class="nfoot dim"><${I} n="check" s=${12}/>${evs.length} report${evs.length === 1 ? '' : 's'} · Nasdaq earnings calendar · before open ≈ 8:00 ET, after close ≈ 16:05 ET${data?.at ? ' · updated ' + fmtTime(data.at) : ''}</div>
+  </div>`;
+}
+function EarnMini() {
+  const data = useEarn(); const td = nyToday(); const a = (data?.events || []).filter(e => e.d === td);
+  if (!a.length) return null;
+  return html`<div class="nmini" style=${{ marginTop: '8px' }}><div class="lbl" style=${{ marginBottom: '2px' }}>Earnings today</div>${a.slice(0, 6).map(e => { const w = earnWhen(e); return html`<div key=${e.sym} class="nmrow"><span class="tn">${w.at ? w.at.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }) : '—'}</span><${I} n=${w.ic} s=${12}/><b>${e.sym}</b><span class="nmt">${e.name}</span></div>` })}</div>`;
 }
 
 function NewsPage() {
-  return html`<div class="page"><${PageHead} title="News" sub="Forex Factory calendar · red and orange folders for every currency, every USD event"/><${NewsCard}/></div>`;
+  const [tab, setTab] = useState(() => LS.get('compound.newstab', 'cal')); const set = v => { setTab(v); LS.set('compound.newstab', v) };
+  return html`<div class="page"><${PageHead} title="News" sub=${tab === 'cal' ? 'Forex Factory calendar · red and orange folders for every currency, every USD event' : 'Earnings from the companies that move the indices'}><${Seg} v=${tab} set=${set} opts=${[['cal', 'Economic calendar'], ['earn', 'Earnings']]}/><//>${tab === 'cal' ? html`<${NewsCard}/>` : html`<${EarningsCard}/>`}</div>`;
 }
 
 /* ================= Compound · shell ================= */
