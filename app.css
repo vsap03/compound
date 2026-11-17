@@ -1199,5 +1199,8 @@ body.rwopen .pillbar,body.rwopen .fab{display:none!important}
 .eeps{display:flex;gap:12px;font:600 12px var(--mono);color:var(--fg2);white-space:nowrap}.eeps i{font-style:normal;color:var(--mut);margin-right:5px}
 .ecap{font:600 11.5px var(--mono);color:var(--mut);text-align:right}
 @media (max-width:760px){.erow{grid-template-columns:40px minmax(0,1fr) auto;row-gap:4px}.elogo{width:36px;height:36px}.erow .ewhen{grid-column:2}.erow .eeps{grid-column:2/4;font-size:10.5px}.erow .ecap{grid-row:1;grid-column:3}}
+.payflow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 14px;border-radius:14px;background:rgba(52,211,153,.07);border:1px solid rgba(52,211,153,.2)}
+.payflow>span:not(.sp):not(.mut){display:flex;flex-direction:column}.payflow small{font-size:10.5px;color:var(--mut)}.payflow b{font-size:15px}
+@media (max-width:760px){.payg{grid-template-columns:1fr 1fr!important}}
 
 @media (min-width:761px) and (not (pointer:coarse)){body{padding-top:env(safe-area-inset-top,0px)}}

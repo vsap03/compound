@@ -167,11 +167,14 @@ const blownCost = b => ((+b.fee || 0) + (+b.resets || 0) + (+b.activation || 0))
 const acctCost = a => (+a.cost || 0) + (+a.activation || 0) + (+a.resets || 0);
 const payoutFees = S => sum(Object.values(S.payouts).filter(p => !p.account), p => +p.fee || 0);
 const payoutFirm = (S, p) => p.firm || S.accounts[p.account]?.firm || '';
+/* What actually reached the bank: requested × split − transfer fee (falls back to the amount for older payouts) */
+function payRecv(p) { if (isNum(p.recv)) return +p.recv; if (isNum(p.split) && +p.split > 0) return Math.round((+p.amount || 0) * +p.split) / 100; return +p.amount || 0 }
+function payNet(p) { if (isNum(p.net)) return +p.net; return Math.max(0, payRecv(p) - (+p.xfer || 0)) }
 function firmSpend(S) {
   const m = {}; const row = f => (m[f] ||= { firm: f, blownN: 0, blownFees: 0, liveN: 0, liveFees: 0, paid: 0, payN: 0 });
   for (const b of Object.values(S.blown || {})) { const r = row(b.firm || 'personal'); r.blownN += Math.max(1, +b.count || 1); r.blownFees += blownCost(b) }
   for (const a of Object.values(S.accounts)) { const r = row(a.firm || 'personal'); if (a.status === 'blown') { r.blownN++; r.blownFees += acctCost(a) } else { r.liveN++; r.liveFees += acctCost(a) } }
-  for (const p of Object.values(S.payouts)) { const r = row(payoutFirm(S, p) || 'personal'); if (!p.account && +p.fee) { r.liveFees += +p.fee; r.payFees = (r.payFees || 0) + +p.fee } if (p.status === 'paid') { r.paid += +p.amount || 0; r.payN++ } }
+  for (const p of Object.values(S.payouts)) { const r = row(payoutFirm(S, p) || 'personal'); if (!p.account && +p.fee) { r.liveFees += +p.fee; r.payFees = (r.payFees || 0) + +p.fee } if (p.status === 'paid') { r.paid += payNet(p); r.gross = (r.gross || 0) + (+p.amount || 0); r.payN++ } }
   return Object.values(m).map(r => ({ ...r, spent: r.blownFees + r.liveFees, net: r.paid - r.blownFees - r.liveFees })).filter(r => r.spent || r.paid || r.blownN || r.liveN);
 }
 /* firms typed in by hand are stored as "x:<name>" and get a generated monogram */
@@ -1235,27 +1238,40 @@ function GlassSlider({ st, set }) {
 
 function PayoutForm({ id, account, firm, onClose }) {
   const S = store.s; const ex = id ? S.payouts[id] : null;
-  const init = () => { if (ex) return { ...ex, firm: payoutFirm(S, ex) }; const a = account ? S.accounts[account] : null; return { account: account || '', firm: a?.firm || firm || '', acctLabel: '', amount: '', d: todayKey(), status: 'paid', note: '', deduct: true } };
+  const init = () => { if (ex) return { ...ex, firm: payoutFirm(S, ex) }; const a = account ? S.accounts[account] : null; return { account: account || '', firm: a?.firm || firm || '', acctLabel: '', amount: '', d: todayKey(), status: 'paid', note: '', deduct: true, split: String(a?.split || LS.get('compound.paysplit', 90)), xfer: String(LS.get('compound.payxfer', 10)), via: LS.get('compound.payvia', 'Rise'), recv: '', net: '' } };
   const [p, setP] = useState(init);
   const up = x => setP(o => ({ ...o, ...x }));
   const tracked = Object.values(S.accounts).filter(a => a.firm === p.firm && a.status !== 'closed').sort((a, b) => (b.created || 0) - (a.created || 0));
   const pickFirm = f => up({ firm: f, account: (S.accounts[p.account]?.firm === f) ? p.account : '' });
+  const pickAcct = id => { const a = S.accounts[id]; up({ account: id, ...(a?.split && !ex ? { split: String(a.split) } : {}) }) };
+  const calcRecv = isNum(p.amount) ? Math.round(+p.amount * (isNum(p.split) && p.split !== '' ? +p.split : 100)) / 100 : null;
+  const recvV = isNum(p.recv) && p.recv !== '' ? +p.recv : calcRecv; const calcNet = recvV != null ? Math.max(0, Math.round((recvV - (+p.xfer || 0)) * 100) / 100) : null;
+  const netV = isNum(p.net) && p.net !== '' ? +p.net : calcNet;
   const save = () => {
     if (!p.firm) return toast('Pick the prop firm');
     if (!isNum(p.amount)) return toast('Enter an amount');
     const past = !p.account;
-    const o = store.put('payouts', { ...p, amount: +p.amount, past, acctLabel: past ? (p.acctLabel || '') : '', fee: past ? (+p.fee || 0) : 0, deduct: past ? false : p.deduct });
+    if (p.split !== '' && isNum(p.split)) LS.set('compound.paysplit', +p.split); if (isNum(p.xfer)) LS.set('compound.payxfer', +p.xfer); if (p.via) LS.set('compound.payvia', p.via);
+    const o = store.put('payouts', { ...p, amount: +p.amount, split: p.split === '' ? '' : +p.split, xfer: +p.xfer || 0, recv: p.recv === '' ? '' : +p.recv, net: p.net === '' ? '' : +p.net, past, acctLabel: past ? (p.acctLabel || '') : '', fee: past ? (+p.fee || 0) : 0, deduct: past ? false : p.deduct });
     if (!ex && !past && p.deduct) store.put('adjust', { id: uid(), account: p.account, v: -Math.abs(+p.amount), d: p.d + 'T23:59', payout: o.id, note: 'Payout withdrawn' });
     toast(ex ? 'Payout updated' : 'Payout recorded · ' + firmById(p.firm).name, ex ? undefined : { label: 'Edit', fn: () => UI.open('payout', { id: o.id }) }); onClose();
   };
   return html`<${Modal} title=${ex ? 'Edit payout' : 'Record payout'} size="wide" icon=${html`<${I} n="wallet"/>`} onClose=${onClose} foot=${html`${ex && html`<button class="btn btn-d" style=${{ marginRight: 'auto' }} onClick=${() => { delPayout(ex); onClose() }}><${I} n="trash"/>Delete</button>`}<button class="btn btn-g" onClick=${onClose}>Cancel</button><button class="btn btn-w" onClick=${save}>Save payout</button>`}>
     <${Field} label="Prop firm"><${FirmPick} v=${p.firm} set=${pickFirm}/><//>
     ${p.firm && html`<${Field} label="Which account"><div class="row" style=${{ gap: '6px' }}>
-      ${tracked.map(a => html`<button type="button" key=${a.id} class=${'chip' + (p.account === a.id ? ' on' : '')} onClick=${() => up({ account: a.id })}><${FirmLogo} id=${a.firm} s=${14}/>${a.label}${a.status === 'blown' ? ' · blown' : ''}</button>`)}
+      ${tracked.map(a => html`<button type="button" key=${a.id} class=${'chip' + (p.account === a.id ? ' on' : '')} onClick=${() => pickAcct(a.id)}><${FirmLogo} id=${a.firm} s=${14}/>${a.label}${a.status === 'blown' ? ' · blown' : ''}</button>`)}
       <button type="button" class=${'chip' + (!p.account ? ' on' : '')} onClick=${() => up({ account: '' })}>${tracked.length ? 'Not in Compound / previous' : 'Previous account (not in Compound)'}</button></div><//>`}
     ${p.firm && !p.account && html`<div class="grid g2"><${Field} label="Account (optional)" hint="Size or account ID, so you remember which one paid"><input class="in" placeholder="50K · BG-12345" value=${p.acctLabel || ''} onInput=${e => up({ acctLabel: e.target.value })}/><//>
       <${Field} label="Fees you paid for this account" hint="Eval + activation + resets. Counts in that firm's total spent. Enter it once per account."><div class="inwrap"><span class="pre">$</span><input class="in tn" inputmode="decimal" placeholder="0" value=${p.fee ?? ''} onInput=${e => up({ fee: e.target.value })}/></div><//></div>`}
-    <div class="grid g2"><${Field} label="Amount received"><div class="inwrap"><span class="pre">$</span><input class="in tn" inputmode="decimal" style=${{ fontSize: '17.5px', fontWeight: 700 }} value=${p.amount} onInput=${e => up({ amount: e.target.value })}/></div><//><${Field} label="Date"><input class="in" type="date" value=${p.d} onInput=${e => up({ d: e.target.value })}/><//></div>
+    <div class="grid g2"><${Field} label="Payout requested" hint="The full amount taken off the account balance"><div class="inwrap"><span class="pre">$</span><input class="in tn" inputmode="decimal" style=${{ fontSize: '17.5px', fontWeight: 700 }} value=${p.amount} onInput=${e => up({ amount: e.target.value })}/></div><//><${Field} label="Date"><input class="in" type="date" value=${p.d} onInput=${e => up({ d: e.target.value })}/><//></div>
+    <div class="grid g4 payg">
+      <${Field} label="Profit split" hint="Your share"><div class="inwrap"><span class="pre">%</span><input class="in tn" inputmode="decimal" placeholder="100" value=${p.split ?? ''} onInput=${e => up({ split: e.target.value, recv: '' })}/></div><//>
+      <${Field} label=${'Received on ' + (p.via || 'Rise')} hint=${isNum(p.recv) && p.recv !== '' ? 'Typed in · clear to auto' : 'Auto: requested × split'}><div class="inwrap"><span class="pre">$</span><input class="in tn" inputmode="decimal" placeholder=${calcRecv != null ? calcRecv.toFixed(2) : '0'} value=${p.recv ?? ''} onInput=${e => up({ recv: e.target.value, net: '' })}/></div><//>
+      <${Field} label="Transfer fee" hint="To your bank"><div class="inwrap"><span class="pre">$</span><input class="in tn" inputmode="decimal" placeholder="0" value=${p.xfer ?? ''} onInput=${e => up({ xfer: e.target.value, net: '' })}/></div><//>
+      <${Field} label="In your bank" hint=${isNum(p.net) && p.net !== '' ? 'Typed in · clear to auto' : 'Auto: received − fee'}><div class="inwrap"><span class="pre">$</span><input class="in tn" inputmode="decimal" style=${{ fontWeight: 700, color: 'var(--pos)' }} placeholder=${calcNet != null ? calcNet.toFixed(2) : '0'} value=${p.net ?? ''} onInput=${e => up({ net: e.target.value })}/></div><//>
+    </div>
+    ${isNum(p.amount) && +p.amount > 0 && html`<div class="payflow tn"><span><small>Requested</small><b>${money(+p.amount, { show: true })}</b></span><${I} n="right" s=${13}/><span><small>${p.split !== '' && isNum(p.split) ? p.split + '% split' : 'No split'} · ${p.via || 'Rise'}</small><b>${money(recvV, { show: true })}</b></span><${I} n="right" s=${13}/><span><small>−${money(+p.xfer || 0, { show: true })} transfer</small><b class="pos">${money(netV, { show: true })}</b></span><span class="sp"></span><span class="mut" style=${{ fontSize: '11px' }}>${money(+p.amount - netV, { show: true })} lost to split and fees</span></div>`}
+    <${Field} label="Paid via" hint="Where the firm sends it"><div class="row" style=${{ gap: '6px' }}>${['Rise', 'Wise', 'Crypto', 'Bank wire', 'Deel'].map(v => html`<button type="button" key=${v} class=${'chip' + (p.via === v ? ' on' : '')} onClick=${() => up({ via: v })}>${v}</button>`)}<input class="in" style=${{ width: '140px', height: '30px' }} placeholder="Other…" value=${['Rise', 'Wise', 'Crypto', 'Bank wire', 'Deel'].includes(p.via) ? '' : p.via || ''} onInput=${e => up({ via: e.target.value })}/></div><//>
     <div class="row"><${Seg} v=${p.status} set=${v => up({ status: v })} opts=${[['requested', 'Requested'], ['paid', 'Paid']]}/>${!ex && p.account && html`<label class="row" style=${{ gap: '8px', fontSize: '11.5px', cursor: 'pointer' }}><input type="checkbox" checked=${p.deduct} onChange=${e => up({ deduct: e.target.checked })}/>Deduct from account balance</label>`}</div>
     <${Field} label="Note"><input class="in" value=${p.note} onInput=${e => up({ note: e.target.value })}/><//>
   <//>`;
@@ -2424,11 +2440,11 @@ function PayoutsTab({ S }) {
   const [pf, setPf] = useState(() => LS.get('compound.payf', [])); const setF = v => { setPf(v); LS.set('compound.payf', v) };
   const all = Object.values(S.payouts); const firms = [...new Set(all.map(p => payoutFirm(S, p)).filter(Boolean))];
   const on = pf.filter(f => firms.includes(f)); const list = on.length ? all.filter(p => on.includes(payoutFirm(S, p))) : all;
-  const paid = sum(list.filter(p => p.status === 'paid'), p => +p.amount || 0);
+  const paid = sum(list.filter(p => p.status === 'paid'), payNet);
   return html`<div class="card"><div class="ch"><h3>Payouts</h3><span class="sub tn">${list.length} · <span class="pos">${money(paid, { dec: 0 })}</span> paid</span><span class="sp"></span><button class="btn btn-w sm" onClick=${() => UI.open('payout')}><${I} n="plus"/>Record payout</button></div>
     ${firms.length > 1 && html`<div class="row" style=${{ gap: '6px', marginBottom: '14px' }}><button class=${'chip' + (!on.length ? ' on' : '')} onClick=${() => setF([])}>All firms</button>${firms.map(f => html`<button key=${f} class=${'chip firmchip' + (on.includes(f) ? ' on' : '')} onClick=${() => setF(on.includes(f) ? on.filter(x => x !== f) : [...on, f])}><${FirmLogo} id=${f} s=${16}/>${firmById(f).name}</button>`)}</div>`}
     ${list.length ? html`<div style=${{ marginBottom: '14px' }}><${Bars} h=${170} color="var(--pos)" data=${[...list].sort((a, b) => a.d < b.d ? -1 : 1).map(p => ({ l: fmtDate(parseDay(p.d)), v: p.amount, sub: S.accounts[p.account]?.label || firmById(payoutFirm(S, p)).name }))}/></div>
-      <div class="scroll-x"><table class="tbl"><thead><tr><th>Date</th><th>Firm · account</th><th>Status</th><th>Note</th><th class="r">Fees paid</th><th class="r">Amount</th><th class="ract"></th></tr></thead><tbody>${[...list].sort((a, b) => a.d < b.d ? 1 : -1).map(p => { const f = payoutFirm(S, p); return html`<tr class="click" key=${p.id} onClick=${() => UI.open('payout', { id: p.id })}><td>${fmtDate(parseDay(p.d), { year: true })}</td><td><span class="row" style=${{ gap: '8px', flexWrap: 'nowrap' }}>${f && html`<${FirmLogo} id=${f} s=${20}/>`}<span>${f ? firmById(f).name : '—'}${S.accounts[p.account] ? ' · ' + S.accounts[p.account].label : p.acctLabel ? ' · ' + p.acctLabel : ''}</span>${!p.account && html`<span class="chip" style=${{ height: '20px' }}>previous</span>`}</span></td><td><span class=${'status ' + (p.status === 'paid' ? 'st-passed' : 'st-active')}>${p.status}</span></td><td class="mut">${p.note}</td><td class="r tn mut">${!p.account && +p.fee ? money(+p.fee, { dec: 0 }) : ''}</td><td class="r pos" style=${{ fontWeight: 700 }}>${money(p.amount)}</td><${RowAct} what="payout" onEdit=${() => UI.open('payout', { id: p.id })} onDel=${() => UI.confirm({ title: 'Delete this payout?', body: `${money(p.amount, { show: true })} from ${f ? firmById(f).name : 'this account'} comes off your totals.`, onYes: () => delPayout(p) })}/></tr>` })}</tbody></table></div>`
+      <div class="scroll-x"><table class="tbl"><thead><tr><th>Date</th><th>Firm · account</th><th>Status</th><th>Note</th><th class="r">Fees paid</th><th class="r">Requested</th><th class="r">In bank</th><th class="ract"></th></tr></thead><tbody>${[...list].sort((a, b) => a.d < b.d ? 1 : -1).map(p => { const f = payoutFirm(S, p); return html`<tr class="click" key=${p.id} onClick=${() => UI.open('payout', { id: p.id })}><td>${fmtDate(parseDay(p.d), { year: true })}</td><td><span class="row" style=${{ gap: '8px', flexWrap: 'nowrap' }}>${f && html`<${FirmLogo} id=${f} s=${20}/>`}<span>${f ? firmById(f).name : '—'}${S.accounts[p.account] ? ' · ' + S.accounts[p.account].label : p.acctLabel ? ' · ' + p.acctLabel : ''}</span>${!p.account && html`<span class="chip" style=${{ height: '20px' }}>previous</span>`}</span></td><td><span class=${'status ' + (p.status === 'paid' ? 'st-passed' : 'st-active')}>${p.status}</span></td><td class="mut">${p.note}</td><td class="r tn mut">${!p.account && +p.fee ? money(+p.fee, { dec: 0 }) : ''}</td><td class="r tn mut">${money(p.amount)}</td><td class="r pos" style=${{ fontWeight: 700 }} title=${payNet(p) !== +p.amount ? `Split ${p.split || 100}% → ${money(payRecv(p))} on ${p.via || "Rise"}, −${money(+p.xfer || 0)} transfer` : ""}>${money(payNet(p))}</td><${RowAct} what="payout" onEdit=${() => UI.open('payout', { id: p.id })} onDel=${() => UI.confirm({ title: 'Delete this payout?', body: `${money(p.amount, { show: true })} from ${f ? firmById(f).name : 'this account'} comes off your totals.`, onYes: () => delPayout(p) })}/></tr>` })}</tbody></table></div>`
       : html`<${Empty} icon="wallet" title="No payouts yet" body="Record each withdrawal, from any prop firm. Compound shows your real prop ROI: payouts against every fee you paid."><button class="btn btn-w" onClick=${() => UI.open('payout')}>Record payout</button><//>`}</div>`;
 }
 
@@ -2503,7 +2519,7 @@ function Propfirm({ C }) {
   const st = a => acctState(a, all, Object.values(S.adjust).filter(x => x.account === a.id));
   const groups = [['eval', 'Evals'], ['funded', 'Funded'], ['live', 'Live & personal']].map(([k, l]) => [l, accs.filter(a => a.type === k && a.status === 'active')]);
   const archived = accs.filter(a => a.status !== 'active');
-  const payouts = Object.values(S.payouts).filter(p => p.status === 'paid'); const paid = sum(payouts, p => p.amount);
+  const payouts = Object.values(S.payouts).filter(p => p.status === 'paid'); const paid = sum(payouts, payNet);
   const hist = Object.values(S.blown || {});
   const spent = sum(accs, acctCost) + sum(hist, blownCost) + payoutFees(S);
   const passed = accs.filter(a => a.status === 'passed' || a.type === 'funded').length, blown = accs.filter(a => a.status === 'blown').length + sum(hist, b => Math.max(1, +b.count || 1));
@@ -2909,7 +2925,7 @@ function flexData(C, range, rangeOpt) {
   const days = byDay(ts); const dk = Object.keys(days); const green = dk.filter(k => days[k].pnl > 0).length;
   const eq = equitySeries(ts).map(p => p.v);
   const label = range === 'month' ? `${MON[rangeOpt.m].toUpperCase()} ${rangeOpt.y}` : range === 'year' ? String(rangeOpt.y) : 'ALL TIME';
-  return { ts, s, top: bySym[0], firms, accs, green, days: dk.length, eq, label, name: C.S.settings.name || 'Trader', payouts: sum(Object.values(C.S.payouts).filter(p => p.status === 'paid' && (range === 'all' || (range === 'year' ? +p.d.slice(0, 4) === rangeOpt.y : p.d.slice(0, 7) === `${rangeOpt.y}-${pad(rangeOpt.m + 1)}`))), p => p.amount) };
+  return { ts, s, top: bySym[0], firms, accs, green, days: dk.length, eq, label, name: C.S.settings.name || 'Trader', payouts: sum(Object.values(C.S.payouts).filter(p => p.status === 'paid' && (range === 'all' || (range === 'year' ? +p.d.slice(0, 4) === rangeOpt.y : p.d.slice(0, 7) === `${rangeOpt.y}-${pad(rangeOpt.m + 1)}`))), payNet) };
 }
 
 const FLEX_THEMES = {
@@ -3041,7 +3057,7 @@ function AccountDetail({ id, onClose }) {
   const ts = [...st.trades].sort((x, y) => tTime(y) - tTime(x));
   const s = stats(ts);
   const pays = Object.values(S.payouts).filter(p => p.account === a.id).sort((x, y) => x.d < y.d ? 1 : -1);
-  const paid = sum(pays.filter(p => p.status === 'paid'), p => +p.amount || 0);
+  const paid = sum(pays.filter(p => p.status === 'paid'), payNet); const withdrawn = sum(pays.filter(p => p.status === 'paid'), p => +p.amount || 0);
   const cost = acctCost(a); const fees = sum(ts, t => +t.fees || 0);
   const statusL = a.status === 'active' ? (a.type === 'eval' ? 'Eval · active' : a.type === 'funded' ? 'Funded' : 'Live') : a.status === 'passed' ? 'Passed' : a.status === 'blown' ? 'Blown' : a.status;
   const range = (st.target ? st.start + st.target : st.peak + (+a.mll || 1000)) - st.floor; const pos = clamp((st.bal - st.floor) / (range || 1) * 100); const z = clamp((st.start - st.floor) / (range || 1) * 100);
@@ -3542,11 +3558,11 @@ function rewindData(S, D, P) {
   const accs = Object.values(S.accounts).filter(a => a.created && inP(a.created, P.from, P.to));
   const blownH = Object.values(S.blown || {}).filter(b => inP(+new Date((b.d || '') + 'T12:00'), P.from, P.to));
   const spent = sum(accs, acctCost) + sum(blownH, blownCost) + sum(pays.filter(p => !p.account), p => +p.fee || 0);
-  const paid = sum(pays, p => p.amount);
+  const paid = sum(pays, payNet);
   const passed = accs.filter(a => a.status === 'passed' || a.type === 'funded').length;
   const blownN = accs.filter(a => a.status === 'blown').length + sum(blownH, b => Math.max(1, +b.count || 1));
   // all-time dream
-  const allPaid = sum(Object.values(S.payouts).filter(p => p.status === 'paid'), p => p.amount);
+  const allPaid = sum(Object.values(S.payouts).filter(p => p.status === 'paid'), payNet);
   const allSpent = sum(Object.values(S.accounts), acctCost) + sum(Object.values(S.blown || {}), blownCost) + payoutFees(S);
   const price = +S.settings.dreamPrice || 1800000; const spy = Math.max(0, (allPaid - allSpent) / price);
   const perDay = dk.length ? ts.length / dk.length : 0;
